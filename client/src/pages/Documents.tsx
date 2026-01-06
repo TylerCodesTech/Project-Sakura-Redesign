@@ -68,8 +68,9 @@ export default function Documents() {
 
   const handleCreateBook = () => {
     if (!newName) return;
+    const bookId = Math.random().toString(36).substr(2, 9);
     const newBook: DocItem = {
-      id: Math.random().toString(36).substr(2, 9),
+      id: bookId,
       type: 'book',
       name: newName,
       updatedAt: 'Just now',
@@ -79,12 +80,15 @@ export default function Documents() {
     setDocs([newBook, ...docs]);
     setNewName("");
     setIsBookModalOpen(false);
+    // Instant transition to editor
+    window.location.href = `/documents/book/${bookId}`;
   };
 
   const handleUploadFile = () => {
     if (!newName) return;
+    const fileId = Math.random().toString(36).substr(2, 9);
     const newFile: DocItem = {
-      id: Math.random().toString(36).substr(2, 9),
+      id: fileId,
       type: 'file',
       name: newName,
       updatedAt: 'Just now',
@@ -94,6 +98,8 @@ export default function Documents() {
     setDocs([newFile, ...docs]);
     setNewName("");
     setIsUploadModalOpen(false);
+    // Instant transition to editor
+    window.location.href = `/documents/edit/${fileId}`;
   };
 
   return (
