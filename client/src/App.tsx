@@ -7,6 +7,7 @@ import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/Dashboard";
 import Helpdesk from "@/pages/Helpdesk";
 import Documents from "@/pages/Documents";
+import BookView from "@/pages/BookView";
 
 function Router() {
   return (
@@ -14,6 +15,7 @@ function Router() {
       <Route path="/" component={Dashboard} />
       <Route path="/helpdesk" component={Helpdesk} />
       <Route path="/documents" component={Documents} />
+      <Route path="/documents/book/:id" component={BookView} />
       <Route component={NotFound} />
     </Switch>
   );
