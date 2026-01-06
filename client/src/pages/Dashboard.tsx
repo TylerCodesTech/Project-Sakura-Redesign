@@ -36,10 +36,10 @@ export default function Dashboard() {
   }, []);
 
   const systems = [
-    { name: "AI Engine", status: "Operational", color: "bg-emerald-400", latency: "42ms" },
-    { name: "Document Store", status: "Operational", color: "bg-emerald-400", latency: "12ms" },
-    { name: "Helpdesk API", status: "Degraded", color: "bg-rose-400/30", latency: "850ms" },
-    { name: "Auth Service", status: "Operational", color: "bg-emerald-400", latency: "24ms" },
+    { name: "AI Engine", status: "Operational", color: "bg-emerald-500", latency: "42ms" },
+    { name: "Document Store", status: "Operational", color: "bg-emerald-500", latency: "12ms" },
+    { name: "Helpdesk API", status: "Degraded", color: "bg-amber-500", latency: "850ms" },
+    { name: "Auth Service", status: "Operational", color: "bg-emerald-500", latency: "24ms" },
   ];
 
   return (
@@ -48,7 +48,7 @@ export default function Dashboard() {
         {/* Header Section with Integrated Status Bar */}
         <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
           <div className="space-y-2">
-            <h1 className="text-4xl font-display font-bold text-primary tracking-tight">Good Evening, Tyler</h1>
+            <h1 className="text-4xl font-display font-bold text-foreground tracking-tight">Good Evening, Tyler</h1>
             <p className="text-muted-foreground text-lg">Here's what's happening at Sakura Corp today.</p>
           </div>
           
@@ -68,27 +68,31 @@ export default function Dashboard() {
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <button className="flex items-center gap-2.5 px-5 py-2.5 bg-emerald-100 dark:bg-emerald-500/20 rounded-2xl border border-emerald-200 dark:border-emerald-500/20 hover:bg-emerald-200 dark:hover:bg-emerald-500/30 transition-colors cursor-help group outline-none">
-                    <Activity className="w-5 h-5 text-emerald-600 dark:text-emerald-400 animate-pulse group-hover:scale-110 transition-transform" />
-                    <span className="text-xs font-black text-emerald-700 dark:text-emerald-400 uppercase tracking-widest">Nominal</span>
+                  <button className="flex items-center gap-2.5 px-5 py-2.5 bg-emerald-500/10 dark:bg-emerald-500/20 rounded-2xl border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors cursor-help group outline-none">
+                    <Activity className="w-5 h-5 text-emerald-500 animate-pulse group-hover:scale-110 transition-transform" />
+                    <span className="text-xs font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">Nominal</span>
                   </button>
                 </TooltipTrigger>
-                <TooltipContent className="w-[320px] p-0 rounded-3xl overflow-hidden border-none shadow-[0_20px_50px_rgba(219,39,119,0.3)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)]" sideOffset={12} align="end">
-                  <div className="bg-primary/40 dark:bg-primary/60 backdrop-blur-md p-4 px-6 border-b border-white/10">
-                    <h4 className="text-[11px] font-black uppercase tracking-[0.3em] text-white/90">System Infrastructure</h4>
+                <TooltipContent className="w-[320px] p-0 rounded-2xl overflow-hidden border border-border shadow-2xl" sideOffset={12} align="end">
+                  <div className="bg-secondary/50 dark:bg-secondary/20 p-4 border-b border-border">
+                    <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">System Infrastructure</h4>
                   </div>
-                  <div className="bg-primary dark:bg-primary/90 p-6 space-y-5">
+                  <div className="p-4 space-y-4 bg-background/50 backdrop-blur-xl">
                     {systems.map((s) => (
                       <div key={s.name} className="flex items-center justify-between group">
-                        <div className="flex items-center gap-4">
-                          <div className={cn("w-2.5 h-2.5 rounded-full shadow-[0_0_10px_rgba(52,211,153,0.5)]", s.color)} />
-                          <span className="text-sm font-bold text-white group-hover:translate-x-1 transition-transform">{s.name}</span>
+                        <div className="flex items-center gap-3">
+                          <div className={cn("w-2 h-2 rounded-full", s.color)} />
+                          <span className="text-sm font-medium text-foreground">{s.name}</span>
                         </div>
-                        <div className="text-[10px] font-black text-white/90 bg-white/20 px-2 py-1 rounded-lg border border-white/10 backdrop-blur-sm min-w-[50px] text-center">
+                        <div className="text-[10px] font-mono text-muted-foreground bg-secondary/50 px-2 py-1 rounded-md border border-border/50">
                           {s.latency}
                         </div>
                       </div>
                     ))}
+                  </div>
+                  <div className="p-3 bg-secondary/30 border-t border-border flex items-center justify-between">
+                    <span className="text-[10px] text-muted-foreground">All systems are operational</span>
+                    <Button variant="ghost" size="sm" className="h-6 text-[10px] px-2">History</Button>
                   </div>
                 </TooltipContent>
               </Tooltip>
@@ -103,7 +107,7 @@ export default function Dashboard() {
             <Card className="border border-border/50 shadow-sm rounded-3xl overflow-hidden bg-white/60 dark:bg-card/60 backdrop-blur-md">
               <CardHeader className="flex flex-row items-center gap-3 border-b border-border/40 pb-4 bg-secondary/10">
                 <Calendar className="w-5 h-5 text-primary" />
-                <CardTitle className="text-lg font-bold text-primary">Departments</CardTitle>
+                <CardTitle className="text-lg font-bold">Departments</CardTitle>
               </CardHeader>
               <CardContent className="py-16 flex flex-col items-center justify-center text-muted-foreground">
                 <div className="w-12 h-12 rounded-full bg-secondary/30 flex items-center justify-center mb-4">
@@ -117,7 +121,7 @@ export default function Dashboard() {
             <Card className="border border-border/50 shadow-sm rounded-3xl overflow-hidden bg-white/60 dark:bg-card/60 backdrop-blur-md">
               <CardHeader className="flex flex-row items-center justify-between border-b border-border/40 pb-4 bg-secondary/10">
                 <div className="flex items-center gap-3">
-                  <CardTitle className="text-lg font-bold text-primary">Watercooler</CardTitle>
+                  <CardTitle className="text-lg font-bold">Watercooler</CardTitle>
                   <Badge variant="outline" className="font-mono text-[10px] py-0 border-primary/20 bg-primary/5 text-primary">#general</Badge>
                 </div>
                 <div className="flex items-center gap-4">
@@ -163,7 +167,7 @@ export default function Dashboard() {
                   <div className="p-1.5 bg-indigo-500/10 rounded-lg">
                     <FileText className="w-4 h-4 text-indigo-500" />
                   </div>
-                  <CardTitle className="text-lg font-bold text-primary">Company News</CardTitle>
+                  <CardTitle className="text-lg font-bold">Company News</CardTitle>
                 </div>
                 <Button variant="ghost" size="sm" className="text-primary font-bold hover:bg-primary/5 px-4 rounded-xl">
                   View All
@@ -181,7 +185,7 @@ export default function Dashboard() {
             {/* Quick Actions Card */}
             <Card className="border border-border/50 shadow-sm rounded-3xl overflow-hidden bg-white/60 dark:bg-card/60 backdrop-blur-md p-6">
               <div className="flex items-center justify-between mb-8">
-                <CardTitle className="text-lg font-bold text-primary">Quick Actions</CardTitle>
+                <CardTitle className="text-lg font-bold">Quick Actions</CardTitle>
                 <div className="p-1.5 bg-secondary/50 rounded-lg">
                   <Activity className="w-4 h-4 text-muted-foreground" />
                 </div>
@@ -210,7 +214,7 @@ export default function Dashboard() {
                   <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
                     <MessageSquare className="w-4 h-4" />
                   </div>
-                  <CardTitle className="text-base font-bold text-primary">Open Tickets</CardTitle>
+                  <CardTitle className="text-base font-bold">Open Tickets</CardTitle>
                 </div>
                 <Badge variant="secondary" className="bg-primary/10 text-primary border-none font-bold tabular-nums">0 Active</Badge>
               </CardHeader>
@@ -230,7 +234,7 @@ export default function Dashboard() {
                   <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-500">
                     <Calendar className="w-4 h-4" />
                   </div>
-                  <CardTitle className="text-base font-bold text-primary">Volunteer Events</CardTitle>
+                  <CardTitle className="text-base font-bold">Volunteer Events</CardTitle>
                 </div>
                 <Button variant="ghost" size="sm" className="text-primary font-bold hover:bg-primary/10 px-4 rounded-xl">Calendar</Button>
               </CardHeader>
