@@ -2,7 +2,7 @@ import { Search, Bell, HelpCircle, X, Sparkles, User, Settings, LogOut, Moon, Su
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { currentUser, navItems } from "@/lib/mockData";
 import { Input } from "@/components/ui/input";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { 
@@ -35,6 +35,21 @@ export function Header() {
   const [location] = useLocation();
   const [isLauncherOpen, setIsLauncherOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('system');
+
+  useEffect(() => {
+    const root = window.document.documentElement;
+    root.classList.remove("light", "dark");
+
+    if (theme === "system") {
+      const systemTheme = window.matchMedia("(prefers-color-scheme: dark)").matches
+        ? "dark"
+        : "light";
+      root.classList.add(systemTheme);
+    } else {
+      root.classList.add(theme);
+    }
+  }, [theme]);
 
   // Custom App Launcher Icon based on user screenshot
   const LauncherIcon = () => (
@@ -49,12 +64,14 @@ export function Header() {
   return (
     <header className="h-16 border-b border-border bg-background/50 backdrop-blur-md sticky top-0 z-20 flex items-center justify-between px-6 md:px-8">
       <div className="flex items-center gap-4 flex-1 max-w-2xl">
-        <div className="flex items-center gap-2 mr-4">
-          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
-            <Sparkles className="w-5 h-5 fill-primary/20" />
-          </div>
-          <span className="font-display font-bold text-xl tracking-tight">Sakura</span>
-        </div>
+        <Link href="/">
+          <a className="flex items-center gap-2 mr-4 group hover:opacity-80 transition-opacity cursor-pointer">
+            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary/20 transition-colors">
+              <Sparkles className="w-5 h-5 fill-primary/20" />
+            </div>
+            <span className="font-display font-bold text-xl tracking-tight">Sakura</span>
+          </a>
+        </Link>
 
         <div className="h-6 w-px bg-border mx-2"></div>
 
@@ -166,7 +183,7 @@ export function Header() {
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="flex items-center gap-3 pl-2 group outline-none">
+            <button className="flex items-center gap-3 pl-2 group outline-none cursor-pointer">
               <div className="text-right hidden sm:block">
                 <p className="text-sm font-medium leading-none transition-colors group-hover:text-primary">{currentUser.name}</p>
                 <p className="text-xs text-muted-foreground mt-1">{currentUser.role}</p>
@@ -231,7 +248,11 @@ export function Header() {
                   <div className="space-y-4 pt-4 border-t border-border">
                     <div className="flex flex-col gap-2">
                       <Label>System Theme</Label>
-                      <RadioGroup defaultValue="system" className="flex gap-4">
+                      <RadioGroup 
+                        value={theme} 
+                        onValueChange={(v: 'light' | 'dark' | 'system') => setTheme(v)} 
+                        className="flex gap-4"
+                      >
                         <div className="flex items-center space-x-2 bg-secondary/30 px-3 py-2 rounded-lg border border-border cursor-pointer hover:bg-secondary/50">
                           <RadioGroupItem value="light" id="light" />
                           <Label htmlFor="light" className="flex items-center gap-2 cursor-pointer">
