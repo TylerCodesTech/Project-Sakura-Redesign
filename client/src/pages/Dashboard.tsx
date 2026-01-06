@@ -1,32 +1,31 @@
 import { Layout } from "@/components/layout/Layout";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { tickets, documents, recentActivity } from "@/lib/mockData";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
-  ArrowUpRight, 
-  CheckCircle2, 
+  CloudSun, 
   Clock, 
-  FileText, 
-  MessageSquare, 
-  Plus, 
-  Sparkles,
-  PenLine,
-  Calendar,
-  LifeBuoy,
-  CloudSun,
   Activity,
+  Calendar,
+  MessageSquare,
+  FileText,
+  Plus,
+  PenLine,
+  LifeBuoy,
   AlertCircle,
-  Wifi
+  Smile,
+  Paperclip,
+  SendHorizontal
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import abstractBg from "@assets/generated_images/abstract_sakura_nodes_network_background.png";
 import { useState, useEffect } from "react";
+import { cn } from "@/lib/utils";
 
 export default function Dashboard() {
   const [time, setTime] = useState(new Date());
@@ -46,192 +45,180 @@ export default function Dashboard() {
   return (
     <Layout>
       <div className="space-y-8">
-        {/* Top Info Bar */}
-        <div className="flex flex-wrap items-center justify-between gap-4 bg-card/50 border border-border/50 rounded-2xl p-4 backdrop-blur-sm">
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2">
-              <CloudSun className="w-5 h-5 text-blue-500" />
-              <div className="text-sm">
-                <span className="font-semibold">72°F</span>
-                <span className="text-muted-foreground ml-1">Partly Cloudy</span>
-              </div>
-            </div>
-            <div className="h-4 w-px bg-border hidden sm:block"></div>
-            <div className="flex items-center gap-2">
-              <Clock className="w-5 h-5 text-primary" />
-              <div className="text-sm font-medium tabular-nums">
-                {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </div>
-            </div>
+        {/* Header Section from Screenshot */}
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+          <div className="space-y-1">
+            <h1 className="text-4xl font-display font-bold text-primary">Good Evening, Tyler</h1>
+            <p className="text-muted-foreground text-lg">Here's what's happening at Sakura Corp today.</p>
           </div>
-
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-500/10 border border-green-500/20 cursor-help">
-                  <Activity className="w-4 h-4 text-green-500 animate-pulse" />
-                  <span className="text-xs font-semibold text-green-600">All Systems Nominal*</span>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent className="w-64 p-0 rounded-xl overflow-hidden border-border shadow-xl">
-                <div className="bg-secondary/30 p-3 border-b border-border">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">System Health</h4>
-                </div>
-                <div className="p-3 space-y-3">
-                  {systems.map((s) => (
-                    <div key={s.name} className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className={cn("w-1.5 h-1.5 rounded-full", s.color.replace('text', 'bg'))} />
-                        <span className="text-xs font-medium">{s.name}</span>
-                      </div>
-                      <div className="text-[10px] text-muted-foreground font-mono">
-                        {s.latency}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
-
-        {/* Quick Actions Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Button variant="outline" className="h-auto flex-col items-start p-4 gap-3 rounded-2xl border-2 border-primary/5 hover:border-primary/20 hover:bg-primary/5 transition-all group">
-            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
-              <MessageSquare className="w-5 h-5" />
+          
+          <div className="flex items-center gap-6 px-6 py-3 bg-white/40 dark:bg-card/40 backdrop-blur-sm rounded-2xl border border-white/20 shadow-sm">
+            <div className="flex items-center gap-2">
+              <CloudSun className="w-5 h-5 text-amber-500" />
+              <span className="text-sm font-medium">Sunny, 72°F</span>
             </div>
-            <div className="text-left">
-              <p className="font-bold text-sm">New Ticket</p>
-              <p className="text-xs text-muted-foreground">Get technical help</p>
+            <div className="h-4 w-px bg-border"></div>
+            <div className="flex items-center gap-2">
+              <Clock className="w-5 h-5 text-indigo-500" />
+              <span className="text-sm font-medium tabular-nums">
+                {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} PM
+              </span>
             </div>
-          </Button>
-          <Button variant="outline" className="h-auto flex-col items-start p-4 gap-3 rounded-2xl border-2 border-rose-500/5 hover:border-rose-500/20 hover:bg-rose-500/5 transition-all group">
-            <div className="w-10 h-10 rounded-xl bg-rose-500/10 flex items-center justify-center text-rose-500 group-hover:scale-110 transition-transform">
-              <PenLine className="w-5 h-5" />
-            </div>
-            <div className="text-left">
-              <p className="font-bold text-sm">Write Doc</p>
-              <p className="text-xs text-muted-foreground">Create knowledge</p>
-            </div>
-          </Button>
-          <Button variant="outline" className="h-auto flex-col items-start p-4 gap-3 rounded-2xl border-2 border-amber-500/5 hover:border-amber-500/20 hover:bg-amber-500/5 transition-all group">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500 group-hover:scale-110 transition-transform">
-              <Calendar className="w-5 h-5" />
-            </div>
-            <div className="text-left">
-              <p className="font-bold text-sm">Book Room</p>
-              <p className="text-xs text-muted-foreground">Meeting spaces</p>
-            </div>
-          </Button>
-          <Button variant="outline" className="h-auto flex-col items-start p-4 gap-3 rounded-2xl border-2 border-indigo-500/5 hover:border-indigo-500/20 hover:bg-indigo-500/5 transition-all group">
-            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-500 group-hover:scale-110 transition-transform">
-              <LifeBuoy className="w-5 h-5" />
-            </div>
-            <div className="text-left">
-              <p className="font-bold text-sm">Get Help</p>
-              <p className="text-xs text-muted-foreground">24/7 AI Support</p>
-            </div>
-          </Button>
-        </div>
-
-        {/* Hero Section */}
-        <div className="relative overflow-hidden rounded-3xl bg-primary text-primary-foreground p-8 md:p-12 shadow-xl">
-          <div 
-            className="absolute inset-0 opacity-20 mix-blend-overlay"
-            style={{ 
-              backgroundImage: `url(${abstractBg})`, 
-              backgroundSize: 'cover',
-              backgroundPosition: 'center'
-            }}
-          />
-          <div className="relative z-10 max-w-2xl">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-sm font-medium mb-6">
-              <Sparkles className="w-4 h-4 text-yellow-300" />
-              <span>AI Insights Available</span>
-            </div>
-            <h1 className="text-3xl md:text-5xl font-display font-bold mb-4 tracking-tight">
-              Good morning, Sarah
-            </h1>
-            <p className="text-primary-foreground/90 text-lg md:text-xl mb-8 leading-relaxed">
-              You have <span className="font-semibold bg-white/20 px-1 rounded">4 high priority</span> tickets and <span className="font-semibold bg-white/20 px-1 rounded">2 documents</span> awaiting review today.
-            </p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Recent Tickets */}
-          <Card className="lg:col-span-2 border-none shadow-sm overflow-hidden">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="font-display">Recent Tickets</CardTitle>
-                <CardDescription>Support requests routed by AI</CardDescription>
-              </div>
-              <Button variant="ghost" size="sm" className="text-primary hover:text-primary hover:bg-primary/5">View All</Button>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="divide-y divide-border/50">
-                {tickets.map((ticket) => (
-                  <div key={ticket.id} className="flex items-center justify-between p-6 hover:bg-secondary/30 transition-colors group cursor-pointer">
-                    <div className="flex items-start gap-4">
-                      <div className={`mt-1 w-2 h-2 rounded-full ${
-                        ticket.priority === 'High' ? 'bg-destructive' : 
-                        ticket.priority === 'Medium' ? 'bg-orange-400' : 'bg-green-400'
-                      }`} />
-                      <div>
-                        <h4 className="font-medium text-sm group-hover:text-primary transition-colors">{ticket.title}</h4>
-                        <div className="flex items-center gap-3 mt-1.5">
-                          <span className="text-xs font-mono text-muted-foreground bg-secondary px-1.5 py-0.5 rounded">{ticket.id}</span>
-                          <span className="text-xs text-muted-foreground">{ticket.department}</span>
-                          <span className="text-xs text-muted-foreground">• {ticket.created}</span>
+            <div className="h-4 w-px bg-border"></div>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center gap-2 cursor-help text-green-600">
+                    <Activity className="w-4 h-4 animate-pulse" />
+                    <span className="text-xs font-bold uppercase tracking-wide">Status Unavailable</span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent className="w-64 p-0 rounded-xl overflow-hidden border-border shadow-xl">
+                  <div className="bg-secondary/30 p-3 border-b border-border">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">System Health</h4>
+                  </div>
+                  <div className="p-3 space-y-3">
+                    {systems.map((s) => (
+                      <div key={s.name} className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className={cn("w-1.5 h-1.5 rounded-full", s.color.replace('text', 'bg'))} />
+                          <span className="text-xs font-medium">{s.name}</span>
                         </div>
+                        <div className="text-[10px] text-muted-foreground font-mono">{s.latency}</div>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <div className="text-xs font-medium px-2.5 py-1 rounded-full bg-secondary text-secondary-foreground border border-border/50">
-                        {ticket.status}
-                      </div>
-                    </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+        </div>
 
-          {/* Activity Feed */}
-          <Card className="border-none shadow-sm h-fit">
-            <CardHeader>
-              <CardTitle className="font-display">Activity Feed</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-6">
-                {recentActivity.map((activity, i) => (
-                  <div key={activity.id} className="flex gap-4 relative">
-                    {i !== recentActivity.length - 1 && (
-                      <div className="absolute left-4 top-8 bottom-[-24px] w-px bg-border/50" />
-                    )}
-                    <Avatar className="w-8 h-8 border border-border">
-                      <AvatarFallback className="text-xs bg-secondary">{activity.user[0]}</AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <p className="text-sm">
-                        <span className="font-medium">{activity.user}</span>{" "}
-                        <span className="text-muted-foreground">{activity.action}</span>{" "}
-                        <span className="font-medium text-foreground">{activity.target}</span>
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">{activity.time}</p>
-                    </div>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          {/* Main Content Column */}
+          <div className="lg:col-span-8 space-y-8">
+            {/* Departments Card */}
+            <Card className="border-none shadow-sm rounded-3xl overflow-hidden bg-white/60 dark:bg-card/60 backdrop-blur-md">
+              <CardHeader className="flex flex-row items-center gap-2 border-b border-border/40 pb-4">
+                <Calendar className="w-5 h-5 text-primary" />
+                <CardTitle className="text-lg font-bold">Departments</CardTitle>
+              </CardHeader>
+              <CardContent className="py-12 flex flex-col items-center justify-center text-muted-foreground">
+                <p className="text-sm">No departments found</p>
+              </CardContent>
+            </Card>
+
+            {/* Watercooler Section */}
+            <Card className="border-none shadow-sm rounded-3xl overflow-hidden bg-white/60 dark:bg-card/60 backdrop-blur-md">
+              <CardHeader className="flex flex-row items-center justify-between border-b border-border/40 pb-4">
+                <div className="flex items-center gap-2">
+                  <CardTitle className="text-lg font-bold">Watercooler</CardTitle>
+                  <Badge variant="secondary" className="font-mono text-[10px] py-0">#general</Badge>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase">0</span>
+                  <div className="flex items-center gap-1.5 text-xs text-green-500 font-medium">
+                    <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                    Live
                   </div>
+                </div>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="h-[240px] flex items-center justify-center text-muted-foreground bg-secondary/5">
+                  {/* Empty chat area */}
+                </div>
+                <div className="p-4 border-t border-border/40 flex items-center gap-4">
+                  <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary">
+                    <Paperclip className="w-5 h-5" />
+                  </Button>
+                  <div className="relative flex-1">
+                    <Input 
+                      placeholder="Type a message..." 
+                      className="bg-secondary/20 border-transparent focus-visible:ring-1 focus-visible:ring-primary/20 rounded-full pl-4 pr-10" 
+                    />
+                    <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary">
+                      <Smile className="w-5 h-5" />
+                    </Button>
+                  </div>
+                  <Button size="icon" className="rounded-full w-10 h-10 shadow-lg">
+                    <SendHorizontal className="w-5 h-5" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Company News */}
+            <Card className="border-none shadow-sm rounded-3xl overflow-hidden bg-white/60 dark:bg-card/60 backdrop-blur-md">
+              <CardHeader className="flex flex-row items-center justify-between border-b border-border/40 pb-4">
+                <div className="flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-indigo-500" />
+                  <CardTitle className="text-lg font-bold">Company News</CardTitle>
+                </div>
+                <Button variant="ghost" size="sm" className="text-primary font-bold hover:bg-primary/5">View All</Button>
+              </CardHeader>
+              <CardContent className="h-12" />
+            </Card>
+          </div>
+
+          {/* Sidebar Column */}
+          <div className="lg:col-span-4 space-y-8">
+            {/* Quick Actions Card */}
+            <Card className="border-none shadow-sm rounded-3xl overflow-hidden bg-white/60 dark:bg-card/60 backdrop-blur-md p-6">
+              <CardTitle className="text-lg font-bold mb-6">Quick Actions</CardTitle>
+              <div className="grid grid-cols-2 gap-4">
+                {[
+                  { icon: Plus, label: "New Ticket", color: "text-blue-500", bg: "bg-blue-500/10" },
+                  { icon: FileText, label: "Write Doc", color: "text-emerald-500", bg: "bg-emerald-500/10" },
+                  { icon: Calendar, label: "Book Room", color: "text-purple-500", bg: "bg-purple-500/10" },
+                  { icon: LifeBuoy, label: "Get Help", color: "text-rose-500", bg: "bg-rose-500/10" }
+                ].map((action) => (
+                  <button key={action.label} className="flex flex-col items-center gap-3 p-4 rounded-2xl hover:bg-secondary/40 transition-all group outline-none">
+                    <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform", action.bg, action.color)}>
+                      <action.icon className="w-6 h-6" />
+                    </div>
+                    <span className="text-xs font-bold text-foreground">{action.label}</span>
+                  </button>
                 ))}
               </div>
-            </CardContent>
-          </Card>
+            </Card>
+
+            {/* Open Tickets Card */}
+            <Card className="border-none shadow-sm rounded-3xl overflow-hidden bg-white/60 dark:bg-card/60 backdrop-blur-md">
+              <CardHeader className="flex flex-row items-center justify-between border-b border-border/40 pb-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-rose-500/10 flex items-center justify-center text-rose-500">
+                    <MessageSquare className="w-4 h-4" />
+                  </div>
+                  <CardTitle className="text-base font-bold">Open Tickets</CardTitle>
+                </div>
+                <Badge variant="secondary" className="bg-rose-500/10 text-rose-600 border-none font-bold">0 Active</Badge>
+              </CardHeader>
+              <CardContent className="p-6 text-center space-y-4">
+                <p className="text-sm text-muted-foreground">No active tickets</p>
+                <Button className="w-full bg-rose-50 text-rose-600 hover:bg-rose-100 border-none shadow-none font-bold py-6 rounded-2xl transition-colors">
+                  + Create New Ticket
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Volunteer Events Card */}
+            <Card className="border-none shadow-sm rounded-3xl overflow-hidden bg-white/60 dark:bg-card/60 backdrop-blur-md">
+              <CardHeader className="flex flex-row items-center justify-between border-b border-border/40 pb-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-500">
+                    <Calendar className="w-4 h-4" />
+                  </div>
+                  <CardTitle className="text-base font-bold">Volunteer Events</CardTitle>
+                </div>
+                <Button variant="ghost" size="sm" className="text-rose-400 font-bold hover:bg-rose-50 transition-colors">Calendar</Button>
+              </CardHeader>
+              <CardContent className="py-12 flex flex-col items-center justify-center text-muted-foreground">
+                <p className="text-sm">No upcoming events</p>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
     </Layout>
   );
-}
-
-function cn(...inputs: any[]) {
-  return inputs.filter(Boolean).join(" ");
 }
