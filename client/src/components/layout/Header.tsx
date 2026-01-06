@@ -64,13 +64,11 @@ export function Header() {
   return (
     <header className="h-16 border-b border-border bg-background/50 backdrop-blur-md sticky top-0 z-20 flex items-center justify-between px-6 md:px-8">
       <div className="flex items-center gap-4 flex-1 max-w-2xl">
-        <Link href="/">
-          <a className="flex items-center gap-2 mr-4 group hover:opacity-80 transition-opacity cursor-pointer">
+        <Link href="/" className="flex items-center gap-2 mr-4 group hover:opacity-80 transition-opacity cursor-pointer">
             <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary/20 transition-colors">
               <Sparkles className="w-5 h-5 fill-primary/20" />
             </div>
             <span className="font-display font-bold text-xl tracking-tight">Sakura</span>
-          </a>
         </Link>
 
         <div className="h-6 w-px bg-border mx-2"></div>
@@ -133,11 +131,12 @@ export function Header() {
                       };
 
                       return (
-                        <Link key={item.href} href={item.href}>
-                          <a 
-                            onClick={() => setIsLauncherOpen(false)}
-                            className="flex flex-col items-center gap-3 group"
-                          >
+                        <Link 
+                          key={item.href} 
+                          href={item.href}
+                          onClick={() => setIsLauncherOpen(false)}
+                          className="flex flex-col items-center gap-3 group"
+                        >
                             <div className={cn(
                               "w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 group-hover:scale-110 group-hover:shadow-lg",
                               getIconColor(item.label),
@@ -148,7 +147,6 @@ export function Header() {
                             <span className="text-xs font-medium text-foreground group-hover:text-primary transition-colors">
                               {item.label === 'Dashboard' ? 'Intranet' : item.label === 'Team Directory' ? 'Directory' : item.label}
                             </span>
-                          </a>
                         </Link>
                       );
                     })}
