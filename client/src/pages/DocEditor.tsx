@@ -1,17 +1,14 @@
 import { Layout } from "@/components/layout/Layout";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { 
   ArrowLeft,
   Save,
   Sparkles,
-  Type,
-  Image as ImageIcon,
-  Plus,
   Undo2,
   Redo2,
-  Bold,
-  Italic,
-  Underline,
+  Bold as BoldIcon,
+  Italic as ItalicIcon,
+  Underline as UnderlineIcon,
   List as ListIcon,
   ListOrdered,
   AlignLeft,
@@ -19,11 +16,9 @@ import {
   AlignRight,
   ChevronDown,
   Wand2,
-  Table as TableIcon,
   Heading1,
   Heading2,
-  Link as LinkIcon,
-  Palette
+  Type
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -36,18 +31,60 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { Link, useParams } from "wouter";
+import { useEditor, EditorContent } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import Underline from '@tiptap/extension-underline';
+import TextAlign from '@tiptap/extension-text-align';
+import TextStyle from '@tiptap/extension-text-style';
+import FontFamily from '@tiptap/extension-font-family';
+import Placeholder from '@tiptap/extension-placeholder';
 
 export default function DocEditor() {
   const { id } = useParams();
   const [isAiPanelOpen, setIsAiPanelOpen] = useState(false);
 
+  const editor = useEditor({
+    extensions: [
+      StarterKit,
+      Underline,
+      TextStyle,
+      FontFamily,
+      TextAlign.configure({
+        types: ['heading', 'paragraph'],
+      }),
+      Placeholder.configure({
+        placeholder: 'Start writing your document...',
+      }),
+    ],
+    content: `
+      <h1>Q4 Revenue Projection</h1>
+      <p>This document outlines our projected financial performance for the final quarter of the year, incorporating seasonal trends and new product launches.</p>
+      <h2>Executive Summary</h2>
+      <p>Our initial findings suggest a 15% increase in year-over-year growth, driven primarily by the new Sakura AI subscription tier.</p>
+      <ul>
+        <li>Subscription revenue: +18%</li>
+        <li>Enterprise licensing: +12%</li>
+        <li>Professional services: +5%</li>
+      </ul>
+    `,
+    editorProps: {
+      attributes: {
+        class: 'prose prose-sakura max-w-none focus:outline-none min-h-[500px]',
+      },
+    },
+  });
+
+  if (!editor) {
+    return null;
+  }
+
   return (
     <Layout>
       <div className="flex flex-col h-[calc(100vh-8rem)]">
-        {/* Editor Toolbar */}
+        {/* Editor Header */}
         <div className="flex items-center justify-between mb-4 pb-4 border-b border-border/50">
           <div className="flex items-center gap-4">
             <Link href="/documents">
@@ -81,69 +118,139 @@ export default function DocEditor() {
           </div>
         </div>
 
-        {/* 2025 Rich Formatting Toolbar */}
+        {/* Real-time Tiptap Toolbar */}
         <div className="flex items-center gap-1 bg-secondary/20 p-1.5 rounded-2xl border border-border/40 mb-6 backdrop-blur-sm overflow-x-auto scrollbar-hide">
           <div className="flex items-center gap-1 px-1">
-            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg"><Undo2 className="w-4 h-4" /></Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg"><Redo2 className="w-4 h-4" /></Button>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="h-8 w-8 rounded-lg"
+              onClick={() => editor.chain().focus().undo().run()}
+              disabled={!editor.can().undo()}
+            >
+              <Undo2 className="w-4 h-4" />
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="h-8 w-8 rounded-lg"
+              onClick={() => editor.chain().focus().redo().run()}
+              disabled={!editor.can().redo()}
+            >
+              <Redo2 className="w-4 h-4" />
+            </Button>
           </div>
           <Separator orientation="vertical" className="h-6 mx-1 opacity-50" />
           
-          <Select defaultValue="inter">
+          <Select onValueChange={(value) => editor.chain().focus().setFontFamily(value).run()}>
             <SelectTrigger className="w-[130px] h-8 rounded-lg border-transparent bg-transparent hover:bg-secondary/40 transition-all font-bold text-xs">
               <SelectValue placeholder="Font Family" />
             </SelectTrigger>
             <SelectContent className="rounded-xl border-border/50">
-              <SelectItem value="inter" className="font-sans">Inter</SelectItem>
-              <SelectItem value="jakarta" className="font-display">Plus Jakarta</SelectItem>
-              <SelectItem value="serif" className="font-serif">Merriweather</SelectItem>
-              <SelectItem value="mono" className="font-mono">JetBrains Mono</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Select defaultValue="16">
-            <SelectTrigger className="w-[70px] h-8 rounded-lg border-transparent bg-transparent hover:bg-secondary/40 transition-all font-bold text-xs">
-              <SelectValue placeholder="Size" />
-            </SelectTrigger>
-            <SelectContent className="rounded-xl border-border/50">
-              {[12, 14, 16, 18, 20, 24, 32, 48].map(size => (
-                <SelectItem key={size} value={size.toString()}>{size}px</SelectItem>
-              ))}
+              <SelectItem value="Inter">Inter</SelectItem>
+              <SelectItem value="serif">Merriweather</SelectItem>
+              <SelectItem value="monospace">JetBrains Mono</SelectItem>
             </SelectContent>
           </Select>
 
           <Separator orientation="vertical" className="h-6 mx-1 opacity-50" />
 
           <div className="flex items-center gap-0.5">
-            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-secondary/40 transition-all"><Bold className="w-4 h-4" /></Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-secondary/40 transition-all"><Italic className="w-4 h-4" /></Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-secondary/40 transition-all underline"><Underline className="w-4 h-4" /></Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-secondary/40 transition-all"><Palette className="w-4 h-4" /></Button>
+            <Button 
+              variant={editor.isActive('bold') ? 'secondary' : 'ghost'} 
+              size="icon" 
+              className="h-8 w-8 rounded-lg transition-all"
+              onClick={() => editor.chain().focus().toggleBold().run()}
+            >
+              <BoldIcon className="w-4 h-4" />
+            </Button>
+            <Button 
+              variant={editor.isActive('italic') ? 'secondary' : 'ghost'} 
+              size="icon" 
+              className="h-8 w-8 rounded-lg transition-all"
+              onClick={() => editor.chain().focus().toggleItalic().run()}
+            >
+              <ItalicIcon className="w-4 h-4" />
+            </Button>
+            <Button 
+              variant={editor.isActive('underline') ? 'secondary' : 'ghost'} 
+              size="icon" 
+              className="h-8 w-8 rounded-lg transition-all"
+              onClick={() => editor.chain().focus().toggleUnderline().run()}
+            >
+              <UnderlineIcon className="w-4 h-4" />
+            </Button>
           </div>
 
           <Separator orientation="vertical" className="h-6 mx-1 opacity-50" />
 
           <div className="flex items-center gap-0.5">
-            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-secondary/40 transition-all"><AlignLeft className="w-4 h-4" /></Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-secondary/40 transition-all"><AlignCenter className="w-4 h-4" /></Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-secondary/40 transition-all"><AlignRight className="w-4 h-4" /></Button>
+            <Button 
+              variant={editor.isActive({ textAlign: 'left' }) ? 'secondary' : 'ghost'} 
+              size="icon" 
+              className="h-8 w-8 rounded-lg transition-all"
+              onClick={() => editor.chain().focus().setTextAlign('left').run()}
+            >
+              <AlignLeft className="w-4 h-4" />
+            </Button>
+            <Button 
+              variant={editor.isActive({ textAlign: 'center' }) ? 'secondary' : 'ghost'} 
+              size="icon" 
+              className="h-8 w-8 rounded-lg transition-all"
+              onClick={() => editor.chain().focus().setTextAlign('center').run()}
+            >
+              <AlignCenter className="w-4 h-4" />
+            </Button>
+            <Button 
+              variant={editor.isActive({ textAlign: 'right' }) ? 'secondary' : 'ghost'} 
+              size="icon" 
+              className="h-8 w-8 rounded-lg transition-all"
+              onClick={() => editor.chain().focus().setTextAlign('right').run()}
+            >
+              <AlignRight className="w-4 h-4" />
+            </Button>
           </div>
 
           <Separator orientation="vertical" className="h-6 mx-1 opacity-50" />
 
           <div className="flex items-center gap-0.5">
-            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-secondary/40 transition-all"><ListIcon className="w-4 h-4" /></Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-secondary/40 transition-all"><ListOrdered className="w-4 h-4" /></Button>
+            <Button 
+              variant={editor.isActive('bulletList') ? 'secondary' : 'ghost'} 
+              size="icon" 
+              className="h-8 w-8 rounded-lg transition-all"
+              onClick={() => editor.chain().focus().toggleBulletList().run()}
+            >
+              <ListIcon className="w-4 h-4" />
+            </Button>
+            <Button 
+              variant={editor.isActive('orderedList') ? 'secondary' : 'ghost'} 
+              size="icon" 
+              className="h-8 w-8 rounded-lg transition-all"
+              onClick={() => editor.chain().focus().toggleOrderedList().run()}
+            >
+              <ListOrdered className="w-4 h-4" />
+            </Button>
           </div>
 
           <Separator orientation="vertical" className="h-6 mx-1 opacity-50" />
 
           <div className="flex items-center gap-0.5">
-            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-secondary/40 transition-all"><Heading1 className="w-4 h-4" /></Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-secondary/40 transition-all"><Heading2 className="w-4 h-4" /></Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-secondary/40 transition-all"><LinkIcon className="w-4 h-4" /></Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-secondary/40 transition-all"><ImageIcon className="w-4 h-4" /></Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-secondary/40 transition-all"><TableIcon className="w-4 h-4" /></Button>
+            <Button 
+              variant={editor.isActive('heading', { level: 1 }) ? 'secondary' : 'ghost'} 
+              size="icon" 
+              className="h-8 w-8 rounded-lg transition-all"
+              onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+            >
+              <Heading1 className="w-4 h-4" />
+            </Button>
+            <Button 
+              variant={editor.isActive('heading', { level: 2 }) ? 'secondary' : 'ghost'} 
+              size="icon" 
+              className="h-8 w-8 rounded-lg transition-all"
+              onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+            >
+              <Heading2 className="w-4 h-4" />
+            </Button>
           </div>
         </div>
 
@@ -152,47 +259,8 @@ export default function DocEditor() {
           <div className="flex-1 flex flex-col min-w-0">
             <div className="flex-1 bg-white/40 dark:bg-card/40 rounded-3xl border border-border/50 overflow-hidden backdrop-blur-sm relative">
               <ScrollArea className="h-full">
-                <div className="max-w-3xl mx-auto py-16 px-8 space-y-12">
-                  <div className="group relative">
-                    <h1 className="text-5xl font-display font-black tracking-tight outline-none" contentEditable suppressContentEditableWarning>
-                      Q4 Revenue Projection
-                    </h1>
-                    <div className="absolute -left-12 top-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-primary bg-primary/5">
-                        <Plus className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="space-y-6">
-                    <p className="text-xl text-muted-foreground leading-relaxed outline-none" contentEditable suppressContentEditableWarning>
-                      This document outlines our projected financial performance for the final quarter of the year, incorporating seasonal trends and new product launches.
-                    </p>
-                    
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="p-8 rounded-3xl bg-secondary/20 border border-border/50 group cursor-pointer hover:border-primary/20 transition-all">
-                        <div className="w-10 h-10 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-600 mb-4">
-                          <Plus className="w-5 h-5" />
-                        </div>
-                        <h4 className="font-bold mb-1 text-sm">Add Component</h4>
-                        <p className="text-[10px] text-muted-foreground">Insert a chart, table, or interactive widget.</p>
-                      </div>
-                      <div className="p-8 rounded-3xl bg-primary/5 border border-primary/10 border-dashed group cursor-pointer hover:bg-primary/10 transition-all flex flex-col items-center justify-center text-center">
-                        <Sparkles className="w-6 h-6 text-primary mb-2" />
-                        <p className="text-sm font-bold text-primary">Generate with AI</p>
-                      </div>
-                    </div>
-
-                    <div className="prose prose-sakura max-w-none mt-8 outline-none" contentEditable suppressContentEditableWarning>
-                      <h2 className="text-2xl font-bold mb-4">Executive Summary</h2>
-                      <p className="mb-4">Our initial findings suggest a 15% increase in year-over-year growth, driven primarily by the new Sakura AI subscription tier.</p>
-                      <ul className="list-disc pl-5 space-y-2">
-                        <li>Subscription revenue: +18%</li>
-                        <li>Enterprise licensing: +12%</li>
-                        <li>Professional services: +5%</li>
-                      </ul>
-                    </div>
-                  </div>
+                <div className="max-w-3xl mx-auto py-16 px-8">
+                  <EditorContent editor={editor} />
                 </div>
               </ScrollArea>
             </div>
@@ -219,18 +287,17 @@ export default function DocEditor() {
                     </div>
                     
                     <div className="grid grid-cols-1 gap-2">
-                      <Button variant="outline" className="h-auto py-3 px-4 justify-start text-left rounded-xl border-border/50 hover:bg-primary/5 hover:text-primary transition-all group">
+                      <Button 
+                        variant="outline" 
+                        className="h-auto py-3 px-4 justify-start text-left rounded-xl border-border/50 hover:bg-primary/5 hover:text-primary transition-all group"
+                        onClick={() => {
+                          editor.chain().focus().insertContent('<p><em>AI Generated Executive Summary:</em> Q4 looks promising with a steady 15% growth trajectory...</p>').run();
+                        }}
+                      >
                         <Wand2 className="w-4 h-4 mr-3 text-muted-foreground group-hover:text-primary" />
                         <div className="flex flex-col">
-                          <span className="text-[11px] font-bold">Refine Tone</span>
-                          <span className="text-[10px] text-muted-foreground font-medium">Make it more professional</span>
-                        </div>
-                      </Button>
-                      <Button variant="outline" className="h-auto py-3 px-4 justify-start text-left rounded-xl border-border/50 hover:bg-primary/5 hover:text-primary transition-all group">
-                        <Plus className="w-4 h-4 mr-3 text-muted-foreground group-hover:text-primary" />
-                        <div className="flex flex-col">
-                          <span className="text-[11px] font-bold">Insert Table</span>
-                          <span className="text-[10px] text-muted-foreground font-medium">Using Q3 benchmarks</span>
+                          <span className="text-[11px] font-bold">Quick Summary</span>
+                          <span className="text-[10px] text-muted-foreground font-medium">Add to document</span>
                         </div>
                       </Button>
                     </div>
