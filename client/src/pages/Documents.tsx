@@ -11,7 +11,9 @@ import {
   Clock,
   LayoutGrid,
   List,
-  Filter
+  Filter,
+  Upload,
+  BookOpen
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,8 +22,20 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
+import { 
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Link } from "wouter";
@@ -36,7 +50,7 @@ interface DocItem {
   pages?: number;
 }
 
-const mockDocs: DocItem[] = [
+const initialDocs: DocItem[] = [
   { id: '1', type: 'folder', name: 'Engineering', updatedAt: '2 hours ago', owner: 'Tyler S.' },
   { id: '2', type: 'book', name: 'Product Handbook', updatedAt: '5 hours ago', owner: 'Sarah M.', pages: 24 },
   { id: '3', type: 'file', name: 'Q4 Revenue Projection.pdf', updatedAt: 'Yesterday', owner: 'Mike R.', size: '2.4 MB' },
@@ -47,6 +61,40 @@ const mockDocs: DocItem[] = [
 
 export default function Documents() {
   const [view, setView] = useState<'grid' | 'list'>('grid');
+  const [docs, setDocs] = useState<DocItem[]>(initialDocs);
+  const [isBookModalOpen, setIsBookModalOpen] = useState(false);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [newName, setNewName] = useState("");
+
+  const handleCreateBook = () => {
+    if (!newName) return;
+    const newBook: DocItem = {
+      id: Math.random().toString(36).substr(2, 9),
+      type: 'book',
+      name: newName,
+      updatedAt: 'Just now',
+      owner: 'Tyler S.',
+      pages: 0
+    };
+    setDocs([newBook, ...docs]);
+    setNewName("");
+    setIsBookModalOpen(false);
+  };
+
+  const handleUploadFile = () => {
+    if (!newName) return;
+    const newFile: DocItem = {
+      id: Math.random().toString(36).substr(2, 9),
+      type: 'file',
+      name: newName,
+      updatedAt: 'Just now',
+      owner: 'Tyler S.',
+      size: '0 KB'
+    };
+    setDocs([newFile, ...docs]);
+    setNewName("");
+    setIsUploadModalOpen(false);
+  };
 
   return (
     <Layout>
@@ -76,12 +124,117 @@ export default function Documents() {
                 <List className="w-4 h-4" />
               </Button>
             </div>
-            <Button className="bg-primary hover:bg-primary/90 text-white rounded-xl h-11 px-6 font-bold shadow-lg shadow-primary/20 transition-all hover:scale-105">
-              <Plus className="w-5 h-5 mr-2" />
-              New Document
-            </Button>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button className="bg-primary hover:bg-primary/90 text-white rounded-xl h-11 px-6 font-bold shadow-lg shadow-primary/20 transition-all hover:scale-105">
+                  <Plus className="w-5 h-5 mr-2" />
+                  Create New
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56 p-2 rounded-2xl border-border/50 shadow-2xl">
+                <DropdownMenuLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 px-3 py-2">Content Types</DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => setIsBookModalOpen(true)} className="rounded-xl py-3 cursor-pointer group">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-600 mr-3 group-hover:scale-110 transition-transform">
+                    <Book className="w-4 h-4" />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="font-bold text-sm">Wiki Book</span>
+                    <span className="text-[10px] text-muted-foreground font-medium">Structured collections</span>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setIsUploadModalOpen(true)} className="rounded-xl py-3 cursor-pointer group">
+                  <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-600 mr-3 group-hover:scale-110 transition-transform">
+                    <FileText className="w-4 h-4" />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="font-bold text-sm">Single File</span>
+                    <span className="text-[10px] text-muted-foreground font-medium">PDF, Word, or Image</span>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator className="my-2" />
+                <DropdownMenuItem className="rounded-xl py-3 cursor-pointer group">
+                  <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-600 mr-3 group-hover:scale-110 transition-transform">
+                    <Folder className="w-4 h-4" />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="font-bold text-sm">Folder</span>
+                    <span className="text-[10px] text-muted-foreground font-medium">Organize your space</span>
+                  </div>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
+
+        {/* Create Book Modal */}
+        <Dialog open={isBookModalOpen} onOpenChange={setIsBookModalOpen}>
+          <DialogContent className="sm:max-w-[425px] rounded-[24px] border-border/50 shadow-2xl">
+            <DialogHeader>
+              <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-600 mb-4">
+                <BookOpen className="w-6 h-6" />
+              </div>
+              <DialogTitle className="text-2xl font-bold tracking-tight">Create Wiki Book</DialogTitle>
+              <DialogDescription className="text-muted-foreground">
+                Build a structured collection of content. Great for handbooks, documentation, and wikis.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-6 space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="book-name" className="text-xs font-bold uppercase tracking-widest text-muted-foreground/80">Book Title</Label>
+                <Input 
+                  id="book-name" 
+                  placeholder="e.g. Employee Onboarding Guide" 
+                  className="rounded-xl bg-secondary/20 border-transparent focus-visible:bg-background focus-visible:ring-primary/20 h-12"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => setIsBookModalOpen(false)} className="rounded-xl font-bold">Cancel</Button>
+              <Button onClick={handleCreateBook} className="bg-primary hover:bg-primary/90 text-white rounded-xl px-8 font-bold shadow-lg shadow-primary/20">Initialize Book</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Upload File Modal */}
+        <Dialog open={isUploadModalOpen} onOpenChange={setIsUploadModalOpen}>
+          <DialogContent className="sm:max-w-[425px] rounded-[24px] border-border/50 shadow-2xl">
+            <DialogHeader>
+              <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-600 mb-4">
+                <Upload className="w-6 h-6" />
+              </div>
+              <DialogTitle className="text-2xl font-bold tracking-tight">Upload File</DialogTitle>
+              <DialogDescription className="text-muted-foreground">
+                Add an individual document to your workspace.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-6 space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="file-name" className="text-xs font-bold uppercase tracking-widest text-muted-foreground/80">File Name</Label>
+                <Input 
+                  id="file-name" 
+                  placeholder="e.g. Q4 Marketing Budget.pdf" 
+                  className="rounded-xl bg-secondary/20 border-transparent focus-visible:bg-background focus-visible:ring-primary/20 h-12"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                />
+              </div>
+              <div className="border-2 border-dashed border-border/50 rounded-2xl p-8 flex flex-col items-center justify-center text-center space-y-2 hover:bg-secondary/10 transition-all cursor-pointer">
+                <div className="w-10 h-10 rounded-full bg-secondary/50 flex items-center justify-center text-muted-foreground mb-2">
+                  <Plus className="w-5 h-5" />
+                </div>
+                <p className="text-sm font-bold">Click to select or drag and drop</p>
+                <p className="text-xs text-muted-foreground font-medium">PDF, DOCX, XLSX, or PNG up to 50MB</p>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => setIsUploadModalOpen(false)} className="rounded-xl font-bold">Cancel</Button>
+              <Button onClick={handleUploadFile} className="bg-primary hover:bg-primary/90 text-white rounded-xl px-8 font-bold shadow-lg shadow-primary/20">Upload Now</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Search & Filter Bar */}
         <div className="flex flex-col md:flex-row gap-4">
@@ -103,7 +256,7 @@ export default function Documents() {
           "grid gap-6",
           view === 'grid' ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-3" : "grid-cols-1"
         )}>
-          {mockDocs.map((item) => (
+          {docs.map((item) => (
             <DocCard key={item.id} item={item} view={view} />
           ))}
         </div>
@@ -131,7 +284,7 @@ function DocCard({ item, view }: { item: DocItem, view: 'grid' | 'list' }) {
               <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {item.updatedAt}</span>
               <span>•</span>
               <span>{item.owner}</span>
-              {item.pages && (<span>• {item.pages} pages</span>)}
+              {item.pages !== undefined && (<span>• {item.pages} pages</span>)}
               {item.size && (<span>• {item.size}</span>)}
             </div>
           </div>
@@ -192,7 +345,7 @@ function DocCard({ item, view }: { item: DocItem, view: 'grid' | 'list' }) {
               </Badge>
             )}
             <span className="text-[10px] font-black text-muted-foreground/50 uppercase tracking-widest">
-              {item.size || (item.pages ? `${item.pages} Pages` : 'Folder')}
+              {item.size || (item.pages !== undefined ? `${item.pages} Pages` : 'Folder')}
             </span>
           </div>
           {item.type === 'book' ? (
