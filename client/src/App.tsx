@@ -8,6 +8,7 @@ import Dashboard from "@/pages/Dashboard";
 import Helpdesk from "@/pages/Helpdesk";
 import Documents from "@/pages/Documents";
 import BookView from "@/pages/BookView";
+import DocEditor from "@/pages/DocEditor";
 
 function Router() {
   return (
@@ -16,6 +17,7 @@ function Router() {
       <Route path="/helpdesk" component={Helpdesk} />
       <Route path="/documents" component={Documents} />
       <Route path="/documents/book/:id" component={BookView} />
+      <Route path="/documents/edit/:id" component={DocEditor} />
       <Route component={NotFound} />
     </Switch>
   );

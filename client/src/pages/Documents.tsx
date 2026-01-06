@@ -356,9 +356,11 @@ function DocCard({ item, view }: { item: DocItem, view: 'grid' | 'list' }) {
               </Button>
             </Link>
           ) : (
-            <Button variant="ghost" size="sm" className="h-8 rounded-lg text-muted-foreground hover:text-foreground">
-              View
-            </Button>
+            <Link href={`/documents/edit/${item.id}`}>
+              <Button variant="ghost" size="sm" className="h-8 rounded-lg text-muted-foreground hover:text-foreground">
+                Edit
+              </Button>
+            </Link>
           )}
         </div>
       </CardContent>
