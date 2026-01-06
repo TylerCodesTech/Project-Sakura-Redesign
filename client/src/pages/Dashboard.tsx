@@ -36,10 +36,10 @@ export default function Dashboard() {
   }, []);
 
   const systems = [
-    { name: "AI Engine", status: "Operational", color: "text-emerald-500", latency: "42ms" },
-    { name: "Document Store", status: "Operational", color: "text-emerald-500", latency: "12ms" },
-    { name: "Helpdesk API", status: "Degraded", color: "text-amber-500", latency: "850ms" },
-    { name: "Auth Service", status: "Operational", color: "text-emerald-500", latency: "24ms" },
+    { name: "AI Engine", status: "Operational", color: "bg-emerald-400", latency: "42ms" },
+    { name: "Document Store", status: "Operational", color: "bg-emerald-400", latency: "12ms" },
+    { name: "Helpdesk API", status: "Degraded", color: "bg-rose-400/30", latency: "850ms" },
+    { name: "Auth Service", status: "Operational", color: "bg-emerald-400", latency: "24ms" },
   ];
 
   return (
@@ -52,39 +52,39 @@ export default function Dashboard() {
             <p className="text-muted-foreground text-lg">Here's what's happening at Sakura Corp today.</p>
           </div>
           
-          <div className="flex items-center gap-4 p-1.5 bg-secondary/30 dark:bg-card/40 backdrop-blur-md rounded-2xl border border-border/50 shadow-sm">
-            <div className="flex items-center gap-2.5 px-3 py-2 bg-background/50 rounded-xl border border-border/50 shadow-sm">
-              <CloudSun className="w-4 h-4 text-amber-500" />
-              <span className="text-sm font-semibold">72°F</span>
+          <div className="flex items-center gap-4 p-2 bg-secondary/20 dark:bg-card/40 backdrop-blur-md rounded-[20px] border border-border/50 shadow-sm">
+            <div className="flex items-center gap-2.5 px-4 py-2.5 bg-background dark:bg-card rounded-2xl border border-border/50 shadow-sm">
+              <CloudSun className="w-5 h-5 text-amber-500" />
+              <span className="text-sm font-bold">72°F</span>
             </div>
             
-            <div className="flex items-center gap-2.5 px-3 py-2 bg-background/50 rounded-xl border border-border/50 shadow-sm">
-              <Clock className="w-4 h-4 text-primary" />
-              <span className="text-sm font-semibold tabular-nums">
-                {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            <div className="flex items-center gap-2.5 px-4 py-2.5 bg-background dark:bg-card rounded-2xl border border-border/50 shadow-sm">
+              <Clock className="w-5 h-5 text-primary" />
+              <span className="text-sm font-bold tabular-nums">
+                {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} PM
               </span>
             </div>
 
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <button className="flex items-center gap-2.5 px-3 py-2 bg-emerald-500/10 dark:bg-emerald-500/20 rounded-xl border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors cursor-help group">
-                    <Activity className="w-4 h-4 text-emerald-500 animate-pulse group-hover:scale-110 transition-transform" />
-                    <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Nominal</span>
+                  <button className="flex items-center gap-2.5 px-5 py-2.5 bg-emerald-100 dark:bg-emerald-500/20 rounded-2xl border border-emerald-200 dark:border-emerald-500/20 hover:bg-emerald-200 dark:hover:bg-emerald-500/30 transition-colors cursor-help group outline-none">
+                    <Activity className="w-5 h-5 text-emerald-600 dark:text-emerald-400 animate-pulse group-hover:scale-110 transition-transform" />
+                    <span className="text-xs font-black text-emerald-700 dark:text-emerald-400 uppercase tracking-widest">Nominal</span>
                   </button>
                 </TooltipTrigger>
-                <TooltipContent className="w-64 p-0 rounded-2xl overflow-hidden border-border shadow-2xl" sideOffset={10}>
-                  <div className="bg-secondary/50 p-3 border-b border-border">
-                    <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">System Infrastructure</h4>
+                <TooltipContent className="w-[320px] p-0 rounded-3xl overflow-hidden border-none shadow-[0_20px_50px_rgba(219,39,119,0.3)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)]" sideOffset={12} align="end">
+                  <div className="bg-primary/40 dark:bg-primary/60 backdrop-blur-md p-4 px-6 border-b border-white/10">
+                    <h4 className="text-[11px] font-black uppercase tracking-[0.3em] text-white/90">System Infrastructure</h4>
                   </div>
-                  <div className="p-4 space-y-4">
+                  <div className="bg-primary dark:bg-primary/90 p-6 space-y-5">
                     {systems.map((s) => (
-                      <div key={s.name} className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className={cn("w-2 h-2 rounded-full shadow-sm", s.color.replace('text', 'bg'))} />
-                          <span className="text-xs font-semibold">{s.name}</span>
+                      <div key={s.name} className="flex items-center justify-between group">
+                        <div className="flex items-center gap-4">
+                          <div className={cn("w-2.5 h-2.5 rounded-full shadow-[0_0_10px_rgba(52,211,153,0.5)]", s.color)} />
+                          <span className="text-sm font-bold text-white group-hover:translate-x-1 transition-transform">{s.name}</span>
                         </div>
-                        <div className="text-[10px] text-muted-foreground font-mono bg-secondary px-1.5 py-0.5 rounded">
+                        <div className="text-[10px] font-black text-white/90 bg-white/20 px-2 py-1 rounded-lg border border-white/10 backdrop-blur-sm min-w-[50px] text-center">
                           {s.latency}
                         </div>
                       </div>
@@ -103,7 +103,7 @@ export default function Dashboard() {
             <Card className="border border-border/50 shadow-sm rounded-3xl overflow-hidden bg-white/60 dark:bg-card/60 backdrop-blur-md">
               <CardHeader className="flex flex-row items-center gap-3 border-b border-border/40 pb-4 bg-secondary/10">
                 <Calendar className="w-5 h-5 text-primary" />
-                <CardTitle className="text-lg font-bold">Departments</CardTitle>
+                <CardTitle className="text-lg font-bold text-primary">Departments</CardTitle>
               </CardHeader>
               <CardContent className="py-16 flex flex-col items-center justify-center text-muted-foreground">
                 <div className="w-12 h-12 rounded-full bg-secondary/30 flex items-center justify-center mb-4">
@@ -117,7 +117,7 @@ export default function Dashboard() {
             <Card className="border border-border/50 shadow-sm rounded-3xl overflow-hidden bg-white/60 dark:bg-card/60 backdrop-blur-md">
               <CardHeader className="flex flex-row items-center justify-between border-b border-border/40 pb-4 bg-secondary/10">
                 <div className="flex items-center gap-3">
-                  <CardTitle className="text-lg font-bold">Watercooler</CardTitle>
+                  <CardTitle className="text-lg font-bold text-primary">Watercooler</CardTitle>
                   <Badge variant="outline" className="font-mono text-[10px] py-0 border-primary/20 bg-primary/5 text-primary">#general</Badge>
                 </div>
                 <div className="flex items-center gap-4">
@@ -163,7 +163,7 @@ export default function Dashboard() {
                   <div className="p-1.5 bg-indigo-500/10 rounded-lg">
                     <FileText className="w-4 h-4 text-indigo-500" />
                   </div>
-                  <CardTitle className="text-lg font-bold">Company News</CardTitle>
+                  <CardTitle className="text-lg font-bold text-primary">Company News</CardTitle>
                 </div>
                 <Button variant="ghost" size="sm" className="text-primary font-bold hover:bg-primary/5 px-4 rounded-xl">
                   View All
@@ -181,7 +181,7 @@ export default function Dashboard() {
             {/* Quick Actions Card */}
             <Card className="border border-border/50 shadow-sm rounded-3xl overflow-hidden bg-white/60 dark:bg-card/60 backdrop-blur-md p-6">
               <div className="flex items-center justify-between mb-8">
-                <CardTitle className="text-lg font-bold">Quick Actions</CardTitle>
+                <CardTitle className="text-lg font-bold text-primary">Quick Actions</CardTitle>
                 <div className="p-1.5 bg-secondary/50 rounded-lg">
                   <Activity className="w-4 h-4 text-muted-foreground" />
                 </div>
@@ -205,18 +205,18 @@ export default function Dashboard() {
 
             {/* Open Tickets Card */}
             <Card className="border border-border/50 shadow-sm rounded-3xl overflow-hidden bg-white/60 dark:bg-card/60 backdrop-blur-md">
-              <CardHeader className="flex flex-row items-center justify-between border-b border-border/40 pb-4 bg-rose-500/5">
+              <CardHeader className="flex flex-row items-center justify-between border-b border-border/40 pb-4 bg-primary/5">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-rose-500/10 flex items-center justify-center text-rose-500">
+                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
                     <MessageSquare className="w-4 h-4" />
                   </div>
-                  <CardTitle className="text-base font-bold">Open Tickets</CardTitle>
+                  <CardTitle className="text-base font-bold text-primary">Open Tickets</CardTitle>
                 </div>
-                <Badge variant="secondary" className="bg-rose-500/10 text-rose-600 border-none font-bold tabular-nums">0 Active</Badge>
+                <Badge variant="secondary" className="bg-primary/10 text-primary border-none font-bold tabular-nums">0 Active</Badge>
               </CardHeader>
               <CardContent className="p-6 text-center space-y-4">
                 <p className="text-sm text-muted-foreground font-medium opacity-60">No active tickets requiring your attention</p>
-                <Button className="w-full bg-rose-500/10 text-rose-600 hover:bg-rose-500/20 border-none shadow-none font-bold py-7 rounded-2xl transition-all">
+                <Button className="w-full bg-primary/10 text-primary hover:bg-primary/20 border-none shadow-none font-bold py-7 rounded-2xl transition-all">
                   <Plus className="w-4 h-4 mr-2" />
                   Create New Ticket
                 </Button>
@@ -230,9 +230,9 @@ export default function Dashboard() {
                   <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-500">
                     <Calendar className="w-4 h-4" />
                   </div>
-                  <CardTitle className="text-base font-bold">Volunteer Events</CardTitle>
+                  <CardTitle className="text-base font-bold text-primary">Volunteer Events</CardTitle>
                 </div>
-                <Button variant="ghost" size="sm" className="text-indigo-500 font-bold hover:bg-indigo-500/10 px-4 rounded-xl">Calendar</Button>
+                <Button variant="ghost" size="sm" className="text-primary font-bold hover:bg-primary/10 px-4 rounded-xl">Calendar</Button>
               </CardHeader>
               <CardContent className="py-16 flex flex-col items-center justify-center text-muted-foreground">
                 <p className="text-sm font-medium opacity-60 italic">No upcoming events scheduled</p>
