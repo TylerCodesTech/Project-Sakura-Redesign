@@ -1,15 +1,140 @@
 import { Layout } from "@/components/layout/Layout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { tickets, documents, recentActivity } from "@/lib/mockData";
-import { ArrowUpRight, CheckCircle2, Clock, FileText, MessageSquare, Plus, Sparkles } from "lucide-react";
+import { 
+  ArrowUpRight, 
+  CheckCircle2, 
+  Clock, 
+  FileText, 
+  MessageSquare, 
+  Plus, 
+  Sparkles,
+  PenLine,
+  Calendar,
+  LifeBuoy,
+  CloudSun,
+  Activity,
+  AlertCircle,
+  Wifi
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import abstractBg from "@assets/generated_images/abstract_sakura_nodes_network_background.png";
+import { useState, useEffect } from "react";
 
 export default function Dashboard() {
+  const [time, setTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const systems = [
+    { name: "AI Engine", status: "Operational", color: "text-green-500", latency: "42ms" },
+    { name: "Document Store", status: "Operational", color: "text-green-500", latency: "12ms" },
+    { name: "Helpdesk API", status: "Degraded", color: "text-amber-500", latency: "850ms" },
+    { name: "Auth Service", status: "Operational", color: "text-green-500", latency: "24ms" },
+  ];
+
   return (
     <Layout>
       <div className="space-y-8">
+        {/* Top Info Bar */}
+        <div className="flex flex-wrap items-center justify-between gap-4 bg-card/50 border border-border/50 rounded-2xl p-4 backdrop-blur-sm">
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-2">
+              <CloudSun className="w-5 h-5 text-blue-500" />
+              <div className="text-sm">
+                <span className="font-semibold">72°F</span>
+                <span className="text-muted-foreground ml-1">Partly Cloudy</span>
+              </div>
+            </div>
+            <div className="h-4 w-px bg-border hidden sm:block"></div>
+            <div className="flex items-center gap-2">
+              <Clock className="w-5 h-5 text-primary" />
+              <div className="text-sm font-medium tabular-nums">
+                {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </div>
+            </div>
+          </div>
+
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-500/10 border border-green-500/20 cursor-help">
+                  <Activity className="w-4 h-4 text-green-500 animate-pulse" />
+                  <span className="text-xs font-semibold text-green-600">All Systems Nominal*</span>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent className="w-64 p-0 rounded-xl overflow-hidden border-border shadow-xl">
+                <div className="bg-secondary/30 p-3 border-b border-border">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">System Health</h4>
+                </div>
+                <div className="p-3 space-y-3">
+                  {systems.map((s) => (
+                    <div key={s.name} className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className={cn("w-1.5 h-1.5 rounded-full", s.color.replace('text', 'bg'))} />
+                        <span className="text-xs font-medium">{s.name}</span>
+                      </div>
+                      <div className="text-[10px] text-muted-foreground font-mono">
+                        {s.latency}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+
+        {/* Quick Actions Grid */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Button variant="outline" className="h-auto flex-col items-start p-4 gap-3 rounded-2xl border-2 border-primary/5 hover:border-primary/20 hover:bg-primary/5 transition-all group">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
+              <MessageSquare className="w-5 h-5" />
+            </div>
+            <div className="text-left">
+              <p className="font-bold text-sm">New Ticket</p>
+              <p className="text-xs text-muted-foreground">Get technical help</p>
+            </div>
+          </Button>
+          <Button variant="outline" className="h-auto flex-col items-start p-4 gap-3 rounded-2xl border-2 border-rose-500/5 hover:border-rose-500/20 hover:bg-rose-500/5 transition-all group">
+            <div className="w-10 h-10 rounded-xl bg-rose-500/10 flex items-center justify-center text-rose-500 group-hover:scale-110 transition-transform">
+              <PenLine className="w-5 h-5" />
+            </div>
+            <div className="text-left">
+              <p className="font-bold text-sm">Write Doc</p>
+              <p className="text-xs text-muted-foreground">Create knowledge</p>
+            </div>
+          </Button>
+          <Button variant="outline" className="h-auto flex-col items-start p-4 gap-3 rounded-2xl border-2 border-amber-500/5 hover:border-amber-500/20 hover:bg-amber-500/5 transition-all group">
+            <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500 group-hover:scale-110 transition-transform">
+              <Calendar className="w-5 h-5" />
+            </div>
+            <div className="text-left">
+              <p className="font-bold text-sm">Book Room</p>
+              <p className="text-xs text-muted-foreground">Meeting spaces</p>
+            </div>
+          </Button>
+          <Button variant="outline" className="h-auto flex-col items-start p-4 gap-3 rounded-2xl border-2 border-indigo-500/5 hover:border-indigo-500/20 hover:bg-indigo-500/5 transition-all group">
+            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-500 group-hover:scale-110 transition-transform">
+              <LifeBuoy className="w-5 h-5" />
+            </div>
+            <div className="text-left">
+              <p className="font-bold text-sm">Get Help</p>
+              <p className="text-xs text-muted-foreground">24/7 AI Support</p>
+            </div>
+          </Button>
+        </div>
+
         {/* Hero Section */}
         <div className="relative overflow-hidden rounded-3xl bg-primary text-primary-foreground p-8 md:p-12 shadow-xl">
           <div 
@@ -31,57 +156,7 @@ export default function Dashboard() {
             <p className="text-primary-foreground/90 text-lg md:text-xl mb-8 leading-relaxed">
               You have <span className="font-semibold bg-white/20 px-1 rounded">4 high priority</span> tickets and <span className="font-semibold bg-white/20 px-1 rounded">2 documents</span> awaiting review today.
             </p>
-            <div className="flex flex-wrap gap-4">
-              <Button size="lg" variant="secondary" className="shadow-lg hover:shadow-xl transition-all font-semibold" data-testid="btn-view-tickets">
-                View Tickets
-              </Button>
-              <Button size="lg" className="bg-white/10 hover:bg-white/20 border border-white/20 shadow-none backdrop-blur-sm" data-testid="btn-ask-ai">
-                Ask AI Assistant
-              </Button>
-            </div>
           </div>
-        </div>
-
-        {/* Quick Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card className="hover:shadow-lg transition-all duration-300 border-none shadow-sm bg-gradient-to-br from-white to-purple-50/50">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Open Tickets</CardTitle>
-              <MessageSquare className="w-4 h-4 text-primary" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold font-display text-foreground">24</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                <span className="text-green-600 font-medium inline-flex items-center gap-1">
-                  <ArrowUpRight className="w-3 h-3" /> 12%
-                </span> from yesterday
-              </p>
-            </CardContent>
-          </Card>
-          <Card className="hover:shadow-lg transition-all duration-300 border-none shadow-sm bg-gradient-to-br from-white to-pink-50/50">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Pending Docs</CardTitle>
-              <FileText className="w-4 h-4 text-pink-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold font-display text-foreground">7</div>
-              <p className="text-xs text-muted-foreground mt-1">Needs your approval</p>
-            </CardContent>
-          </Card>
-          <Card className="hover:shadow-lg transition-all duration-300 border-none shadow-sm bg-gradient-to-br from-white to-blue-50/50">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Avg. Response Time</CardTitle>
-              <Clock className="w-4 h-4 text-blue-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold font-display text-foreground">1.2h</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                <span className="text-green-600 font-medium inline-flex items-center gap-1">
-                  <CheckCircle2 className="w-3 h-3" /> On track
-                </span>
-              </p>
-            </CardContent>
-          </Card>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -155,4 +230,8 @@ export default function Dashboard() {
       </div>
     </Layout>
   );
+}
+
+function cn(...inputs: any[]) {
+  return inputs.filter(Boolean).join(" ");
 }
