@@ -151,24 +151,61 @@ export default function TicketView() {
                 {/* Timeline Messages */}
                 {ticket.messages.map((msg) => (
                   <div key={msg.id} className={cn(
-                    "flex flex-col gap-2 animate-in slide-in-from-bottom-2 duration-300",
-                    msg.isInternal ? "items-end" : "items-start"
+                    "flex gap-4 animate-in slide-in-from-bottom-2 duration-300",
+                    msg.sender === ticket.creator.name ? "flex-row" : "flex-row-reverse"
                   )}>
-                    <div className={cn(
-                      "max-w-[80%] rounded-2xl p-4 shadow-sm border",
-                      msg.isInternal 
-                        ? "bg-primary/5 border-primary/20" 
-                        : "bg-background border-border/60"
+                    <Avatar className={cn(
+                      "h-10 w-10 border-2 shrink-0",
+                      msg.isInternal ? "border-amber-500/50" : 
+                      msg.sender === ticket.creator.name ? "border-primary/20" : "border-blue-500/20"
                     )}>
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="text-[10px] font-bold uppercase tracking-wider">
-                          {msg.sender} 
-                          <span className="ml-2 font-normal text-muted-foreground">({msg.role})</span>
+                      <AvatarFallback className={cn(
+                        "text-xs font-bold",
+                        msg.isInternal ? "bg-amber-500/10 text-amber-700" :
+                        msg.sender === ticket.creator.name ? "bg-primary/5 text-primary" : "bg-blue-500/10 text-blue-700"
+                      )}>
+                        {msg.sender[0]}
+                      </AvatarFallback>
+                    </Avatar>
+
+                    <div className={cn(
+                      "flex flex-col gap-1.5 max-w-[80%]",
+                      msg.sender === ticket.creator.name ? "items-start" : "items-end"
+                    )}>
+                      <div className={cn(
+                        "flex items-center gap-2 px-1",
+                        msg.sender === ticket.creator.name ? "flex-row" : "flex-row-reverse"
+                      )}>
+                        <span className="text-[11px] font-bold text-foreground/80 uppercase tracking-tight">
+                          {msg.sender}
                         </span>
-                        {msg.isInternal && <Badge variant="secondary" className="text-[8px] h-4 px-1 bg-amber-500/10 text-amber-600">Internal</Badge>}
-                        <span className="text-[10px] text-muted-foreground ml-auto">{msg.time}</span>
+                        <Badge variant="outline" className={cn(
+                          "text-[9px] h-4 px-1.5 font-bold uppercase",
+                          msg.isInternal ? "bg-amber-500 text-white border-transparent" :
+                          msg.role === "Agent" ? "bg-blue-500/10 text-blue-700 border-blue-200" : "bg-secondary text-secondary-foreground"
+                        )}>
+                          {msg.isInternal ? "Internal Note" : msg.role}
+                        </Badge>
                       </div>
-                      <p className="text-sm leading-relaxed">{msg.content}</p>
+
+                      <div className={cn(
+                        "rounded-2xl p-4 shadow-sm border-2 transition-all",
+                        msg.isInternal 
+                          ? "bg-amber-50/50 border-amber-200 shadow-amber-100/50" 
+                          : msg.sender === ticket.creator.name
+                            ? "bg-background border-border/60"
+                            : "bg-blue-50/50 border-blue-100 shadow-blue-100/50"
+                      )}>
+                        <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                      </div>
+
+                      <div className={cn(
+                        "flex items-center gap-1.5 px-2 text-[10px] font-medium text-muted-foreground",
+                        msg.sender === ticket.creator.name ? "flex-row" : "flex-row-reverse"
+                      )}>
+                        <Clock className="w-3 h-3" />
+                        {msg.time}
+                      </div>
                     </div>
                   </div>
                 ))}
