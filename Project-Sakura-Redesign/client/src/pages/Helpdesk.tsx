@@ -114,13 +114,7 @@ export default function Helpdesk() {
           </div>
         )}
 
-        <div className="flex items-center gap-4 justify-between">
-          <div className="flex items-center gap-3 flex-1 max-w-sm">
-            <div className="relative w-full">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input placeholder="Search tickets..." className="pl-10 bg-background border-border rounded-xl h-10 shadow-sm" />
-            </div>
-          </div>
+        <div className="flex items-center gap-4 justify-end">
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" className="h-10 rounded-xl gap-2 shadow-sm">
               <Filter className="w-4 h-4 text-muted-foreground" />
