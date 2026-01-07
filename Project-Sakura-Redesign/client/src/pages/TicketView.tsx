@@ -39,6 +39,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 export default function TicketView() {
   const [, setLocation] = useLocation();
   const [replyText, setReplyText] = useState("");
+  const [composerMode, setComposerMode] = useState<"reply" | "internal">("reply");
   
   // Mock ticket data
   const ticket = {
@@ -215,9 +216,39 @@ export default function TicketView() {
             {/* Input Area */}
             <div className="p-4 bg-background border-t border-border/60 backdrop-blur-md">
               <div className="max-w-4xl mx-auto">
-                <div className="bg-secondary/20 rounded-2xl border border-border p-2 focus-within:border-primary/50 transition-all shadow-sm">
+                <div className="flex items-center gap-1 mb-3 bg-secondary/20 p-1 rounded-xl w-fit">
+                  <Button 
+                    variant={composerMode === "reply" ? "secondary" : "ghost"}
+                    size="sm"
+                    className={cn(
+                      "rounded-lg h-8 px-4 text-xs font-bold transition-all",
+                      composerMode === "reply" && "bg-background shadow-sm"
+                    )}
+                    onClick={() => setComposerMode("reply")}
+                  >
+                    Public Reply
+                  </Button>
+                  <Button 
+                    variant={composerMode === "internal" ? "secondary" : "ghost"}
+                    size="sm"
+                    className={cn(
+                      "rounded-lg h-8 px-4 text-xs font-bold transition-all",
+                      composerMode === "internal" && "bg-amber-500 text-white shadow-sm hover:bg-amber-600"
+                    )}
+                    onClick={() => setComposerMode("internal")}
+                  >
+                    Internal Note
+                  </Button>
+                </div>
+
+                <div className={cn(
+                  "rounded-2xl border-2 p-2 transition-all shadow-sm",
+                  composerMode === "internal" 
+                    ? "bg-amber-50/50 border-amber-300 ring-4 ring-amber-500/10" 
+                    : "bg-secondary/20 border-border focus-within:border-primary/50"
+                )}>
                   <Textarea 
-                    placeholder="Type your response..." 
+                    placeholder={composerMode === "internal" ? "Type internal note..." : "Type your response..."} 
                     className="min-h-[100px] border-0 bg-transparent focus-visible:ring-0 resize-none text-sm p-3"
                     value={replyText}
                     onChange={(e) => setReplyText(e.target.value)}
@@ -244,17 +275,18 @@ export default function TicketView() {
                           <TooltipContent>Quick responses</TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
-                      <Separator orientation="vertical" className="h-4 mx-1" />
-                      <div className="flex items-center gap-2 px-2">
-                        <Switch id="internal-toggle" className="data-[state=checked]:bg-amber-500" />
-                        <Label htmlFor="internal-toggle" className="text-[10px] font-bold text-muted-foreground uppercase cursor-pointer">Internal Note</Label>
-                      </div>
                     </div>
                     <Button 
-                      className="rounded-xl h-9 px-4 gap-2 shadow-lg shadow-primary/20" 
+                      className={cn(
+                        "rounded-xl h-9 px-4 gap-2 shadow-lg transition-all",
+                        composerMode === "internal"
+                          ? "bg-amber-500 hover:bg-amber-600 shadow-amber-500/20 text-white"
+                          : "shadow-primary/20"
+                      )}
                       disabled={!replyText.trim()}
                     >
-                      Send Message <Send className="w-3.5 h-3.5" />
+                      {composerMode === "internal" ? "Add internal note" : "Send reply"} 
+                      <Send className="w-3.5 h-3.5" />
                     </Button>
                   </div>
                 </div>
