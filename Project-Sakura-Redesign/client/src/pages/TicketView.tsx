@@ -36,12 +36,43 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
+import { useEditor, EditorContent } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import Underline from '@tiptap/extension-underline';
+import Placeholder from '@tiptap/extension-placeholder';
+import { 
+  Bold, 
+  Italic, 
+  Underline as UnderlineIcon, 
+  List, 
+  ListOrdered, 
+  Quote, 
+  Undo, 
+  Redo,
+  Code
+} from "lucide-react";
+
 export default function TicketView() {
   const [, setLocation] = useLocation();
-  const [replyText, setReplyText] = useState("");
   const [composerMode, setComposerMode] = useState<"reply" | "internal">("reply");
   const [showMacros, setShowMacros] = useState(false);
   const [showMentions, setShowMentions] = useState(false);
+
+  const editor = useEditor({
+    extensions: [
+      StarterKit,
+      Underline,
+      Placeholder.configure({
+        placeholder: ({ node }) => {
+          return composerMode === "internal" ? "Type internal note..." : "Type your response...";
+        },
+      }),
+    ],
+    content: '',
+    onUpdate: ({ editor }) => {
+      // We'll use editor.getHTML() when sending
+    },
+  });
 
   const macros = [
     { id: 1, name: "Greeting", text: "Hello! Thank you for reaching out to Project Sakura support." },
@@ -56,12 +87,12 @@ export default function TicketView() {
   ];
 
   const handleMacroSelect = (text: string) => {
-    setReplyText(prev => prev + (prev ? "\n" : "") + text);
+    editor?.commands.insertContent(text);
     setShowMacros(false);
   };
 
   const handleMentionSelect = (name: string) => {
-    setReplyText(prev => prev + (prev ? " " : "") + "@" + name + " ");
+    editor?.commands.insertContent(` @${name} `);
     setShowMentions(false);
   };
   
@@ -266,18 +297,94 @@ export default function TicketView() {
                 </div>
 
                 <div className={cn(
-                  "rounded-2xl border-2 p-2 transition-all shadow-sm",
+                  "rounded-2xl border-2 transition-all shadow-sm flex flex-col",
                   composerMode === "internal" 
                     ? "bg-amber-50/50 border-amber-300 ring-4 ring-amber-500/10" 
                     : "bg-secondary/20 border-border focus-within:border-primary/50"
                 )}>
-                  <Textarea 
-                    placeholder={composerMode === "internal" ? "Type internal note..." : "Type your response..."} 
-                    className="min-h-[100px] border-0 bg-transparent focus-visible:ring-0 resize-none text-sm p-3"
-                    value={replyText}
-                    onChange={(e) => setReplyText(e.target.value)}
-                  />
-                  <div className="flex items-center justify-between px-2 pb-1">
+                  {/* Formatting Toolbar */}
+                  <div className="flex items-center gap-0.5 p-1.5 border-b border-border/40 bg-background/50 rounded-t-2xl overflow-x-auto no-scrollbar">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className={cn("h-7 w-7 rounded-md", editor?.isActive('bold') && "bg-secondary")}
+                      onClick={() => editor?.chain().focus().toggleBold().run()}
+                    >
+                      <Bold className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className={cn("h-7 w-7 rounded-md", editor?.isActive('italic') && "bg-secondary")}
+                      onClick={() => editor?.chain().focus().toggleItalic().run()}
+                    >
+                      <Italic className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className={cn("h-7 w-7 rounded-md", editor?.isActive('underline') && "bg-secondary")}
+                      onClick={() => editor?.chain().focus().toggleUnderline().run()}
+                    >
+                      <UnderlineIcon className="w-3.5 h-3.5" />
+                    </Button>
+                    <Separator orientation="vertical" className="h-4 mx-1" />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className={cn("h-7 w-7 rounded-md", editor?.isActive('bulletList') && "bg-secondary")}
+                      onClick={() => editor?.chain().focus().toggleBulletList().run()}
+                    >
+                      <List className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className={cn("h-7 w-7 rounded-md", editor?.isActive('orderedList') && "bg-secondary")}
+                      onClick={() => editor?.chain().focus().toggleOrderedList().run()}
+                    >
+                      <ListOrdered className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className={cn("h-7 w-7 rounded-md", editor?.isActive('blockquote') && "bg-secondary")}
+                      onClick={() => editor?.chain().focus().toggleBlockquote().run()}
+                    >
+                      <Quote className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className={cn("h-7 w-7 rounded-md", editor?.isActive('code') && "bg-secondary")}
+                      onClick={() => editor?.chain().focus().toggleCode().run()}
+                    >
+                      <Code className="w-3.5 h-3.5" />
+                    </Button>
+                    <Separator orientation="vertical" className="h-4 mx-1" />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 rounded-md"
+                      onClick={() => editor?.chain().focus().undo().run()}
+                    >
+                      <Undo className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 rounded-md"
+                      onClick={() => editor?.chain().focus().redo().run()}
+                    >
+                      <Redo className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+
+                  <div className="min-h-[120px] p-4 prose prose-sm max-w-none focus-within:outline-none ticket-editor">
+                    <EditorContent editor={editor} />
+                  </div>
+
+                  <div className="flex items-center justify-between px-3 pb-2 pt-1 border-t border-border/20">
                     <div className="flex items-center gap-1">
                       <TooltipProvider>
                         <Tooltip>
@@ -340,7 +447,7 @@ export default function TicketView() {
                           ? "bg-amber-500 hover:bg-amber-600 shadow-amber-500/20 text-white"
                           : "shadow-primary/20"
                       )}
-                      disabled={!replyText.trim()}
+                      disabled={!editor?.getText().trim()}
                     >
                       {composerMode === "internal" ? "Add internal note" : "Send reply"} 
                       <Send className="w-3.5 h-3.5" />
