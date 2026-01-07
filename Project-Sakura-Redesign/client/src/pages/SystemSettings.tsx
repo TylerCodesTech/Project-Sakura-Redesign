@@ -37,7 +37,8 @@ import {
   ChevronRight,
   ShieldCheck,
   Globe,
-  Settings as SettingsIcon
+  Settings as SettingsIcon,
+  Ticket
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
@@ -150,7 +151,7 @@ export default function SystemSettings() {
               <Clock className="w-4 h-4" /> Helpdesk & SLA
             </TabsTrigger>
             <TabsTrigger value="tickets" className="rounded-lg py-2 px-4 gap-2">
-              <FileText className="w-4 h-4" /> Ticket Pages
+              <Ticket className="w-4 h-4" /> Ticket Pages
             </TabsTrigger>
           </TabsList>
 
@@ -461,73 +462,43 @@ export default function SystemSettings() {
                                     <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
                                       <cat.icon className="w-6 h-6" />
                                     </div>
-                                    <div>
+                                    <div className="space-y-0.5">
                                       <h3 className="text-lg font-bold">{cat.label}</h3>
-                                      <p className="text-xs text-muted-foreground">Manage access levels for this category.</p>
+                                      <p className="text-xs text-muted-foreground">Configure {cat.label.toLowerCase()} access levels.</p>
                                     </div>
                                   </div>
-                                  <div className="flex items-center gap-2 bg-secondary/30 p-1 rounded-lg">
-                                    <Button variant="ghost" size="sm" className="h-7 text-[10px] font-bold uppercase tracking-wider">Select All</Button>
-                                    <div className="w-px h-3 bg-border mx-1" />
-                                    <Button variant="ghost" size="sm" className="h-7 text-[10px] font-bold uppercase tracking-wider text-destructive hover:text-destructive">Clear All</Button>
-                                  </div>
                                 </div>
-
-                                <div className="grid grid-cols-1 gap-3 pt-2">
+                                <Separator />
+                                <div className="grid gap-4">
                                   {cat.permissions.map((perm) => (
-                                    <div 
-                                      key={perm.id} 
-                                      className="flex items-start justify-between p-4 rounded-xl border border-border bg-card/50 hover:bg-card hover:border-primary/20 transition-all group relative overflow-hidden"
-                                    >
-                                      <div className="space-y-1 pr-12">
-                                        <div className="flex items-center gap-2">
-                                          <Label className="text-sm font-bold cursor-pointer" htmlFor={perm.id}>{perm.label}</Label>
-                                          <TooltipProvider>
-                                            <Tooltip>
-                                              <TooltipTrigger asChild>
-                                                <HelpCircle className="w-3.5 h-3.5 text-muted-foreground/60 cursor-help" />
-                                              </TooltipTrigger>
-                                              <TooltipContent className="max-w-[250px] p-3 rounded-xl shadow-xl">
-                                                <div className="space-y-1.5">
-                                                  <p className="font-bold text-xs">{perm.label}</p>
-                                                  <p className="text-[11px] leading-relaxed">{perm.desc}</p>
-                                                </div>
-                                              </TooltipContent>
-                                            </Tooltip>
-                                          </TooltipProvider>
-                                        </div>
-                                        <p className="text-xs text-muted-foreground leading-relaxed">{perm.desc}</p>
+                                    <div key={perm.id} className="flex items-start justify-between p-4 rounded-xl border bg-card hover:border-primary/50 transition-colors">
+                                      <div className="space-y-1">
+                                        <Label className="text-sm font-bold">{perm.label}</Label>
+                                        <p className="text-xs text-muted-foreground max-w-md">{perm.desc}</p>
                                       </div>
-                                      <div className="flex items-center h-full pt-1">
-                                        <Switch id={perm.id} className="data-[state=checked]:bg-primary" />
-                                      </div>
+                                      <Switch />
                                     </div>
                                   ))}
                                 </div>
                               </div>
                             ))}
                           </ScrollArea>
-                          <div className="p-4 bg-muted/10 border-t flex items-center gap-2">
-                            <ShieldCheck className="w-4 h-4 text-primary" />
-                            <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Enterprise Security Standards Applied</span>
-                          </div>
                         </div>
                       </div>
                     </DialogContent>
                   </Dialog>
                 </CardHeader>
                 <CardContent className="p-0">
-                  <div className="divide-y divide-border">
-                    {['Administrator', 'Support Agent', 'Contributor', 'Viewer'].map((role) => (
-                      <button 
-                        key={role} 
-                        className="w-full flex items-center justify-between p-4 text-left hover:bg-secondary/20 transition-colors focus:bg-primary/5 focus:outline-none group"
-                      >
+                  <div className="p-4 space-y-2">
+                    {["Administrator", "Support Agent", "Contributor", "Viewer"].map((role) => (
+                      <button key={role} className="w-full flex items-center justify-between p-2 hover:bg-secondary/20 rounded-lg group transition-colors">
                         <div className="flex items-center gap-3">
-                          <Shield className="w-4 h-4 text-primary" />
+                          <div className="w-8 h-8 rounded-md bg-secondary flex items-center justify-center">
+                            <Shield className="w-4 h-4 text-muted-foreground" />
+                          </div>
                           <span className="text-sm font-medium">{role}</span>
                         </div>
-                        <Lock className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <ChevronRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-all" />
                       </button>
                     ))}
                   </div>
@@ -535,128 +506,62 @@ export default function SystemSettings() {
               </Card>
 
               <Card className="md:col-span-2 border-border/40 shadow-sm">
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <div className="space-y-1">
-                    <CardTitle>Role Permissions: Support Agent</CardTitle>
-                    <CardDescription>Configure granular access for this specific role.</CardDescription>
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="w-5 h-5 text-primary" />
+                    <CardTitle>Security Policies</CardTitle>
                   </div>
-                  <Button size="sm">Save Changes</Button>
+                  <CardDescription>Configure platform-wide security and access controls.</CardDescription>
                 </CardHeader>
-                <CardContent className="p-0">
-                  <ScrollArea className="h-[500px]">
-                    <div className="p-6 space-y-8">
-                      {permissionCategories.map((cat) => (
-                        <div key={cat.id} className="space-y-4">
-                          <div className="flex items-center gap-2 text-muted-foreground">
-                            <cat.icon className="w-4 h-4" />
-                            <h3 className="text-xs font-bold uppercase tracking-wider">{cat.label}</h3>
-                          </div>
-                          <div className="grid grid-cols-1 gap-3">
-                            {cat.permissions.map((perm) => (
-                              <div key={perm.id} className="flex items-start justify-between p-4 rounded-xl bg-secondary/10 border border-border group hover:border-primary/20 transition-all">
-                                <div className="space-y-1">
-                                  <div className="flex items-center gap-2">
-                                    <Label className="text-sm font-semibold">{perm.label}</Label>
-                                    <TooltipProvider>
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <HelpCircle className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                          <p className="text-xs">{perm.desc}</p>
-                                        </TooltipContent>
-                                      </Tooltip>
-                                    </TooltipProvider>
-                                  </div>
-                                  <p className="text-xs text-muted-foreground">{perm.desc}</p>
-                                </div>
-                                <Switch defaultChecked={cat.id === 'helpdesk' && (perm.id.includes('view') || perm.id.includes('edit'))} />
-                              </div>
-                            ))}
-                          </div>
+                <CardContent className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label>Two-Factor Auth</Label>
+                          <p className="text-xs text-muted-foreground">Force 2FA for all users.</p>
                         </div>
-                      ))}
+                        <Switch />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label>SAML/SSO</Label>
+                          <p className="text-xs text-muted-foreground">Enable enterprise sign-on.</p>
+                        </div>
+                        <Switch defaultChecked />
+                      </div>
                     </div>
-                  </ScrollArea>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="org" className="space-y-6">
-            <Card className="border-border/40 shadow-sm">
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle>Departments</CardTitle>
-                  <CardDescription>Structure your organization into departments.</CardDescription>
-                </div>
-                <Button className="gap-2" variant="outline">
-                  <Plus className="w-4 h-4" /> Add Department
-                </Button>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {['Product Engineering', 'Customer Success', 'Marketing', 'Human Resources'].map((dept) => (
-                    <div key={dept} className="flex items-center justify-between p-4 rounded-xl border border-border bg-secondary/10 group">
-                      <span className="font-medium">{dept}</span>
-                      <Button size="sm" variant="ghost" className="opacity-0 group-hover:opacity-100 transition-opacity">Manage</Button>
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label>Password Rotation</Label>
+                        <Select defaultValue="90">
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="30">Every 30 days</SelectItem>
+                            <SelectItem value="90">Every 90 days</SelectItem>
+                            <SelectItem value="never">Never expire</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="helpdesk" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card className="border-border/40 shadow-sm">
-                <CardHeader>
-                  <CardTitle>SLA Policies</CardTitle>
-                  <CardDescription>Define response and resolution targets.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="p-4 rounded-lg border border-border bg-secondary/10 space-y-2">
-                    <div className="flex justify-between items-center">
-                      <span className="font-semibold">Urgent Priority</span>
-                      <Badge variant="destructive">Critical</Badge>
-                    </div>
-                    <p className="text-xs text-muted-foreground">Response: 1h | Resolution: 4h</p>
                   </div>
-                  <Button variant="outline" className="w-full gap-2">
-                    <Plus className="w-4 h-4" /> Add SLA Tier
-                  </Button>
-                </CardContent>
-              </Card>
-
-              <Card className="border-border/40 shadow-sm">
-                <CardHeader>
-                  <CardTitle>Business Hours</CardTitle>
-                  <CardDescription>When is your helpdesk active?</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <Label>Support Schedule</Label>
-                    <Select defaultValue="24-7">
-                      <SelectTrigger className="w-[180px]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="24-7">24/7 Support</SelectItem>
-                        <SelectItem value="weekday">Mon-Fri (9-5)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <Label>Timezone</Label>
-                    <Select defaultValue="utc">
-                      <SelectTrigger className="w-[180px]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="utc">UTC</SelectItem>
-                        <SelectItem value="est">EST</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <Separator />
+                  <div className="space-y-4">
+                    <Label className="text-sm font-bold">IP Allowlist</Label>
+                    <div className="flex gap-2">
+                      <Input placeholder="0.0.0.0/0" className="bg-secondary/20" />
+                      <Button variant="outline">Add IP</Button>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Badge variant="secondary" className="gap-1.5 py-1 pr-1 pl-2">
+                        192.168.1.1 <button className="hover:text-destructive"><Check className="w-3 h-3 rotate-45" /></button>
+                      </Badge>
+                      <Badge variant="secondary" className="gap-1.5 py-1 pr-1 pl-2">
+                        10.0.0.1 <button className="hover:text-destructive"><Check className="w-3 h-3 rotate-45" /></button>
+                      </Badge>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -664,35 +569,124 @@ export default function SystemSettings() {
           </TabsContent>
 
           <TabsContent value="tickets" className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card className="border-border/40 shadow-sm">
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <Plus className="w-5 h-5 text-primary" />
+                    <CardTitle>Ticket Creation Forms</CardTitle>
+                  </div>
+                  <CardDescription>Manage fields and layout for the ticket creation page.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/20 border border-border">
+                      <div className="space-y-0.5">
+                        <p className="text-sm font-medium">Standard Support Form</p>
+                        <p className="text-xs text-muted-foreground">Default form for all departments.</p>
+                      </div>
+                      <Button variant="ghost" size="sm">Edit Fields</Button>
+                    </div>
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/20 border border-border">
+                      <div className="space-y-0.5">
+                        <p className="text-sm font-medium">Engineering Incident</p>
+                        <p className="text-xs text-muted-foreground">High priority technical issues.</p>
+                      </div>
+                      <Button variant="ghost" size="sm">Edit Fields</Button>
+                    </div>
+                  </div>
+                  <Button className="w-full gap-2" variant="outline">
+                    <Plus className="w-4 h-4" /> Create New Form Type
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card className="border-border/40 shadow-sm">
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <SettingsIcon className="w-5 h-5 text-primary" />
+                    <CardTitle>Global Ticket Defaults</CardTitle>
+                  </div>
+                  <CardDescription>Configure automatic behaviors for new tickets.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Default Priority</Label>
+                    <Select defaultValue="medium">
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="low">Low</SelectItem>
+                        <SelectItem value="medium">Medium</SelectItem>
+                        <SelectItem value="high">High</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-center justify-between pt-2">
+                    <div className="space-y-0.5">
+                      <Label>Auto-Assign to Dept</Label>
+                      <p className="text-xs text-muted-foreground">Route based on user department.</p>
+                    </div>
+                    <Switch defaultChecked />
+                  </div>
+                  <div className="flex items-center justify-between pt-2">
+                    <div className="space-y-0.5">
+                      <Label>Enable Public Access</Label>
+                      <p className="text-xs text-muted-foreground">Allow non-users to submit tickets via email.</p>
+                    </div>
+                    <Switch />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="helpdesk" className="space-y-6">
             <Card className="border-border/40 shadow-sm">
               <CardHeader>
-                <CardTitle>Custom Ticket Pages</CardTitle>
-                <CardDescription>Configure specialized intake forms for different ticket types.</CardDescription>
+                <div className="flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-primary" />
+                  <CardTitle>SLA & Business Hours</CardTitle>
+                </div>
+                <CardDescription>Define response times and operation hours for support.</CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="p-6 rounded-2xl border-2 border-dashed border-border flex flex-col items-center justify-center gap-4 text-center hover:bg-secondary/10 transition-colors cursor-pointer group">
-                      <div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center group-hover:bg-primary/10 group-hover:text-primary transition-colors">
-                        <Plus className="w-6 h-6" />
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">SLA Policies</h3>
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <Label>High Priority</Label>
+                          <span className="text-xs font-mono">1 Hour</span>
+                        </div>
+                        <Input type="number" defaultValue="60" />
                       </div>
-                      <div>
-                        <h4 className="font-semibold">Create New Form</h4>
-                        <p className="text-xs text-muted-foreground">Build a custom intake experience.</p>
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <Label>Medium Priority</Label>
+                          <span className="text-xs font-mono">4 Hours</span>
+                        </div>
+                        <Input type="number" defaultValue="240" />
                       </div>
                     </div>
-                    <div className="p-6 rounded-2xl border border-border bg-secondary/5 space-y-4">
-                      <div className="flex justify-between items-start">
-                        <div className="space-y-1">
-                          <h4 className="font-semibold">IT Support Form</h4>
-                          <p className="text-xs text-muted-foreground text-emerald-600 font-medium">Active</p>
-                        </div>
-                        <Badge variant="outline">Default</Badge>
+                  </div>
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Business Hours</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Start Time</Label>
+                        <Input type="time" defaultValue="09:00" />
                       </div>
-                      <div className="flex gap-2 pt-2">
-                        <Button size="sm" variant="secondary" className="flex-1">Edit Designer</Button>
-                        <Button size="sm" variant="ghost">Preview</Button>
+                      <div className="space-y-2">
+                        <Label>End Time</Label>
+                        <Input type="time" defaultValue="17:00" />
                       </div>
+                    </div>
+                    <div className="flex items-center gap-2 pt-2">
+                      <Globe className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-xs">Timezone: (GMT-08:00) Pacific Time</span>
                     </div>
                   </div>
                 </div>
