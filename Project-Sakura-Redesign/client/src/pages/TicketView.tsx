@@ -40,6 +40,30 @@ export default function TicketView() {
   const [, setLocation] = useLocation();
   const [replyText, setReplyText] = useState("");
   const [composerMode, setComposerMode] = useState<"reply" | "internal">("reply");
+  const [showMacros, setShowMacros] = useState(false);
+  const [showMentions, setShowMentions] = useState(false);
+
+  const macros = [
+    { id: 1, name: "Greeting", text: "Hello! Thank you for reaching out to Project Sakura support." },
+    { id: 2, name: "Request Info", text: "To help us investigate further, could you please provide more details about the steps to reproduce this issue?" },
+    { id: 3, name: "Resolved", text: "We have resolved the issue you reported. Please let us know if you need any further assistance." },
+  ];
+
+  const teammates = [
+    { id: 1, name: "Sarah Chen", role: "Product Manager" },
+    { id: 2, name: "Alex Kumar", role: "Support Lead" },
+    { id: 3, name: "Elena Rodriguez", role: "Developer" },
+  ];
+
+  const handleMacroSelect = (text: string) => {
+    setReplyText(prev => prev + (prev ? "\n" : "") + text);
+    setShowMacros(false);
+  };
+
+  const handleMentionSelect = (name: string) => {
+    setReplyText(prev => prev + (prev ? " " : "") + "@" + name + " ");
+    setShowMentions(false);
+  };
   
   // Mock ticket data
   const ticket = {
@@ -265,16 +289,49 @@ export default function TicketView() {
                           <TooltipContent>Attach files</TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg">
-                              <Zap className="w-4 h-4 text-muted-foreground" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>Quick responses</TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
+
+                      <DropdownMenu open={showMacros} onOpenChange={setShowMacros}>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg">
+                            <Zap className="w-4 h-4 text-muted-foreground" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" className="w-64 rounded-xl">
+                          <div className="p-2 pb-1 text-[10px] font-bold text-muted-foreground uppercase">Macros</div>
+                          {macros.map(macro => (
+                            <DropdownMenuItem key={macro.id} onClick={() => handleMacroSelect(macro.text)}>
+                              <div className="flex flex-col gap-0.5">
+                                <span className="text-xs font-bold">{macro.name}</span>
+                                <span className="text-[10px] text-muted-foreground line-clamp-1">{macro.text}</span>
+                              </div>
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+
+                      <DropdownMenu open={showMentions} onOpenChange={setShowMentions}>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg">
+                            <User className="w-4 h-4 text-muted-foreground" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" className="w-64 rounded-xl">
+                          <div className="p-2 pb-1 text-[10px] font-bold text-muted-foreground uppercase">Mention Teammate</div>
+                          {teammates.map(user => (
+                            <DropdownMenuItem key={user.id} onClick={() => handleMentionSelect(user.name)}>
+                              <div className="flex items-center gap-2">
+                                <Avatar className="h-5 w-5">
+                                  <AvatarFallback className="text-[8px]">{user.name[0]}</AvatarFallback>
+                                </Avatar>
+                                <div className="flex flex-col gap-0.5">
+                                  <span className="text-xs font-bold">{user.name}</span>
+                                  <span className="text-[10px] text-muted-foreground">{user.role}</span>
+                                </div>
+                              </div>
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                     <Button 
                       className={cn(
