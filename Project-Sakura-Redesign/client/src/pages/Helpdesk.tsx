@@ -23,9 +23,12 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
+import { useLocation } from "wouter";
+
 export default function Helpdesk() {
   const [activeView, setActiveView] = useState("all");
   const [displayMode, setDisplayMode] = useState("list"); // list, card, kanban
+  const [, setLocation] = useLocation();
 
   const filteredTickets = tickets.filter(ticket => {
     if (activeView === "assigned") return ticket.assignee === "Sarah C.";
@@ -138,7 +141,11 @@ export default function Helpdesk() {
               </TableHeader>
               <TableBody>
                 {filteredTickets.map((ticket) => (
-                  <TableRow key={ticket.id} className="hover:bg-secondary/10 cursor-pointer group border-b border-border/50">
+                  <TableRow 
+                    key={ticket.id} 
+                    className="hover:bg-secondary/10 cursor-pointer group border-b border-border/50"
+                    onClick={() => setLocation(`/helpdesk/ticket/${ticket.id}`)}
+                  >
                     <TableCell className="font-mono text-xs text-muted-foreground pl-6">{ticket.id}</TableCell>
                     <TableCell>
                       <div className="font-semibold text-sm text-foreground group-hover:text-primary transition-colors">
@@ -186,7 +193,11 @@ export default function Helpdesk() {
         {displayMode === "card" && (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {filteredTickets.map((ticket) => (
-              <Card key={ticket.id} className="hover:border-primary/50 transition-all cursor-pointer group shadow-sm">
+              <Card 
+                key={ticket.id} 
+                className="hover:border-primary/50 transition-all cursor-pointer group shadow-sm"
+                onClick={() => setLocation(`/helpdesk/ticket/${ticket.id}`)}
+              >
                 <CardHeader className="pb-3">
                   <div className="flex justify-between items-start mb-2">
                     <Badge variant="secondary" className="font-mono text-[10px]">{ticket.id}</Badge>
@@ -248,7 +259,11 @@ export default function Helpdesk() {
                   <ScrollArea className="flex-1 bg-secondary/5 border border-border/40 rounded-2xl p-3">
                     <div className="flex flex-col gap-3">
                       {colTickets.map((ticket) => (
-                        <Card key={ticket.id} className="shadow-sm hover:border-primary/40 transition-all cursor-pointer">
+                        <Card 
+                          key={ticket.id} 
+                          className="shadow-sm hover:border-primary/40 transition-all cursor-pointer"
+                          onClick={() => setLocation(`/helpdesk/ticket/${ticket.id}`)}
+                        >
                           <CardHeader className="p-3 pb-2">
                             <div className="flex justify-between items-start mb-1.5">
                               <span className="text-[9px] font-mono text-muted-foreground">{ticket.id}</span>
