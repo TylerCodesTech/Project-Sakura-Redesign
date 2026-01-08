@@ -37,6 +37,23 @@ export async function registerRoutes(
     res.sendStatus(204);
   });
 
+  app.patch("/api/external-links/reorder", async (req, res) => {
+    const { ids } = req.body;
+    if (!Array.isArray(ids)) return res.sendStatus(400);
+    
+    try {
+      await Promise.all(
+        ids.map((id: string, index: number) => 
+          storage.updateExternalLink(id, { order: index.toString() })
+        )
+      );
+      res.sendStatus(204);
+    } catch (error) {
+      console.error("Reorder error:", error);
+      res.sendStatus(500);
+    }
+  });
+
   app.get("/api/notifications/:userId", async (req, res) => {
     const notifications = await storage.getNotifications(req.params.userId);
     res.json(notifications);
