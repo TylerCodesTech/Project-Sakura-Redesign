@@ -405,7 +405,13 @@ export function Header() {
               </DropdownMenuItem>
             </Link>
             <DropdownMenuSeparator className="mx-[-8px] my-2" />
-            <DropdownMenuItem className="rounded-lg gap-2 cursor-pointer text-destructive focus:text-destructive">
+            <DropdownMenuItem 
+              className="rounded-lg gap-2 cursor-pointer text-destructive focus:text-destructive"
+              onClick={() => {
+                // In a real app, we'd call a logout API here
+                window.location.href = "/login";
+              }}
+            >
               <LogOut className="w-4 h-4" />
               Log out
             </DropdownMenuItem>
