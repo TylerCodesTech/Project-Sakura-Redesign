@@ -1,4 +1,4 @@
-import { Search, Bell, HelpCircle, X, Sparkles, User, Settings, LogOut, Moon, Sun, Monitor, Mail, MessageSquare, Globe } from "lucide-react";
+import { Search, Bell, HelpCircle, X, Sparkles, User, Settings, LogOut, Moon, Sun, Monitor, Mail, MessageSquare, Globe, Loader2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { currentUser, navItems } from "@/lib/mockData";
 import { Input } from "@/components/ui/input";
@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/popover";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { type Notification, type User as DBUser } from "@shared/schema";
+import { type Notification, type User as DBUser, type ExternalLink } from "@shared/schema";
 import { formatDistanceToNow } from "date-fns";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
@@ -42,6 +42,10 @@ export function Header() {
   const [isLauncherOpen, setIsLauncherOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('system');
+
+  const { data: links = [], isLoading: isLoadingLinks } = useQuery<ExternalLink[]>({
+    queryKey: ["/api/external-links"],
+  });
 
   const { data: notifications = [] } = useQuery<Notification[]>({
     queryKey: ["/api/notifications", currentUser.id],
@@ -179,28 +183,40 @@ export function Header() {
                   <h3 className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-4">Resources</h3>
                   <div className="grid grid-cols-4 gap-4">
                     {/* Native App Links */}
-                    <a 
-                      href="https://google.com" 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="flex flex-col items-center gap-3 group"
-                    >
-                      <div className="w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 group-hover:scale-110 group-hover:shadow-lg bg-secondary/50 text-muted-foreground overflow-hidden">
-                        <img 
-                          src={`/api/proxy-favicon?url=https://google.com`} 
-                          alt="Google"
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).style.display = 'none';
-                            (e.target as HTMLImageElement).parentElement?.classList.add('flex');
-                          }}
-                        />
-                        <Globe className="w-7 h-7 absolute" />
+                    {isLoadingLinks ? (
+                      <div className="col-span-4 py-8 flex justify-center">
+                        <Loader2 className="w-6 h-6 animate-spin text-primary/30" />
                       </div>
-                      <span className="text-xs font-medium text-foreground group-hover:text-primary transition-colors text-center line-clamp-1">
-                        Google
-                      </span>
-                    </a>
+                    ) : links.length === 0 ? (
+                      <div className="col-span-4 py-8 flex flex-col items-center justify-center bg-secondary/20 rounded-xl border border-dashed border-border">
+                        <p className="text-sm text-muted-foreground">No resources available</p>
+                      </div>
+                    ) : (
+                      links.map((link) => (
+                        <a 
+                          key={link.id}
+                          href={link.url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="flex flex-col items-center gap-3 group"
+                        >
+                          <div className="w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 group-hover:scale-110 group-hover:shadow-lg bg-secondary/50 text-muted-foreground overflow-hidden relative">
+                            <img 
+                              src={`/api/proxy-favicon?url=${encodeURIComponent(link.url)}`} 
+                              alt={link.title}
+                              className="w-full h-full object-cover z-10 relative"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).style.display = 'none';
+                              }}
+                            />
+                            <Globe className="w-7 h-7 absolute inset-0 m-auto z-0" />
+                          </div>
+                          <span className="text-xs font-medium text-foreground group-hover:text-primary transition-colors text-center line-clamp-1">
+                            {link.title}
+                          </span>
+                        </a>
+                      ))
+                    )}
                   </div>
                 </div>
               </div>
