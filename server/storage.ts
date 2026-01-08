@@ -8,21 +8,16 @@ import {
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
-// modify the interface with any CRUD methods
-// you might need
-
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   getUsersByDepartment(department: string): Promise<User[]>;
   createUser(user: InsertUser): Promise<User>;
   
-  // Book operations
   getBooks(): Promise<Book[]>;
   getBook(id: string): Promise<Book | undefined>;
   createBook(book: InsertBook): Promise<Book>;
   
-  // Page operations
   getPages(bookId: string): Promise<Page[]>;
   getPage(id: string): Promise<Page | undefined>;
   getPageByTitle(bookId: string, title: string): Promise<Page | undefined>;
@@ -30,16 +25,13 @@ export interface IStorage {
   createPage(page: InsertPage): Promise<Page>;
   updatePage(id: string, page: Partial<InsertPage>): Promise<Page>;
 
-  // Comment operations
   getComments(pageId: string): Promise<Comment[]>;
   createComment(comment: InsertComment): Promise<Comment>;
 
-  // Notification operations
   getNotifications(userId: string): Promise<Notification[]>;
   createNotification(notification: InsertNotification): Promise<Notification>;
   markNotificationRead(id: string): Promise<Notification>;
 
-  // External Link operations
   getExternalLinks(): Promise<ExternalLink[]>;
   createExternalLink(link: InsertExternalLink): Promise<ExternalLink>;
   deleteExternalLink(id: string): Promise<void>;
@@ -61,8 +53,6 @@ export class MemStorage implements IStorage {
     this.notifications = new Map();
     this.externalLinks = new Map();
   }
-
-  // ... (existing methods)
 
   async getUser(id: string): Promise<User | undefined> {
     return this.users.get(id);
@@ -218,139 +208,6 @@ export class MemStorage implements IStorage {
 
   async deleteExternalLink(id: string): Promise<void> {
     this.externalLinks.delete(id);
-  }
-}
-
-export const storage = new MemStorage();
-
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
-  }
-
-  async getUsersByDepartment(department: string): Promise<User[]> {
-    return Array.from(this.users.values()).filter(
-      (user) => user.department === department
-    );
-  }
-
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = { ...insertUser, id, department: insertUser.department ?? "General" };
-    this.users.set(id, user);
-    return user;
-  }
-
-  async getBooks(): Promise<Book[]> {
-    return Array.from(this.books.values());
-  }
-
-  async getBook(id: string): Promise<Book | undefined> {
-    return this.books.get(id);
-  }
-
-  async createBook(insertBook: InsertBook): Promise<Book> {
-    const id = randomUUID();
-    const book: Book = { 
-      ...insertBook, 
-      id,
-      description: insertBook.description ?? null 
-    };
-    this.books.set(id, book);
-    return book;
-  }
-
-  async getPages(bookId?: string): Promise<Page[]> {
-    if (bookId) {
-      return Array.from(this.pages.values()).filter(p => p.bookId === bookId);
-    }
-    return Array.from(this.pages.values());
-  }
-
-  async getStandalonePages(): Promise<Page[]> {
-    return Array.from(this.pages.values()).filter(p => !p.bookId);
-  }
-
-  async getPage(id: string): Promise<Page | undefined> {
-    return this.pages.get(id);
-  }
-
-  async getPageByTitle(bookId: string, title: string): Promise<Page | undefined> {
-    return Array.from(this.pages.values()).find(
-      p => p.bookId === bookId && p.title.toLowerCase() === title.toLowerCase()
-    );
-  }
-
-  async createPage(insertPage: InsertPage): Promise<Page> {
-    const id = randomUUID();
-    const page: Page = { 
-      ...insertPage, 
-      id,
-      bookId: insertPage.bookId ?? null,
-      type: insertPage.type ?? "page",
-      parentId: insertPage.parentId ?? null,
-      order: insertPage.order ?? "0",
-      status: insertPage.status ?? "draft",
-      reviewerId: insertPage.reviewerId ?? null,
-    };
-    this.pages.set(id, page);
-    return page;
-  }
-
-  async updatePage(id: string, update: Partial<InsertPage>): Promise<Page> {
-    const existing = this.pages.get(id);
-    if (!existing) throw new Error("Page not found");
-    const updated = { ...existing, ...update };
-    this.pages.set(id, updated);
-    return updated;
-  }
-
-  async getComments(pageId: string): Promise<Comment[]> {
-    return Array.from(this.comments.values()).filter(c => c.pageId === pageId);
-  }
-
-  async createComment(insertComment: InsertComment): Promise<Comment> {
-    const id = randomUUID();
-    const comment: Comment = { ...insertComment, id, createdAt: new Date().toISOString() };
-    this.comments.set(id, comment);
-    return comment;
-  }
-
-  async getNotifications(userId: string): Promise<Notification[]> {
-    return Array.from(this.notifications.values())
-      .filter(n => n.userId === userId)
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  }
-
-  async getActiveReviewNotification(userId: string, pageId: string): Promise<Notification | undefined> {
-    return Array.from(this.notifications.values()).find(
-      n => n.userId === userId && n.targetId === pageId && n.title === "New Page for Review" && n.read === "false"
-    );
-  }
-
-  async createNotification(insertNotification: InsertNotification): Promise<Notification> {
-    const id = randomUUID();
-    const notification: Notification = { 
-      id,
-      userId: insertNotification.userId,
-      title: insertNotification.title,
-      message: insertNotification.message,
-      read: "false",
-      link: insertNotification.link ?? null,
-      targetId: insertNotification.targetId ?? null,
-      createdAt: new Date().toISOString()
-    };
-    this.notifications.set(id, notification);
-    return notification;
-  }
-
-  async markNotificationRead(id: string): Promise<Notification> {
-    const existing = this.notifications.get(id);
-    if (!existing) throw new Error("Notification not found");
-    const updated = { ...existing, read: "true" };
-    this.notifications.set(id, updated);
-    return updated;
   }
 }
 

@@ -696,6 +696,37 @@ export default function SystemSettings() {
               </CardContent>
             </Card>
           </TabsContent>
+          <TabsContent value="links" className="space-y-6">
+            <Card className="border-border/40 shadow-sm">
+              <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <CardTitle>Custom App Links</CardTitle>
+                  <CardDescription>Add external resources and tools to the app launcher.</CardDescription>
+                </div>
+                <Button size="sm" className="gap-2 h-9">
+                  <Plus className="w-4 h-4" /> Add Link
+                </Button>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-4 bg-secondary/10 rounded-xl border border-border/50 group">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                        <Globe className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold">Google</p>
+                        <p className="text-xs text-muted-foreground">https://google.com</p>
+                      </div>
+                    </div>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10">
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
       </div>
     </Layout>
