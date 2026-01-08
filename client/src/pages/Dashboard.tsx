@@ -13,7 +13,11 @@ import {
   AlertCircle,
   Smile,
   Paperclip,
-  SendHorizontal
+  SendHorizontal,
+  TrendingUp,
+  Users,
+  Building2,
+  Bell
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,9 +30,15 @@ import {
 } from "@/components/ui/tooltip";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
+import { useQuery } from "@tanstack/react-query";
+import { type Department } from "@shared/schema";
 
 export default function Dashboard() {
   const [time, setTime] = useState(new Date());
+
+  const { data: departments = [], isLoading: isLoadingDepts } = useQuery<Department[]>({
+    queryKey: ["/api/departments"],
+  });
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
@@ -40,6 +50,13 @@ export default function Dashboard() {
     { name: "Document Store", status: "Operational", color: "bg-emerald-400", latency: "12ms" },
     { name: "Helpdesk API", status: "Degraded", color: "bg-rose-400/30", latency: "850ms" },
     { name: "Auth Service", status: "Operational", color: "bg-emerald-400", latency: "24ms" },
+  ];
+
+  const stats = [
+    { label: "Active Tickets", value: "12", change: "+2", icon: Activity, color: "text-blue-500", bg: "bg-blue-50" },
+    { label: "Internal Docs", value: "48", change: "+5", icon: FileText, color: "text-emerald-500", bg: "bg-emerald-50" },
+    { label: "Departments", value: departments.length.toString(), change: "0", icon: Building2, color: "text-purple-500", bg: "bg-purple-50" },
+    { label: "Team Members", value: "24", change: "+1", icon: Users, color: "text-amber-500", bg: "bg-amber-50" },
   ];
 
   return (
@@ -96,20 +113,71 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {/* Stats Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {stats.map((stat) => (
+            <Card key={stat.label} className="border border-border/50 shadow-sm rounded-3xl bg-white/60 dark:bg-card/60 backdrop-blur-md hover:scale-[1.02] transition-transform cursor-default">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className={cn("p-3 rounded-2xl", stat.bg)}>
+                    <stat.icon className={cn("w-6 h-6", stat.color)} />
+                  </div>
+                  <Badge variant="outline" className="border-primary/20 bg-primary/5 text-primary text-[10px] font-bold">
+                    <TrendingUp className="w-3 h-3 mr-1" />
+                    {stat.change}
+                  </Badge>
+                </div>
+                <div>
+                  <h3 className="text-2xl font-black text-foreground">{stat.value}</h3>
+                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">{stat.label}</p>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           {/* Main Content Column */}
           <div className="lg:col-span-8 space-y-8">
             {/* Departments Card */}
             <Card className="border border-border/50 shadow-sm rounded-3xl overflow-hidden bg-white/60 dark:bg-card/60 backdrop-blur-md">
-              <CardHeader className="flex flex-row items-center gap-3 border-b border-border/40 pb-4 bg-secondary/10">
-                <Calendar className="w-5 h-5 text-primary" />
-                <CardTitle className="text-lg font-bold text-primary">Departments</CardTitle>
-              </CardHeader>
-              <CardContent className="py-16 flex flex-col items-center justify-center text-muted-foreground">
-                <div className="w-12 h-12 rounded-full bg-secondary/30 flex items-center justify-center mb-4">
-                  <Plus className="w-6 h-6 opacity-20" />
+              <CardHeader className="flex flex-row items-center justify-between border-b border-border/40 pb-4 bg-secondary/10">
+                <div className="flex items-center gap-3">
+                  <Building2 className="w-5 h-5 text-primary" />
+                  <CardTitle className="text-lg font-bold text-primary">Departments</CardTitle>
                 </div>
-                <p className="text-sm font-medium opacity-60">No departments found</p>
+                <Button variant="ghost" size="sm" className="text-primary font-bold hover:bg-primary/5 px-4 rounded-xl">
+                  Manage
+                </Button>
+              </CardHeader>
+              <CardContent className="p-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {isLoadingDepts ? (
+                    Array.from({ length: 2 }).map((_, i) => (
+                      <div key={i} className="h-20 rounded-2xl bg-secondary/20 animate-pulse" />
+                    ))
+                  ) : departments.length === 0 ? (
+                    <div className="col-span-2 py-12 flex flex-col items-center justify-center text-muted-foreground">
+                      <div className="w-12 h-12 rounded-full bg-secondary/30 flex items-center justify-center mb-4">
+                        <Plus className="w-6 h-6 opacity-20" />
+                      </div>
+                      <p className="text-sm font-medium opacity-60">No departments found</p>
+                    </div>
+                  ) : (
+                    departments.slice(0, 4).map((dept) => (
+                      <div key={dept.id} className="p-4 rounded-2xl border border-border/50 bg-background/50 hover:bg-background transition-colors flex items-center justify-between group">
+                        <div className="flex items-center gap-3">
+                          <div className="w-2 h-8 rounded-full" style={ { backgroundColor: dept.color } } />
+                          <div>
+                            <p className="text-sm font-bold">{dept.name}</p>
+                            <p className="text-[10px] text-muted-foreground line-clamp-1">{dept.description}</p>
+                          </div>
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:translate-x-1 transition-transform" />
+                      </div>
+                    ))
+                  )}
+                </div>
               </CardContent>
             </Card>
 
@@ -161,7 +229,7 @@ export default function Dashboard() {
               <CardHeader className="flex flex-row items-center justify-between border-b border-border/40 pb-4 bg-secondary/10">
                 <div className="flex items-center gap-3">
                   <div className="p-1.5 bg-indigo-500/10 rounded-lg">
-                    <FileText className="w-4 h-4 text-indigo-500" />
+                    <Bell className="w-4 h-4 text-indigo-500" />
                   </div>
                   <CardTitle className="text-lg font-bold text-primary">Company News</CardTitle>
                 </div>
@@ -170,8 +238,22 @@ export default function Dashboard() {
                   <ChevronRight className="w-4 h-4 ml-1" />
                 </Button>
               </CardHeader>
-              <CardContent className="h-16 flex items-center justify-center">
-                <p className="text-xs font-medium text-muted-foreground/60 italic">Checking for new updates...</p>
+              <CardContent className="p-4 space-y-4">
+                {[
+                  { title: "Q1 Strategy Meeting", date: "Jan 12, 2026", category: "Corporate" },
+                  { title: "New AI Features Released", date: "Jan 08, 2026", category: "Product" },
+                ].map((news, i) => (
+                  <div key={i} className="flex items-center justify-between p-3 rounded-2xl hover:bg-secondary/20 transition-colors cursor-pointer group">
+                    <div className="space-y-1">
+                      <p className="text-sm font-bold group-hover:text-primary transition-colors">{news.title}</p>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-muted-foreground">{news.date}</span>
+                        <Badge variant="outline" className="text-[9px] py-0 h-4 border-indigo-500/20 text-indigo-500">{news.category}</Badge>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                  </div>
+                ))}
               </CardContent>
             </Card>
           </div>
@@ -203,22 +285,33 @@ export default function Dashboard() {
               </div>
             </Card>
 
-            {/* Open Tickets Card */}
+            {/* Notifications Card */}
             <Card className="border border-border/50 shadow-sm rounded-3xl overflow-hidden bg-white/60 dark:bg-card/60 backdrop-blur-md">
               <CardHeader className="flex flex-row items-center justify-between border-b border-border/40 pb-4 bg-primary/5">
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
-                    <MessageSquare className="w-4 h-4" />
+                    <Bell className="w-4 h-4" />
                   </div>
-                  <CardTitle className="text-base font-bold text-primary">Open Tickets</CardTitle>
+                  <CardTitle className="text-base font-bold text-primary">Recent Notifications</CardTitle>
                 </div>
-                <Badge variant="secondary" className="bg-primary/10 text-primary border-none font-bold tabular-nums">0 Active</Badge>
               </CardHeader>
-              <CardContent className="p-6 text-center space-y-4">
-                <p className="text-sm text-muted-foreground font-medium opacity-60">No active tickets requiring your attention</p>
-                <Button className="w-full bg-primary/10 text-primary hover:bg-primary/20 border-none shadow-none font-bold py-7 rounded-2xl transition-all">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Create New Ticket
+              <CardContent className="p-0">
+                <div className="divide-y divide-border/40">
+                  {[
+                    { title: "System Update", msg: "v2.4.0 is now live with performance improvements.", time: "2h ago" },
+                    { title: "New Document", msg: "Sarah shared 'Marketing Strategy 2026'.", time: "5h ago" },
+                  ].map((notif, i) => (
+                    <div key={i} className="p-4 hover:bg-secondary/10 transition-colors cursor-pointer group">
+                      <div className="flex justify-between items-start mb-1">
+                        <p className="text-xs font-bold">{notif.title}</p>
+                        <span className="text-[10px] text-muted-foreground">{notif.time}</span>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground line-clamp-2">{notif.msg}</p>
+                    </div>
+                  ))}
+                </div>
+                <Button variant="ghost" className="w-full text-xs font-bold text-primary hover:bg-primary/5 py-4 h-auto border-t rounded-none">
+                  View All Notifications
                 </Button>
               </CardContent>
             </Card>
@@ -234,8 +327,18 @@ export default function Dashboard() {
                 </div>
                 <Button variant="ghost" size="sm" className="text-primary font-bold hover:bg-primary/10 px-4 rounded-xl">Calendar</Button>
               </CardHeader>
-              <CardContent className="py-16 flex flex-col items-center justify-center text-muted-foreground">
-                <p className="text-sm font-medium opacity-60 italic">No upcoming events scheduled</p>
+              <CardContent className="p-4 space-y-3">
+                <div className="p-3 rounded-2xl bg-secondary/20 flex items-center gap-3 border border-border/40">
+                  <div className="bg-primary/10 p-2 rounded-lg text-primary text-center min-w-[40px]">
+                    <p className="text-[10px] font-bold uppercase">Jan</p>
+                    <p className="text-sm font-black">15</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold">Tech Mentorship</p>
+                    <p className="text-[10px] text-muted-foreground">3:00 PM - Virtual</p>
+                  </div>
+                </div>
+                <p className="text-[10px] text-center text-muted-foreground italic py-2">More events coming soon</p>
               </CardContent>
             </Card>
           </div>
