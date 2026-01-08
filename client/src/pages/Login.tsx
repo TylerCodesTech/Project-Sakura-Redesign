@@ -72,7 +72,10 @@ const LoginPage = () => {
                 className="border-pink-200 focus-visible:ring-pink-300"
               />
             </div>
-            <Button className="w-full bg-[#ffb7c5] hover:bg-[#ffa0b0] text-white font-semibold py-6">
+            <Button 
+              className="w-full bg-[#ffb7c5] hover:bg-[#ffa0b0] text-white font-semibold py-6"
+              onClick={() => window.location.href = "/"}
+            >
               Sign In
             </Button>
             <div className="text-center text-sm text-pink-400">
