@@ -80,3 +80,60 @@ export const navItems = [
   { icon: Users, label: "Team Directory", href: "/team" },
   { icon: Settings, label: "System Settings", href: "/settings" },
 ];
+
+export const teamMembers = [
+  {
+    id: "1",
+    name: "Li Wei",
+    role: "CEO & Founder",
+    department: "Executive",
+    avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=150&h=150",
+    managerId: null,
+    email: "li.wei@sakura.ai"
+  },
+  {
+    id: "2",
+    name: "Sarah Chen",
+    role: "VP of Product",
+    department: "Product",
+    avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=150&h=150",
+    managerId: "1",
+    email: "sarah.chen@sakura.ai"
+  },
+  {
+    id: "3",
+    name: "Marcus Thorne",
+    role: "CTO",
+    department: "Engineering",
+    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=150&h=150",
+    managerId: "1",
+    email: "marcus.thorne@sakura.ai"
+  },
+  {
+    id: "4",
+    name: "Elena Rodriguez",
+    role: "Product Designer",
+    department: "Product",
+    avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&q=80&w=150&h=150",
+    managerId: "2",
+    email: "elena.r@sakura.ai"
+  },
+  {
+    id: "5",
+    name: "Alex Kim",
+    role: "Senior Frontend Engineer",
+    department: "Engineering",
+    avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=150&h=150",
+    managerId: "3",
+    email: "alex.kim@sakura.ai"
+  },
+  {
+    id: "6",
+    name: "Jordan Smith",
+    role: "Backend Engineer",
+    department: "Engineering",
+    avatar: "https://images.unsplash.com/photo-1519345182560-3f2917c472ef?auto=format&fit=crop&q=80&w=150&h=150",
+    managerId: "3",
+    email: "jordan.s@sakura.ai"
+  }
+];

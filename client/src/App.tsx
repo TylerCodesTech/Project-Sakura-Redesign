@@ -11,6 +11,7 @@ import Documents from "@/pages/Documents";
 import BookView from "@/pages/BookView";
 import DocEditor from "@/pages/DocEditor";
 import SystemSettings from "@/pages/SystemSettings";
+import TeamDirectory from "@/pages/TeamDirectory";
 import Login from "@/pages/Login";
 
 function Router() {
@@ -23,6 +24,7 @@ function Router() {
       <Route path="/documents" component={Documents} />
       <Route path="/documents/book/:id" component={BookView} />
       <Route path="/documents/edit/:id" component={DocEditor} />
+      <Route path="/team" component={TeamDirectory} />
       <Route path="/settings" component={SystemSettings} />
       <Route component={NotFound} />
     </Switch>
