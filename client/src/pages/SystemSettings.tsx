@@ -65,11 +65,11 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { type ExternalLink } from "@shared/schema";
+import { type ExternalLink, type Department } from "@shared/schema";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertExternalLinkSchema } from "@shared/schema";
+import { insertExternalLinkSchema, insertDepartmentSchema } from "@shared/schema";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import {
   DndContext,
@@ -228,6 +228,13 @@ const permissionCategories = [
   }
 ];
 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
 export default function SystemSettings() {
   const [activeTab, setActiveTab] = useState("ai");
   const [userSearch, setUserSearch] = useState("");
@@ -236,10 +243,62 @@ export default function SystemSettings() {
   const [isCreateRoleModalOpen, setIsCreateRoleModalOpen] = useState(false);
   const [isAddLinkOpen, setIsAddLinkOpen] = useState(false);
   const [editingLink, setEditingLink] = useState<ExternalLink | null>(null);
+  const [isAddDeptOpen, setIsAddDeptOpen] = useState(false);
+  const [editingDept, setEditingDept] = useState<Department | null>(null);
   const [roleCreatorTab, setRoleCreatorTab] = useState("system");
 
   const { data: links = [], isLoading: isLoadingLinks } = useQuery<ExternalLink[]>({
     queryKey: ["/api/external-links"],
+  });
+
+  const { data: departments = [], isLoading: isLoadingDepts } = useQuery<Department[]>({
+    queryKey: ["/api/departments"],
+  });
+
+  const createDeptMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const res = await apiRequest("POST", "/api/departments", data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/departments"] });
+      setIsAddDeptOpen(false);
+      setEditingDept(null);
+      deptForm.reset();
+      toast.success(editingDept ? "Department updated successfully" : "Department added successfully");
+    },
+    onError: () => {
+      toast.error(editingDept ? "Failed to update department" : "Failed to add department");
+    },
+  });
+
+  const updateDeptMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string, data: any }) => {
+      const res = await apiRequest("PATCH", `/api/departments/${id}`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/departments"] });
+      setEditingDept(null);
+      deptForm.reset();
+      toast.success("Department updated successfully");
+    },
+    onError: () => {
+      toast.error("Failed to update department");
+    },
+  });
+
+  const deleteDeptMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/departments/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/departments"] });
+      toast.success("Department deleted successfully");
+    },
+    onError: () => {
+      toast.error("Failed to delete department");
+    },
   });
 
   const createLinkMutation = useMutation({
@@ -331,6 +390,42 @@ export default function SystemSettings() {
     },
   });
 
+  const deptForm = useForm({
+    resolver: zodResolver(insertDepartmentSchema),
+    defaultValues: {
+      name: "",
+      description: "",
+      headId: "",
+      color: "#3b82f6",
+    },
+  });
+
+  const onDeptSubmit = (data: any) => {
+    if (editingDept) {
+      updateDeptMutation.mutate({ id: editingDept.id, data });
+    } else {
+      createDeptMutation.mutate(data);
+    }
+  };
+
+  useEffect(() => {
+    if (editingDept) {
+      deptForm.reset({
+        name: editingDept.name,
+        description: editingDept.description || "",
+        headId: editingDept.headId || "",
+        color: editingDept.color,
+      });
+    } else {
+      deptForm.reset({
+        name: "",
+        description: "",
+        headId: "",
+        color: "#3b82f6",
+      });
+    }
+  }, [editingDept, deptForm]);
+
   const onSubmit = (data: any) => {
     if (editingLink) {
       updateLinkMutation.mutate({ id: editingLink.id, data });
@@ -393,6 +488,136 @@ export default function SystemSettings() {
               <Globe className="w-4 h-4" /> Custom Links
             </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="org" className="space-y-6">
+            <Card className="border-border/40 shadow-sm">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div className="space-y-1">
+                  <CardTitle>Departments</CardTitle>
+                  <CardDescription>Organize your team and manage department-level settings.</CardDescription>
+                </div>
+                <Dialog open={isAddDeptOpen} onOpenChange={(open) => {
+                  setIsAddDeptOpen(open);
+                  if (!open) setEditingDept(null);
+                }}>
+                  <DialogTrigger asChild>
+                    <Button size="sm" className="gap-2">
+                      <Plus className="w-4 h-4" /> Add Department
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>{editingDept ? "Edit Department" : "Add Department"}</DialogTitle>
+                      <DialogDescription>
+                        Create a new organizational department.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <Form {...deptForm}>
+                      <form onSubmit={deptForm.handleSubmit(onDeptSubmit)} className="space-y-4 py-4">
+                        <FormField
+                          control={deptForm.control}
+                          name="name"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Name</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Engineering" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={deptForm.control}
+                          name="description"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Description</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Core product development team" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={deptForm.control}
+                          name="color"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Color</FormLabel>
+                              <FormControl>
+                                <div className="flex gap-2">
+                                  <Input type="color" className="w-12 h-10 p-1" {...field} />
+                                  <Input {...field} placeholder="#3b82f6" />
+                                </div>
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <DialogFooter>
+                          <Button type="submit" disabled={createDeptMutation.isPending || updateDeptMutation.isPending}>
+                            {(createDeptMutation.isPending || updateDeptMutation.isPending) && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                            {editingDept ? "Update" : "Create"}
+                          </Button>
+                        </DialogFooter>
+                      </form>
+                    </Form>
+                  </DialogContent>
+                </Dialog>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {isLoadingDepts ? (
+                    Array.from({ length: 3 }).map((_, i) => (
+                      <div key={i} className="h-32 rounded-xl bg-muted animate-pulse" />
+                    ))
+                  ) : (
+                    departments.map((dept: any) => (
+                      <Card key={dept.id} className="border-border/40 group relative overflow-hidden">
+                        <div className="absolute top-0 left-0 w-1 h-full" style={ { backgroundColor: dept.color } } />
+                        <CardHeader className="pb-2">
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <CardTitle className="text-base">{dept.name}</CardTitle>
+                              <CardDescription className="line-clamp-1">{dept.description}</CardDescription>
+                            </div>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                  <MoreVertical className="w-4 h-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => {
+                                  setEditingDept(dept);
+                                  setIsAddDeptOpen(true);
+                                }}>
+                                  Edit Department
+                                </DropdownMenuItem>
+                                <DropdownMenuItem className="text-destructive" onClick={() => deleteDeptMutation.mutate(dept.id)}>
+                                  Delete Department
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="flex items-center gap-2">
+                            <Users className="w-4 h-4 text-muted-foreground" />
+                            <span className="text-sm text-muted-foreground">
+                              {mockUsers.filter(u => u.dept.toLowerCase().includes(dept.name.toLowerCase())).length} members
+                            </span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           <TabsContent value="ai" className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

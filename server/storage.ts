@@ -4,7 +4,8 @@ import {
   type Page, type InsertPage,
   type Comment, type InsertComment,
   type Notification, type InsertNotification,
-  type ExternalLink, type InsertExternalLink
+  type ExternalLink, type InsertExternalLink,
+  type Department, type InsertDepartment
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -36,6 +37,11 @@ export interface IStorage {
   createExternalLink(link: InsertExternalLink): Promise<ExternalLink>;
   updateExternalLink(id: string, update: Partial<InsertExternalLink>): Promise<ExternalLink>;
   deleteExternalLink(id: string): Promise<void>;
+
+  getDepartments(): Promise<Department[]>;
+  createDepartment(department: InsertDepartment): Promise<Department>;
+  updateDepartment(id: string, update: Partial<InsertDepartment>): Promise<Department>;
+  deleteDepartment(id: string): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
@@ -45,6 +51,7 @@ export class MemStorage implements IStorage {
   private comments: Map<string, Comment>;
   private notifications: Map<string, Notification>;
   private externalLinks: Map<string, ExternalLink>;
+  private departments: Map<string, Department>;
 
   constructor() {
     this.users = new Map();
@@ -53,6 +60,19 @@ export class MemStorage implements IStorage {
     this.comments = new Map();
     this.notifications = new Map();
     this.externalLinks = new Map();
+    this.departments = new Map();
+
+    // Add some default departments
+    const defaultDepts = [
+      { name: "Product Engineering", description: "Core product development and engineering team.", color: "#3b82f6" },
+      { name: "Customer Success", description: "Ensuring customer satisfaction and support.", color: "#10b981" },
+      { name: "Marketing", description: "Brand awareness and growth.", color: "#f59e0b" },
+      { name: "Human Resources", description: "People operations and recruitment.", color: "#ef4444" },
+    ];
+    defaultDepts.forEach(d => {
+      const id = randomUUID();
+      this.departments.set(id, { ...d, id, headId: null });
+    });
   }
 
   async getUser(id: string): Promise<User | undefined> {
@@ -217,6 +237,39 @@ export class MemStorage implements IStorage {
     const updated = { ...existing, ...update };
     this.externalLinks.set(id, updated);
     return updated;
+  }
+
+  async getDepartments(): Promise<Department[]> {
+    return Array.from(this.departments.values());
+  }
+
+  async createDepartment(insertDept: InsertDepartment): Promise<Department> {
+    const id = randomUUID();
+    const dept: Department = { 
+      ...insertDept, 
+      id, 
+      description: insertDept.description ?? null, 
+      headId: insertDept.headId ?? null,
+      color: insertDept.color ?? "#3b82f6"
+    };
+    this.departments.set(id, dept);
+    return dept;
+  }
+
+  async updateDepartment(id: string, update: Partial<InsertDepartment>): Promise<Department> {
+    const existing = this.departments.get(id);
+    if (!existing) throw new Error("Department not found");
+    const updated = { 
+      ...existing, 
+      ...update,
+      color: update.color ?? existing.color 
+    };
+    this.departments.set(id, updated);
+    return updated;
+  }
+
+  async deleteDepartment(id: string): Promise<void> {
+    this.departments.delete(id);
   }
 }
 

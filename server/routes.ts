@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertBookSchema, insertPageSchema, insertCommentSchema, insertNotificationSchema, insertExternalLinkSchema } from "@shared/schema";
+import { insertBookSchema, insertPageSchema, insertCommentSchema, insertNotificationSchema, insertExternalLinkSchema, insertDepartmentSchema } from "@shared/schema";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -65,6 +65,39 @@ export async function registerRoutes(
     } catch (error: any) {
       res.status(404).json({ error: error.message });
     }
+  });
+
+  // Departments
+  app.get("/api/departments", async (_req, res) => {
+    const departments = await storage.getDepartments();
+    res.json(departments);
+  });
+
+  app.post("/api/departments", async (req, res) => {
+    const result = insertDepartmentSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({ error: result.error });
+    }
+    const department = await storage.createDepartment(result.data);
+    res.json(department);
+  });
+
+  app.patch("/api/departments/:id", async (req, res) => {
+    const result = insertDepartmentSchema.partial().safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({ error: result.error });
+    }
+    try {
+      const department = await storage.updateDepartment(req.params.id, result.data);
+      res.json(department);
+    } catch (error: any) {
+      res.status(404).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/departments/:id", async (req, res) => {
+    await storage.deleteDepartment(req.params.id);
+    res.sendStatus(204);
   });
 
   app.get("/api/notifications/:userId", async (req, res) => {

@@ -59,6 +59,14 @@ export const externalLinks = pgTable("external_links", {
   order: text("order").notNull().default("0"),
 });
 
+export const departments = pgTable("departments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  headId: varchar("head_id"),
+  color: text("color").notNull().default("#3b82f6"),
+});
+
 export const insertNotificationSchema = createInsertSchema(notifications).omit({
   id: true,
 });
@@ -67,10 +75,16 @@ export const insertExternalLinkSchema = createInsertSchema(externalLinks).omit({
   id: true,
 });
 
+export const insertDepartmentSchema = createInsertSchema(departments).omit({
+  id: true,
+});
+
 export type Notification = typeof notifications.$inferSelect;
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 export type ExternalLink = typeof externalLinks.$inferSelect;
 export type InsertExternalLink = z.infer<typeof insertExternalLinkSchema>;
+export type Department = typeof departments.$inferSelect;
+export type InsertDepartment = z.infer<typeof insertDepartmentSchema>;
 
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
