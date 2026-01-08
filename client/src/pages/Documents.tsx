@@ -93,24 +93,36 @@ export default function Documents() {
         description: "A collaborative knowledge base",
         authorId: "1" 
       });
+      if (!res.ok) throw new Error("Failed to create book");
       const book = await res.json() as Book;
       
-      await apiRequest("POST", "/api/pages", {
+      const pageRes = await apiRequest("POST", "/api/pages", {
         bookId: book.id,
         title: "Introduction",
         content: "<h1>Introduction</h1><p>Welcome to your new WikiBook!</p>",
         order: "0",
-        type: "page"
+        type: "page",
+        authorId: "1", // Added missing field
+        status: "published" // Start as published
       });
+      if (!pageRes.ok) throw new Error("Failed to create intro page");
       
       return book;
     },
     onSuccess: (book) => {
-      toast({ title: "WikiBook Created", description: "Your new book is ready." });
       queryClient.invalidateQueries({ queryKey: ["/api/books"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/pages"] });
+      toast({ title: "WikiBook Created", description: "Your new book is ready." });
       setLocation(`/documents/book/${book.id}`);
       setIsBookModalOpen(false);
       setNewName("");
+    },
+    onError: (error: Error) => {
+      toast({ 
+        title: "Creation Failed", 
+        description: error.message,
+        variant: "destructive" 
+      });
     }
   });
 

@@ -311,7 +311,12 @@ export class MemStorage implements IStorage {
 
   async createNews(insertNews: InsertNews): Promise<News> {
     const id = randomUUID();
-    const n: News = { ...insertNews, id, createdAt: new Date().toISOString() };
+    const n: News = { 
+      ...insertNews, 
+      id, 
+      category: insertNews.category ?? "General",
+      createdAt: new Date().toISOString() 
+    };
     this.news.set(id, n);
     return n;
   }

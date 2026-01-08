@@ -163,8 +163,12 @@ export async function registerRoutes(
     if (!result.success) {
       return res.status(400).json({ error: result.error });
     }
-    const book = await storage.createBook(result.data);
-    res.json(book);
+    try {
+      const book = await storage.createBook(result.data);
+      res.json(book);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
   });
 
   app.get("/api/books/:bookId/pages", async (req, res) => {
