@@ -49,12 +49,28 @@ export const notifications = pgTable("notifications", {
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
+export const externalLinks = pgTable("external_links", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull(),
+  url: text("url").notNull(),
+  description: text("description"),
+  category: text("category").notNull().default("Resources"),
+  icon: text("icon"), // Store lucide icon name
+  order: text("order").notNull().default("0"),
+});
+
 export const insertNotificationSchema = createInsertSchema(notifications).omit({
+  id: true,
+});
+
+export const insertExternalLinkSchema = createInsertSchema(externalLinks).omit({
   id: true,
 });
 
 export type Notification = typeof notifications.$inferSelect;
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+export type ExternalLink = typeof externalLinks.$inferSelect;
+export type InsertExternalLink = z.infer<typeof insertExternalLinkSchema>;
 
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,

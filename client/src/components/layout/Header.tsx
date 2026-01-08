@@ -177,8 +177,21 @@ export function Header() {
 
                 <div>
                   <h3 className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-4">Resources</h3>
-                  <div className="py-8 flex flex-col items-center justify-center bg-secondary/20 rounded-xl border border-dashed border-border">
-                    <p className="text-sm text-muted-foreground">No resources available</p>
+                  <div className="grid grid-cols-4 gap-4">
+                    {/* Native App Links */}
+                    <a 
+                      href="https://google.com" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="flex flex-col items-center gap-3 group"
+                    >
+                      <div className="w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 group-hover:scale-110 group-hover:shadow-lg bg-secondary/50 text-muted-foreground">
+                        <Globe className="w-7 h-7" />
+                      </div>
+                      <span className="text-xs font-medium text-foreground group-hover:text-primary transition-colors text-center line-clamp-1">
+                        Google
+                      </span>
+                    </a>
                   </div>
                 </div>
               </div>

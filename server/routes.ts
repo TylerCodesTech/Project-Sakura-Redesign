@@ -1,12 +1,31 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertBookSchema, insertPageSchema, insertCommentSchema, insertNotificationSchema } from "@shared/schema";
+import { insertBookSchema, insertPageSchema, insertCommentSchema, insertNotificationSchema, insertExternalLinkSchema } from "@shared/schema";
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  app.get("/api/external-links", async (_req, res) => {
+    const links = await storage.getExternalLinks();
+    res.json(links);
+  });
+
+  app.post("/api/external-links", async (req, res) => {
+    const result = insertExternalLinkSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({ error: result.error });
+    }
+    const link = await storage.createExternalLink(result.data);
+    res.json(link);
+  });
+
+  app.delete("/api/external-links/:id", async (req, res) => {
+    await storage.deleteExternalLink(req.params.id);
+    res.sendStatus(204);
+  });
+
   app.get("/api/notifications/:userId", async (req, res) => {
     const notifications = await storage.getNotifications(req.params.userId);
     res.json(notifications);

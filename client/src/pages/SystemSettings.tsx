@@ -153,6 +153,9 @@ export default function SystemSettings() {
             <TabsTrigger value="tickets" className="rounded-lg py-2 px-4 gap-2">
               <Ticket className="w-4 h-4" /> Ticket Pages
             </TabsTrigger>
+            <TabsTrigger value="links" className="rounded-lg py-2 px-4 gap-2">
+              <Globe className="w-4 h-4" /> Custom Links
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="ai" className="space-y-6">
