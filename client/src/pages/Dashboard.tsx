@@ -85,7 +85,6 @@ export default function Dashboard() {
   return (
     <Layout>
       <div className="space-y-8">
-        {/* Header Section with Integrated Status Bar */}
         <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
           <div className="space-y-2">
             <h1 className="text-4xl font-display font-bold text-primary tracking-tight">Good Evening, Tyler</h1>
@@ -134,35 +133,6 @@ export default function Dashboard() {
               </Tooltip>
             </TooltipProvider>
           </div>
-        </div>
-
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {isLoadingStats ? (
-            Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="h-32 rounded-3xl bg-secondary/20 animate-pulse" />
-            ))
-          ) : (
-            displayStats.map((stat) => (
-              <Card key={stat.key} className="border border-border/50 shadow-sm rounded-3xl bg-white/60 dark:bg-card/60 backdrop-blur-md hover:scale-[1.02] transition-transform cursor-default">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className={cn("p-3 rounded-2xl", stat.bg)}>
-                      {stat.icon && <stat.icon className={cn("w-6 h-6", stat.color)} />}
-                    </div>
-                    <Badge variant="outline" className="border-primary/20 bg-primary/5 text-primary text-[10px] font-bold">
-                      <TrendingUp className="w-3 h-3 mr-1" />
-                      {stat.change}
-                    </Badge>
-                  </div>
-                  <div>
-                    <h3 className="text-2xl font-black text-foreground">{stat.value}</h3>
-                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">{stat.label}</p>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
