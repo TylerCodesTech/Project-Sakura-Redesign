@@ -147,54 +147,54 @@ export function Header() {
                 />
               </div>
 
-              <div className="space-y-8">
-                <div>
-                  <h3 className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-6">Sakura Apps</h3>
-                  <div className="grid grid-cols-4 gap-4">
-                    {navItems.map((item) => {
-                      const isActive = location === item.href;
-                      const Icon = item.icon;
-                      const getIconColor = (label: string) => {
-                        switch(label) {
-                          case 'Dashboard': return 'bg-emerald-50 text-emerald-600';
-                          case 'Documents': return 'bg-rose-50 text-rose-600';
-                          case 'Team Directory': return 'bg-indigo-50 text-indigo-600';
-                          case 'Helpdesk': return 'bg-amber-50 text-amber-600';
-                          default: return 'bg-primary/10 text-primary';
+              <ScrollArea className="h-[480px] -mr-4 pr-4">
+                <div className="space-y-8 pb-4">
+                  <div>
+                    <h3 className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-6">Sakura Apps</h3>
+                    <div className="grid grid-cols-4 gap-4">
+                      {navItems.map((item) => {
+                        const isActive = location === item.href;
+                        const Icon = item.icon;
+                        const getIconColor = (label: string) => {
+                          switch(label) {
+                            case 'Dashboard': return 'bg-emerald-50 text-emerald-600';
+                            case 'Documents': return 'bg-rose-50 text-rose-600';
+                            case 'Team Directory': return 'bg-indigo-50 text-indigo-600';
+                            case 'Helpdesk': return 'bg-amber-50 text-amber-600';
+                            default: return 'bg-primary/10 text-primary';
+                          }
+                        };
+
+                        if (resourceSearch && !item.label.toLowerCase().includes(resourceSearch.toLowerCase())) {
+                          return null;
                         }
-                      };
 
-                      if (resourceSearch && !item.label.toLowerCase().includes(resourceSearch.toLowerCase())) {
-                        return null;
-                      }
-
-                      return (
-                        <Link 
-                          key={item.href} 
-                          href={item.href}
-                          onClick={() => setIsLauncherOpen(false)}
-                          className="flex flex-col items-center gap-3 group"
-                        >
-                            <div className={cn(
-                              "w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 group-hover:scale-110 group-hover:shadow-lg",
-                              getIconColor(item.label),
-                              isActive && "ring-2 ring-primary ring-offset-2"
-                            )}>
-                              <Icon className="w-7 h-7" />
-                            </div>
-                            <span className="text-xs font-medium text-foreground group-hover:text-primary transition-colors">
-                              {item.label === 'Dashboard' ? 'Intranet' : item.label === 'Team Directory' ? 'Directory' : item.label}
-                            </span>
-                        </Link>
-                      );
-                    })}
+                        return (
+                          <Link 
+                            key={item.href} 
+                            href={item.href}
+                            onClick={() => setIsLauncherOpen(false)}
+                            className="flex flex-col items-center gap-3 group"
+                          >
+                              <div className={cn(
+                                "w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 group-hover:scale-110 group-hover:shadow-lg",
+                                getIconColor(item.label),
+                                isActive && "ring-2 ring-primary ring-offset-2"
+                              )}>
+                                <Icon className="w-7 h-7" />
+                              </div>
+                              <span className="text-xs font-medium text-foreground group-hover:text-primary transition-colors">
+                                {item.label === 'Dashboard' ? 'Intranet' : item.label === 'Team Directory' ? 'Directory' : item.label}
+                              </span>
+                          </Link>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
 
-                <div>
-                  <h3 className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-4">Resources</h3>
-                  <ScrollArea className="h-[280px] -mr-4 pr-4">
-                    <div className="grid grid-cols-4 gap-4 pb-4">
+                  <div>
+                    <h3 className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-4">Resources</h3>
+                    <div className="grid grid-cols-4 gap-4">
                       {/* Native App Links */}
                       {isLoadingLinks ? (
                         <div className="col-span-4 py-8 flex justify-center">
@@ -233,9 +233,9 @@ export function Header() {
                         ))
                       )}
                     </div>
-                  </ScrollArea>
+                  </div>
                 </div>
-              </div>
+              </ScrollArea>
             </div>
             <div className="bg-secondary/30 p-4 border-t border-border flex items-center justify-between">
               <div className="flex items-center gap-2">
