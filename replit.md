@@ -2,7 +2,7 @@
 
 ## Overview
 
-Project Sakura is a unified AI-powered workplace platform that combines helpdesk ticketing, document management, and collaboration features. The application provides a modern, polished interface for managing support tickets, creating and organizing documentation with rich text editing, and facilitating team collaboration through comments and notifications.
+Project Sakura is a unified AI-powered workplace platform that combines helpdesk ticketing, document management, and collaboration features. The application provides a modern, polished interface for managing support tickets, creating and organizing documentation (books and pages), and includes AI-assisted features throughout the workflow.
 
 ## User Preferences
 
@@ -32,11 +32,9 @@ Preferred communication style: Simple, everyday language.
 - **Storage Abstraction**: Interface-based storage pattern (`IStorage`) allowing easy swap between in-memory and database implementations
 
 ### Data Models
-- **Users**: Basic user authentication with username, password, and department
+- **Users**: Basic user authentication with username/password
 - **Books**: Document collections with title, description, and author reference
-- **Pages**: Flexible content pages that can be standalone or belong to books, with support for hierarchical organization (parent/child relationships), ordering, status workflow (draft/in_review/published), and type designation (page/folder/file)
-- **Comments**: Page-level comments for collaboration with user and timestamp tracking
-- **Notifications**: User notifications with read status, links, and target references
+- **Pages**: Flexible content pages that can be standalone or belong to books, with support for hierarchical organization (parent/child relationships) and ordering
 
 ### Key Design Decisions
 
@@ -48,10 +46,26 @@ Preferred communication style: Simple, everyday language.
 
 4. **Monorepo Structure**: Single repository with clear separation - `client/` for frontend, `server/` for backend, `shared/` for common code.
 
-5. **Document Workflow Support**: Pages include status tracking and reviewer assignment for content approval workflows.
-
 ## External Dependencies
 
-- **Database**: PostgreSQL (configured via DATABASE_URL environment variable)
-- **Fonts**: Google Fonts (Inter for body text, Plus Jakarta Sans for display text)
-- **Replit Integration**: Custom Vite plugins for development banners, cartographer, and runtime error overlays
+### Database
+- **PostgreSQL**: Primary database, configured via `DATABASE_URL` environment variable
+- **Drizzle Kit**: Database migration and schema push tooling (`db:push` script)
+
+### Third-Party Services
+- No external API integrations are currently configured, though the dependency list includes:
+  - OpenAI SDK (available but not implemented)
+  - Google Generative AI SDK (available but not implemented)
+  - Stripe SDK (available but not implemented)
+  - Nodemailer (available but not implemented)
+
+### Key Frontend Libraries
+- TanStack React Query for data fetching
+- TipTap for rich text editing
+- Lucide React for icons
+- Class Variance Authority for component variants
+
+### Development Tools
+- Vite with React plugin
+- TypeScript with strict mode
+- Replit-specific plugins for error overlay and dev tooling

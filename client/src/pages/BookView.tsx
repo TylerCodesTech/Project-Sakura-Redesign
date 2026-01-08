@@ -1,58 +1,193 @@
-import { Layout } from "@/components/layout/Layout";
-import { Card, CardContent } from "@/components/ui/card";
 import { 
-  Search, 
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { Layout } from "@/components/layout/Layout";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { 
+  Search as SearchIcon, 
   ChevronRight, 
-  ChevronDown, 
   BookOpen, 
-  Layout as LayoutIcon,
-  MessageSquare,
-  Search as SearchIcon,
   Share2,
-  MoreHorizontal,
   ArrowLeft,
-  Terminal,
-  Code2,
-  Sparkles
+  FileText,
+  Sparkles,
+  Plus,
+  Save,
+  Undo2,
+  Redo2,
+  Bold as BoldIcon,
+  Italic as ItalicIcon,
+  Underline as UnderlineIcon,
+  List as ListIcon,
+  ListOrdered,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  Link as LinkIcon,
+  Type
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { useState } from "react";
+import { Separator } from "@/components/ui/separator";
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { 
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { Link, useParams } from "wouter";
-
-const navigation = [
-  {
-    title: "Getting Started",
-    items: [
-      { title: "Introduction", slug: "intro" },
-      { title: "Quickstart", slug: "quickstart" },
-      { title: "Core Concepts", slug: "concepts" },
-    ]
-  },
-  {
-    title: "Product Guide",
-    items: [
-      { title: "Dashboard Overview", slug: "dashboard" },
-      { title: "Team Collaboration", slug: "teams" },
-      { title: "Security & Permissions", slug: "security" },
-    ]
-  },
-  {
-    title: "Advanced Features",
-    items: [
-      { title: "AI Integrations", slug: "ai" },
-      { title: "Custom Workflows", slug: "workflows" },
-      { title: "API Usage", slug: "api" },
-    ]
-  }
-];
+import type { Page, Book } from "@shared/schema";
+import { useEditor, EditorContent } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import Underline from '@tiptap/extension-underline';
+import TextAlign from '@tiptap/extension-text-align';
+import { TextStyle } from '@tiptap/extension-text-style';
+import FontFamily from '@tiptap/extension-font-family';
+import Placeholder from '@tiptap/extension-placeholder';
 
 export default function BookView() {
   const { id } = useParams();
-  const [activeSlug, setActiveSlug] = useState("quickstart");
+  const { toast } = useToast();
+  const [activeSlug, setActiveSlug] = useState("");
+  const [isNewPageModalOpen, setIsNewPageModalOpen] = useState(false);
+  const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
+  const [newPageTitle, setNewPageTitle] = useState("");
+  const [renamePageTitle, setRenamePageTitle] = useState("");
+  const [isEditing, setIsEditing] = useState(false);
+  const [linkTitle, setLinkTitle] = useState("");
+  const [isLinkPopoverOpen, setIsLinkPopoverOpen] = useState(false);
+
+  const { data: book } = useQuery<Book>({
+    queryKey: [`/api/books/${id}`],
+  });
+
+  const { data: pages = [] } = useQuery<Page[]>({
+    queryKey: [`/api/books/${id}/pages`],
+  });
+
+  const activePage = pages.find(p => p.id === activeSlug) || pages[0];
+
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({
+        underline: false,
+      }),
+      Underline,
+      TextStyle,
+      FontFamily,
+      TextAlign.configure({
+        types: ['heading', 'paragraph'],
+      }),
+      Placeholder.configure({
+        placeholder: 'Start writing...',
+      }),
+    ],
+    content: activePage?.content || '',
+    editorProps: {
+      attributes: {
+        class: 'prose prose-sakura max-w-none focus:outline-none',
+      },
+    },
+    editable: isEditing,
+  });
+
+  useEffect(() => {
+    if (activePage?.content && editor && !editor.isFocused) {
+      editor.commands.setContent(activePage.content);
+    }
+  }, [activePage, editor]);
+
+  useEffect(() => {
+    if (editor) {
+      editor.setEditable(isEditing);
+    }
+  }, [isEditing, editor]);
+
+  const updatePageMutation = useMutation({
+    mutationFn: async (content: string) => {
+      await apiRequest("PATCH", `/api/pages/${activePage.id}`, { content });
+    },
+    onSuccess: () => {
+      toast({ title: "Saved", description: "Page content updated successfully" });
+      queryClient.invalidateQueries({ queryKey: [`/api/books/${id}/pages`] });
+      setIsEditing(false);
+    }
+  });
+
+  const createPageMutation = useMutation({
+    mutationFn: async (title: string) => {
+      const res = await apiRequest("POST", "/api/pages", {
+        bookId: id,
+        title,
+        content: `<h1>${title}</h1><p>Start writing...</p>`,
+        order: (pages.length).toString(),
+        type: "page"
+      });
+      return await res.json() as Page;
+    },
+    onSuccess: (newPage) => {
+      toast({ title: "Page Created", description: `Created new page: ${newPage.title}` });
+      queryClient.invalidateQueries({ queryKey: [`/api/books/${id}/pages`] });
+      setActiveSlug(newPage.id);
+      setIsNewPageModalOpen(false);
+      setNewPageTitle("");
+    }
+  });
+
+  const handleCreatePage = () => {
+    if (!newPageTitle) return;
+    createPageMutation.mutate(newPageTitle);
+  };
+
+  const renamePageMutation = useMutation({
+    mutationFn: async (title: string) => {
+      await apiRequest("PATCH", `/api/pages/${activePage.id}`, { title });
+    },
+    onSuccess: () => {
+      toast({ title: "Page Renamed", description: "The page has been renamed successfully." });
+      queryClient.invalidateQueries({ queryKey: [`/api/books/${id}/pages`] });
+      setIsRenameModalOpen(false);
+    }
+  });
+
+  const handleRenamePage = () => {
+    if (!renamePageTitle) return;
+    renamePageMutation.mutate(renamePageTitle);
+  };
+
+  const insertWikiLink = async () => {
+    if (!linkTitle || !editor) return;
+    const existingPage = pages.find(p => p.title.toLowerCase() === linkTitle.toLowerCase());
+    if (existingPage) {
+      editor.chain().focus().extendMarkRange('link').setLink({ 
+        href: `/api/books/${id}/pages/${existingPage.id}` 
+      }).run();
+    } else {
+      const newPage = await createPageMutation.mutateAsync(linkTitle);
+      editor.chain().focus().extendMarkRange('link').setLink({ 
+        href: `/api/books/${id}/pages/${newPage.id}`
+      }).run();
+    }
+    setLinkTitle("");
+    setIsLinkPopoverOpen(false);
+  };
 
   return (
     <Layout>
@@ -71,28 +206,145 @@ export default function BookView() {
                 <BookOpen className="w-5 h-5" />
               </div>
               <div>
-                <h1 className="text-xl font-bold tracking-tight">Product Handbook</h1>
+                <h1 className="text-xl font-bold tracking-tight">{book?.title || "Product Handbook"}</h1>
                 <div className="flex items-center gap-2 mt-0.5">
                   <Badge variant="outline" className="text-[10px] py-0 border-emerald-500/20 text-emerald-600 bg-emerald-500/5 uppercase font-black">Book</Badge>
-                  <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">• v2.4.0</span>
+                  <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">• v1.0.0</span>
                 </div>
               </div>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" className="rounded-xl border-border/50 gap-2 font-bold">
-              <Share2 className="w-4 h-4" />
-              Share
-            </Button>
-            <Button size="sm" className="rounded-xl bg-primary hover:bg-primary/90 text-white font-bold gap-2">
+            {!isEditing ? (
+              <>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="rounded-xl border-border/50 gap-2 font-bold"
+                  onClick={() => setIsNewPageModalOpen(true)}
+                >
+                  <Plus className="w-4 h-4" />
+                  New Page
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="rounded-xl border-border/50 gap-2 font-bold"
+                  onClick={() => setIsEditing(true)}
+                >
+                  <FileText className="w-4 h-4" />
+                  Edit Page
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="rounded-xl gap-2 font-bold"
+                  onClick={() => setIsEditing(false)}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  size="sm" 
+                  className="rounded-xl bg-primary hover:bg-primary/90 text-white font-bold gap-2"
+                  onClick={() => updatePageMutation.mutate(editor?.getHTML() || '')}
+                  disabled={updatePageMutation.isPending}
+                >
+                  <Save className="w-4 h-4" />
+                  {updatePageMutation.isPending ? "Saving..." : "Save Changes"}
+                </Button>
+              </>
+            )}
+            <Button size="sm" className="rounded-xl bg-primary/10 text-primary hover:bg-primary/20 font-bold gap-2 no-default-hover-elevate">
               <Sparkles className="w-4 h-4" />
               Ask AI
             </Button>
           </div>
         </div>
 
+        {isEditing && (
+          <div className="flex items-center gap-1 bg-secondary/20 p-1 rounded-xl border border-border/40 mb-6 overflow-x-auto">
+            <div className="flex items-center gap-1 px-1">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-8 w-8 rounded-lg"
+                onClick={() => editor?.chain().focus().undo().run()}
+                disabled={!editor?.can().undo()}
+              >
+                <Undo2 className="w-4 h-4" />
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-8 w-8 rounded-lg"
+                onClick={() => editor?.chain().focus().redo().run()}
+                disabled={!editor?.can().redo()}
+              >
+                <Redo2 className="w-4 h-4" />
+              </Button>
+            </div>
+            <Separator orientation="vertical" className="h-6 mx-1 opacity-50" />
+            <Select onValueChange={(value) => editor?.chain().focus().setFontFamily(value).run()}>
+              <SelectTrigger className="w-[120px] h-8 rounded-lg border-transparent bg-transparent hover:bg-secondary/40 font-bold text-xs">
+                <SelectValue placeholder="Font" />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl">
+                <SelectItem value="Inter">Inter</SelectItem>
+                <SelectItem value="serif">Serif</SelectItem>
+                <SelectItem value="monospace">Mono</SelectItem>
+              </SelectContent>
+            </Select>
+            <Separator orientation="vertical" className="h-6 mx-1 opacity-50" />
+            <div className="flex items-center gap-0.5">
+              <Button 
+                variant={editor?.isActive('bold') ? 'secondary' : 'ghost'} 
+                size="icon" 
+                className="h-8 w-8 rounded-lg"
+                onClick={() => editor?.chain().focus().toggleBold().run()}
+              >
+                <BoldIcon className="w-4 h-4" />
+              </Button>
+              <Button 
+                variant={editor?.isActive('italic') ? 'secondary' : 'ghost'} 
+                size="icon" 
+                className="h-8 w-8 rounded-lg"
+                onClick={() => editor?.chain().focus().toggleItalic().run()}
+              >
+                <ItalicIcon className="w-4 h-4" />
+              </Button>
+            </div>
+            <Separator orientation="vertical" className="h-6 mx-1 opacity-50" />
+            <Popover open={isLinkPopoverOpen} onOpenChange={setIsLinkPopoverOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg">
+                  <LinkIcon className="w-4 h-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-64 p-3 rounded-xl">
+                <div className="space-y-3">
+                  <h4 className="font-bold text-xs">Wiki Link</h4>
+                  <div className="flex gap-2">
+                    <Input 
+                      className="h-8 text-xs rounded-lg"
+                      placeholder="Page title..."
+                      value={linkTitle}
+                      onChange={(e) => setLinkTitle(e.target.value)}
+                    />
+                    <Button size="icon" className="h-8 w-8 rounded-lg" onClick={insertWikiLink}>
+                      <Plus className="w-3 h-3" />
+                    </Button>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
+        )}
+
         <div className="flex gap-12 h-full overflow-hidden">
-          {/* Mintlify-style Sidebar */}
+          {/* Sidebar */}
           <div className="w-64 shrink-0 flex flex-col gap-8">
             <div className="relative group">
               <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
@@ -104,110 +356,146 @@ export default function BookView() {
 
             <ScrollArea className="flex-1 -mr-4 pr-4">
               <div className="space-y-8 pb-12">
-                {navigation.map((group) => (
-                  <div key={group.title} className="space-y-3">
-                    <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60 px-3">{group.title}</h4>
-                    <div className="space-y-1">
-                      {group.items.map((item) => (
-                        <button
-                          key={item.slug}
-                          onClick={() => setActiveSlug(item.slug)}
-                          className={cn(
-                            "w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-bold transition-all group",
-                            activeSlug === item.slug 
-                              ? "bg-primary/10 text-primary shadow-sm" 
-                              : "text-muted-foreground hover:text-foreground hover:bg-secondary/40"
-                          )}
-                        >
-                          {item.title}
-                          {activeSlug === item.slug && (
-                            <div className="w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_8px_rgba(219,39,119,0.5)]" />
-                          )}
-                        </button>
-                      ))}
-                    </div>
+                <div className="space-y-3">
+                  <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60 px-3">Contents</h4>
+                  <div className="space-y-1">
+                    {pages.map((page) => (
+                      <button
+                        key={page.id}
+                        onClick={() => {
+                          setActiveSlug(page.id);
+                          setIsEditing(false);
+                        }}
+                        className={cn(
+                          "w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-bold transition-all group text-left",
+                          (activeSlug === page.id || (!activeSlug && page.id === pages[0]?.id))
+                            ? "bg-primary/10 text-primary shadow-sm" 
+                            : "text-muted-foreground hover:text-foreground hover:bg-secondary/40"
+                        )}
+                      >
+                        <span className="truncate">{page.title}</span>
+                        {(activeSlug === page.id || (!activeSlug && page.id === pages[0]?.id)) && (
+                          <div className="w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_8px_rgba(219,39,119,0.5)]" />
+                        )}
+                      </button>
+                    ))}
                   </div>
-                ))}
+                </div>
               </div>
             </ScrollArea>
           </div>
 
-          {/* Mintlify-style Content Area */}
+          {/* Content Area */}
           <div className="flex-1 flex gap-12 h-full overflow-hidden">
             <ScrollArea className="flex-1 h-full">
               <div className="max-w-3xl pb-24">
-                <div className="space-y-8">
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-2 text-primary font-bold text-sm tracking-tight">
-                      Getting Started <ChevronRight className="w-4 h-4" />
+                {activePage ? (
+                  <div className="space-y-8">
+                    <div className="space-y-4">
+                      {!isEditing ? (
+                        <>
+                          <div className="flex items-center gap-2 text-primary font-bold text-sm tracking-tight">
+                            {book?.title} <ChevronRight className="w-4 h-4" />
+                          </div>
+                          <h2 className="text-4xl font-display font-black tracking-tight text-foreground capitalize">
+                            {activePage.title}
+                          </h2>
+                        </>
+                      ) : (
+                        <div className="space-y-4">
+                          <div className="flex items-center gap-2 text-primary font-bold text-sm tracking-tight">
+                            {book?.title} <ChevronRight className="w-4 h-4" /> Editing
+                          </div>
+                          <h2 
+                            className="text-4xl font-display font-black tracking-tight text-foreground capitalize cursor-pointer hover:text-primary transition-colors inline-block group"
+                            onClick={() => {
+                              setRenamePageTitle(activePage.title);
+                              setIsRenameModalOpen(true);
+                            }}
+                          >
+                            {activePage.title}
+                            <Type className="w-4 h-4 inline-block ml-2 opacity-0 group-hover:opacity-100 transition-opacity" />
+                          </h2>
+                        </div>
+                      )}
                     </div>
-                    <h2 className="text-4xl font-display font-black tracking-tight text-foreground capitalize">
-                      {activeSlug.replace('-', ' ')} Guide
-                    </h2>
-                    <p className="text-xl text-muted-foreground leading-relaxed">
-                      Learn how to set up your workspace and start collaborating with your team in minutes. This guide covers the essentials of Sakura Corp's document management system.
-                    </p>
-                  </div>
 
-                  <div className="grid grid-cols-2 gap-4 mt-12">
-                    <Card className="border border-border/50 bg-secondary/20 hover:bg-secondary/40 transition-all cursor-pointer rounded-2xl p-6 group">
-                      <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-600 mb-4 group-hover:scale-110 transition-transform">
-                        <Terminal className="w-5 h-5" />
-                      </div>
-                      <h4 className="font-bold mb-1">Quickstart</h4>
-                      <p className="text-xs text-muted-foreground">Deploy your first project site in minutes with our step-by-step guide.</p>
-                    </Card>
-                    <Card className="border border-border/50 bg-secondary/20 hover:bg-secondary/40 transition-all cursor-pointer rounded-2xl p-6 group">
-                      <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-600 mb-4 group-hover:scale-110 transition-transform">
-                        <Code2 className="w-5 h-5" />
-                      </div>
-                      <h4 className="font-bold mb-1">Web Editor</h4>
-                      <p className="text-xs text-muted-foreground">Preview and develop your documentation locally with the Mintlify CLI.</p>
-                    </Card>
-                  </div>
-
-                  <div className="prose prose-sakura max-w-none mt-12 text-foreground/80 leading-loose">
-                    <h3 className="text-2xl font-bold mb-4 text-foreground">Setting Up Your Workspace</h3>
-                    <p className="mb-6">
-                      Before diving into the advanced features, it's important to understand the structure of your organizational workspace. Documents are categorized into folders, single files, and wiki-books like the one you're reading now.
-                    </p>
-                    <div className="p-4 bg-primary/5 border border-primary/10 rounded-2xl mb-8 flex gap-4">
-                      <Sparkles className="w-6 h-6 text-primary shrink-0 mt-1" />
-                      <div>
-                        <p className="text-sm font-bold text-primary mb-1">AI Assistant Pro-Tip</p>
-                        <p className="text-sm text-primary/80">You can use the "Ask AI" button in the header to search across all your books using natural language. No more scrolling through hundreds of pages.</p>
-                      </div>
+                    <div className={cn(
+                      "prose prose-sakura max-w-none mt-12 text-foreground/80 leading-loose",
+                      isEditing && "bg-white/50 dark:bg-card/50 p-6 rounded-2xl border border-border/50 shadow-inner"
+                    )}>
+                      <EditorContent editor={editor} />
                     </div>
-                    <p>
-                      Structured content allows for deep nesting and semantic search, making it the perfect choice for technical documentation, company handbooks, and standard operating procedures.
-                    </p>
                   </div>
-                </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full text-center p-12">
+                    <FileText className="w-16 h-16 text-muted-foreground mb-4 opacity-20" />
+                    <h3 className="text-xl font-bold text-muted-foreground">No pages found</h3>
+                    <p className="text-sm text-muted-foreground/60">Start by creating a new page.</p>
+                  </div>
+                )}
               </div>
             </ScrollArea>
-
-            {/* Right Sidebar - "On this page" */}
-            <div className="w-48 shrink-0 hidden xl:block">
-              <div className="space-y-4">
-                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60 px-2">On this page</h4>
-                <div className="space-y-3 border-l border-border/50">
-                  {["Introduction", "Workspace Setup", "User Permissions", "Version Control", "Next Steps"].map((section, i) => (
-                    <button 
-                      key={section} 
-                      className={cn(
-                        "block w-full text-left text-xs font-bold transition-all pl-4 relative",
-                        i === 0 ? "text-primary border-l-2 border-primary -ml-[1.5px]" : "text-muted-foreground hover:text-foreground"
-                      )}
-                    >
-                      {section}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       </div>
+
+      <Dialog open={isNewPageModalOpen} onOpenChange={setIsNewPageModalOpen}>
+        <DialogContent className="sm:max-w-[425px] rounded-[24px] border-border/50 shadow-2xl">
+          <DialogHeader>
+            <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-600 mb-4">
+              <Plus className="w-6 h-6" />
+            </div>
+            <DialogTitle className="text-2xl font-bold tracking-tight">Create New Page</DialogTitle>
+          </DialogHeader>
+          <div className="py-6">
+            <Input 
+              placeholder="Page Title" 
+              value={newPageTitle} 
+              onChange={(e) => setNewPageTitle(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleCreatePage();
+              }}
+            />
+          </div>
+          <DialogFooter>
+            <Button 
+              onClick={handleCreatePage}
+              disabled={createPageMutation.isPending}
+            >
+              {createPageMutation.isPending ? "Creating..." : "Create Page"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={isRenameModalOpen} onOpenChange={setIsRenameModalOpen}>
+        <DialogContent className="sm:max-w-[425px] rounded-[24px] border-border/50 shadow-2xl">
+          <DialogHeader>
+            <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-600 mb-4">
+              <Type className="w-6 h-6" />
+            </div>
+            <DialogTitle className="text-2xl font-bold tracking-tight">Rename Page</DialogTitle>
+          </DialogHeader>
+          <div className="py-6">
+            <Input 
+              placeholder="Page Title" 
+              value={renamePageTitle} 
+              onChange={(e) => setRenamePageTitle(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleRenamePage();
+              }}
+            />
+          </div>
+          <DialogFooter>
+            <Button 
+              onClick={handleRenamePage}
+              disabled={renamePageMutation.isPending}
+            >
+              {renamePageMutation.isPending ? "Renaming..." : "Rename Page"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 }

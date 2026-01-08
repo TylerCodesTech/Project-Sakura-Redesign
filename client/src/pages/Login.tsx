@@ -74,7 +74,7 @@ const LoginPage = () => {
             </div>
             <Button className="w-full bg-[#ffb7c5] hover:bg-[#ffa0b0] text-white font-semibold py-6">
               Sign In
-            </div>
+            </Button>
             <div className="text-center text-sm text-pink-400">
               Don't have an account? <a href="#" className="underline font-medium hover:text-[#d44d5c]">Sign up</a>
             </div>

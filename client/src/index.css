@@ -3,6 +3,32 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Ticket Editor Styles */
+.ticket-editor .ProseMirror {
+  outline: none;
+}
+
+.ticket-editor .ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #adb5bd;
+  pointer-events: none;
+  height: 0;
+}
+
+.ticket-editor .ProseMirror blockquote {
+  border-left: 3px solid #e9ecef;
+  padding-left: 1rem;
+  font-style: italic;
+}
+
+.ticket-editor .ProseMirror code {
+  background-color: rgba(61, 37, 20, 0.05);
+  border-radius: 0.25rem;
+  padding: 0.1rem 0.3rem;
+  font-family: inherit;
+}
+
 @theme inline {
   --font-sans: 'Inter', sans-serif;
   --font-display: 'Plus Jakarta Sans', sans-serif;

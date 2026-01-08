@@ -13,10 +13,11 @@ import {
 } from "lucide-react";
 
 export const currentUser = {
+  id: "current-user-id",
   name: "Sarah Chen",
   role: "Product Manager",
   avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=150&h=150",
-  email: "sarah.chen@sakura.ai"
+  email: "sarah.chen@sarah.ai"
 };
 
 export const tickets = [
@@ -77,5 +78,5 @@ export const navItems = [
   { icon: MessageSquare, label: "Helpdesk", href: "/helpdesk" },
   { icon: FileText, label: "Documents", href: "/documents" },
   { icon: Users, label: "Team Directory", href: "/team" },
-  { icon: Settings, label: "Settings", href: "/settings" },
+  { icon: Settings, label: "System Settings", href: "/settings" },
 ];

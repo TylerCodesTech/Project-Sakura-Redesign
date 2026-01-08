@@ -10,6 +10,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import { type Notification, type User as DBUser } from "@shared/schema";
+import { formatDistanceToNow } from "date-fns";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,6 +42,22 @@ export function Header() {
   const [isLauncherOpen, setIsLauncherOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('system');
+
+  const { data: notifications = [] } = useQuery<Notification[]>({
+    queryKey: ["/api/notifications", currentUser.id],
+    enabled: !!currentUser.id,
+  });
+
+  const markReadMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("PATCH", `/api/notifications/${id}/read`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications", currentUser.id] });
+    },
+  });
+
+  const unreadCount = notifications.filter(n => n.read === "false").length;
 
   useEffect(() => {
     const root = window.document.documentElement;
@@ -172,10 +194,80 @@ export function Header() {
           </PopoverContent>
         </Popover>
 
-        <button className="p-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-full transition-colors relative">
-          <Bell className="w-5 h-5" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-destructive rounded-full border-2 border-background"></span>
-        </button>
+        <Popover>
+          <PopoverTrigger asChild>
+            <button className="p-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-full transition-colors relative">
+              <Bell className="w-5 h-5" />
+              {unreadCount > 0 && (
+                <span className="absolute top-1.5 right-1.5 min-w-[16px] h-4 bg-destructive text-[10px] font-bold text-white flex items-center justify-center rounded-full border-2 border-background px-0.5">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-80 p-0 border-border shadow-2xl rounded-xl overflow-hidden" align="end" sideOffset={12}>
+            <div className="p-4 border-b border-border flex items-center justify-between bg-muted/30">
+              <h2 className="font-semibold text-sm">Notifications</h2>
+              {unreadCount > 0 && (
+                <Badge variant="secondary" className="text-[10px] h-5 px-1.5">
+                  {unreadCount} New
+                </Badge>
+              )}
+            </div>
+            <ScrollArea className="h-[350px]">
+              {notifications.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full py-12 text-center px-4">
+                  <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center mb-3">
+                    <Bell className="w-5 h-5 text-muted-foreground" />
+                  </div>
+                  <p className="text-sm font-medium">All caught up!</p>
+                  <p className="text-xs text-muted-foreground mt-1">No new notifications at the moment.</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-border">
+                  {notifications.map((notification) => (
+                    <div 
+                      key={notification.id} 
+                      className={cn(
+                        "p-4 hover:bg-secondary/50 transition-colors cursor-pointer group relative",
+                        notification.read === "false" && "bg-primary/5"
+                      )}
+                      onClick={() => {
+                        if (notification.read === "false" && notification.title !== "New Page for Review") {
+                          markReadMutation.mutate(notification.id);
+                        }
+                        if (notification.link) {
+                          window.location.href = notification.link;
+                        }
+                      }}
+                    >
+                      <div className="flex gap-3">
+                        <div className={cn(
+                          "w-2 h-2 rounded-full mt-1.5 shrink-0 transition-all",
+                          notification.read === "false" ? "bg-primary scale-100" : "bg-transparent scale-0"
+                        )} />
+                        <div className="flex-1 space-y-1">
+                          <p className="text-sm font-semibold leading-none">{notification.title}</p>
+                          <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+                            {notification.message}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground/60 pt-1">
+                            {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </ScrollArea>
+            <div className="p-2 border-t border-border bg-muted/30">
+              <Button variant="ghost" className="w-full h-8 text-xs font-medium hover:bg-secondary">
+                View all notifications
+              </Button>
+            </div>
+          </PopoverContent>
+        </Popover>
 
         <div className="h-6 w-px bg-border hidden sm:block mx-1"></div>
 
@@ -306,10 +398,12 @@ export function Header() {
               </DialogContent>
             </Dialog>
 
-            <DropdownMenuItem className="rounded-lg gap-2 cursor-pointer">
-              <Settings className="w-4 h-4" />
-              Settings
-            </DropdownMenuItem>
+            <Link href="/settings">
+              <DropdownMenuItem className="rounded-lg gap-2 cursor-pointer">
+                <Settings className="w-4 h-4" />
+                System Settings
+              </DropdownMenuItem>
+            </Link>
             <DropdownMenuSeparator className="mx-[-8px] my-2" />
             <DropdownMenuItem className="rounded-lg gap-2 cursor-pointer text-destructive focus:text-destructive">
               <LogOut className="w-4 h-4" />
