@@ -712,8 +712,17 @@ export default function SystemSettings() {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between p-4 bg-secondary/10 rounded-xl border border-border/50 group">
                     <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
-                        <Globe className="w-5 h-5" />
+                      <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary overflow-hidden">
+                        <img 
+                          src={`/api/proxy-favicon?url=https://google.com`} 
+                          alt="Google"
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = 'none';
+                            (e.target as HTMLImageElement).parentElement?.classList.add('flex');
+                          }}
+                        />
+                        <Globe className="w-5 h-5 absolute" />
                       </div>
                       <div>
                         <p className="text-sm font-semibold">Google</p>

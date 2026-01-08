@@ -12,6 +12,17 @@ export async function registerRoutes(
     res.json(links);
   });
 
+  app.get("/api/proxy-favicon", async (req, res) => {
+    const { url } = req.query;
+    if (typeof url !== 'string') return res.status(400).send("URL required");
+    try {
+      const domain = new URL(url).hostname;
+      res.redirect(`https://icon.horse/icon/${domain}`);
+    } catch (e) {
+      res.status(400).send("Invalid URL");
+    }
+  });
+
   app.post("/api/external-links", async (req, res) => {
     const result = insertExternalLinkSchema.safeParse(req.body);
     if (!result.success) {

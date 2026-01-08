@@ -185,8 +185,17 @@ export function Header() {
                       rel="noopener noreferrer"
                       className="flex flex-col items-center gap-3 group"
                     >
-                      <div className="w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 group-hover:scale-110 group-hover:shadow-lg bg-secondary/50 text-muted-foreground">
-                        <Globe className="w-7 h-7" />
+                      <div className="w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 group-hover:scale-110 group-hover:shadow-lg bg-secondary/50 text-muted-foreground overflow-hidden">
+                        <img 
+                          src={`/api/proxy-favicon?url=https://google.com`} 
+                          alt="Google"
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = 'none';
+                            (e.target as HTMLImageElement).parentElement?.classList.add('flex');
+                          }}
+                        />
+                        <Globe className="w-7 h-7 absolute" />
                       </div>
                       <span className="text-xs font-medium text-foreground group-hover:text-primary transition-colors text-center line-clamp-1">
                         Google
