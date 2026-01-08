@@ -38,7 +38,8 @@ import {
   ShieldCheck,
   Globe,
   Settings as SettingsIcon,
-  Ticket
+  Ticket,
+  X
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
