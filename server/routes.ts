@@ -54,6 +54,19 @@ export async function registerRoutes(
     }
   });
 
+  app.patch("/api/external-links/:id", async (req, res) => {
+    const result = insertExternalLinkSchema.partial().safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({ error: result.error });
+    }
+    try {
+      const link = await storage.updateExternalLink(req.params.id, result.data);
+      res.json(link);
+    } catch (error: any) {
+      res.status(404).json({ error: error.message });
+    }
+  });
+
   app.get("/api/notifications/:userId", async (req, res) => {
     const notifications = await storage.getNotifications(req.params.userId);
     res.json(notifications);

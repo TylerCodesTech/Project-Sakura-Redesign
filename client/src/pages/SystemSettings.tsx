@@ -89,7 +89,17 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
-function SortableLinkItem({ link, onDelete, isDeleting }: { link: ExternalLink, onDelete: (id: string) => void, isDeleting: boolean }) {
+function SortableLinkItem({ 
+  link, 
+  onDelete, 
+  isDeleting,
+  onEdit
+}: { 
+  link: ExternalLink, 
+  onDelete: (id: string) => void, 
+  isDeleting: boolean,
+  onEdit: (link: ExternalLink) => void
+}) {
   const {
     attributes,
     listeners,
@@ -116,7 +126,7 @@ function SortableLinkItem({ link, onDelete, isDeleting }: { link: ExternalLink, 
     >
       <div className="flex items-center gap-4">
         <button 
-          className="cursor-grab active:cursor-grabbing text-muted-foreground/50 hover:text-muted-foreground"
+          className="cursor-grab active:cursor-grabbing text-muted-foreground/50 hover:text-muted-foreground p-1 rounded hover:bg-secondary/80"
           {...attributes} 
           {...listeners}
         >
@@ -138,15 +148,25 @@ function SortableLinkItem({ link, onDelete, isDeleting }: { link: ExternalLink, 
           <p className="text-xs text-muted-foreground truncate max-w-[200px] sm:max-w-md">{link.url}</p>
         </div>
       </div>
-      <Button 
-        variant="ghost" 
-        size="icon" 
-        className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-        onClick={() => onDelete(link.id)}
-        disabled={isDeleting}
-      >
-        <Trash2 className="w-4 h-4" />
-      </Button>
+      <div className="flex items-center gap-1">
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10"
+          onClick={() => onEdit(link)}
+        >
+          <SettingsIcon className="w-4 h-4" />
+        </Button>
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+          onClick={() => onDelete(link.id)}
+          disabled={isDeleting}
+        >
+          <Trash2 className="w-4 h-4" />
+        </Button>
+      </div>
     </div>
   );
 }
@@ -215,6 +235,7 @@ export default function SystemSettings() {
   const [isCreateUserModalOpen, setIsCreateUserModalOpen] = useState(false);
   const [isCreateRoleModalOpen, setIsCreateRoleModalOpen] = useState(false);
   const [isAddLinkOpen, setIsAddLinkOpen] = useState(false);
+  const [editingLink, setEditingLink] = useState<ExternalLink | null>(null);
   const [roleCreatorTab, setRoleCreatorTab] = useState("system");
 
   const { data: links = [], isLoading: isLoadingLinks } = useQuery<ExternalLink[]>({
@@ -229,11 +250,28 @@ export default function SystemSettings() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/external-links"] });
       setIsAddLinkOpen(false);
+      setEditingLink(null);
       form.reset();
-      toast.success("Link added successfully");
+      toast.success(editingLink ? "Link updated successfully" : "Link added successfully");
     },
     onError: () => {
-      toast.error("Failed to add link");
+      toast.error(editingLink ? "Failed to update link" : "Failed to add link");
+    },
+  });
+
+  const updateLinkMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string, data: any }) => {
+      const res = await apiRequest("PATCH", `/api/external-links/${id}`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/external-links"] });
+      setEditingLink(null);
+      form.reset();
+      toast.success("Link updated successfully");
+    },
+    onError: () => {
+      toast.error("Failed to update link");
     },
   });
 
@@ -294,8 +332,34 @@ export default function SystemSettings() {
   });
 
   const onSubmit = (data: any) => {
-    createLinkMutation.mutate(data);
+    if (editingLink) {
+      updateLinkMutation.mutate({ id: editingLink.id, data });
+    } else {
+      createLinkMutation.mutate(data);
+    }
   };
+
+  useEffect(() => {
+    if (editingLink) {
+      form.reset({
+        title: editingLink.title,
+        url: editingLink.url,
+        description: editingLink.description || "",
+        category: editingLink.category,
+        icon: editingLink.icon || "globe",
+        order: editingLink.order,
+      });
+    } else {
+      form.reset({
+        title: "",
+        url: "",
+        description: "",
+        category: "Resources",
+        icon: "globe",
+        order: "0",
+      });
+    }
+  }, [editingLink, form]);
 
   return (
     <Layout>
@@ -877,76 +941,86 @@ export default function SystemSettings() {
                       <CardTitle>Custom App Links</CardTitle>
                       <CardDescription>Add external resources and tools to the app launcher.</CardDescription>
                     </div>
-                    <Dialog open={isAddLinkOpen} onOpenChange={setIsAddLinkOpen}>
-                      <DialogTrigger asChild>
-                        <Button size="sm" className="gap-2 h-9">
-                          <Plus className="w-4 h-4" /> Add Link
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="sm:max-w-[425px]">
-                        <DialogHeader>
-                          <DialogTitle>Add Custom Link</DialogTitle>
-                          <DialogDescription>
-                            Create a new shortcut for your team. Favicons are pulled automatically.
-                          </DialogDescription>
-                        </DialogHeader>
-                        <Form {...form}>
-                          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
-                            <FormField
-                              control={form.control}
-                              name="title"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>Title</FormLabel>
-                                  <FormControl>
-                                    <Input placeholder="Google Workspace" {...field} />
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                            <FormField
-                              control={form.control}
-                              name="url"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>URL</FormLabel>
-                                  <FormControl>
-                                    <Input placeholder="https://workspace.google.com" {...field} />
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                            <FormField
-                              control={form.control}
-                              name="description"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>Description (Optional)</FormLabel>
-                                  <FormControl>
-                                    <Input placeholder="Company email and docs" {...field} />
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                            <DialogFooter className="pt-4">
-                              <Button 
-                                type="submit" 
-                                disabled={createLinkMutation.isPending}
-                                className="w-full sm:w-auto"
-                              >
-                                {createLinkMutation.isPending && (
-                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                )}
-                                Create Link
-                              </Button>
-                            </DialogFooter>
-                          </form>
-                        </Form>
-                      </DialogContent>
-                    </Dialog>
+                <Dialog 
+                  open={isAddLinkOpen || !!editingLink} 
+                  onOpenChange={(open) => {
+                    if (!open) {
+                      setIsAddLinkOpen(false);
+                      setEditingLink(null);
+                    } else {
+                      setIsAddLinkOpen(true);
+                    }
+                  }}
+                >
+                  <DialogTrigger asChild>
+                    <Button size="sm" className="gap-2 h-9">
+                      <Plus className="w-4 h-4" /> Add Link
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                      <DialogTitle>{editingLink ? "Edit Custom Link" : "Add Custom Link"}</DialogTitle>
+                      <DialogDescription>
+                        {editingLink ? "Update your shortcut details." : "Create a new shortcut for your team."} Favicons are pulled automatically.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <Form {...form}>
+                      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
+                        <FormField
+                          control={form.control}
+                          name="title"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Title</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Google Workspace" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="url"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>URL</FormLabel>
+                              <FormControl>
+                                <Input placeholder="https://workspace.google.com" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="description"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Description (Optional)</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Company email and docs" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <DialogFooter className="pt-4">
+                          <Button 
+                            type="submit" 
+                            disabled={createLinkMutation.isPending || updateLinkMutation.isPending}
+                            className="w-full sm:w-auto"
+                          >
+                            {(createLinkMutation.isPending || updateLinkMutation.isPending) && (
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            )}
+                            {editingLink ? "Save Changes" : "Create Link"}
+                          </Button>
+                        </DialogFooter>
+                      </form>
+                    </Form>
+                  </DialogContent>
+                </Dialog>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
@@ -979,6 +1053,7 @@ export default function SystemSettings() {
                                   link={link} 
                                   onDelete={(id) => deleteLinkMutation.mutate(id)}
                                   isDeleting={deleteLinkMutation.isPending}
+                                  onEdit={(l) => setEditingLink(l)}
                                 />
                               ))}
                             </div>
