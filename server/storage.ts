@@ -34,6 +34,7 @@ export interface IStorage {
 
   getExternalLinks(): Promise<ExternalLink[]>;
   createExternalLink(link: InsertExternalLink): Promise<ExternalLink>;
+  updateExternalLink(id: string, update: Partial<InsertExternalLink>): Promise<ExternalLink>;
   deleteExternalLink(id: string): Promise<void>;
 }
 
@@ -208,6 +209,14 @@ export class MemStorage implements IStorage {
 
   async deleteExternalLink(id: string): Promise<void> {
     this.externalLinks.delete(id);
+  }
+
+  async updateExternalLink(id: string, update: Partial<InsertExternalLink>): Promise<ExternalLink> {
+    const existing = this.externalLinks.get(id);
+    if (!existing) throw new Error("External link not found");
+    const updated = { ...existing, ...update };
+    this.externalLinks.set(id, updated);
+    return updated;
   }
 }
 
