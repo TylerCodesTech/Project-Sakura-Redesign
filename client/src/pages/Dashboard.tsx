@@ -138,45 +138,41 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           {/* Main Content Column */}
           <div className="lg:col-span-8 space-y-8">
-            {/* Departments Card */}
+            {/* Company News */}
             <Card className="border border-border/50 shadow-sm rounded-3xl overflow-hidden bg-white/60 dark:bg-card/60 backdrop-blur-md">
               <CardHeader className="flex flex-row items-center justify-between border-b border-border/40 pb-4 bg-secondary/10">
                 <div className="flex items-center gap-3">
-                  <Building2 className="w-5 h-5 text-primary" />
-                  <CardTitle className="text-lg font-bold text-primary">Departments</CardTitle>
+                  <div className="p-1.5 bg-indigo-500/10 rounded-lg">
+                    <Bell className="w-4 h-4 text-indigo-500" />
+                  </div>
+                  <CardTitle className="text-lg font-bold text-primary">Company News</CardTitle>
                 </div>
                 <Button variant="ghost" size="sm" className="text-primary font-bold hover:bg-primary/5 px-4 rounded-xl">
-                  Manage
+                  View All
+                  <ChevronRightIcon className="w-4 h-4 ml-1" />
                 </Button>
               </CardHeader>
-              <CardContent className="p-6">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {isLoadingDepts ? (
-                    Array.from({ length: 2 }).map((_, i) => (
-                      <div key={i} className="h-20 rounded-2xl bg-secondary/20 animate-pulse" />
-                    ))
-                  ) : departments.length === 0 ? (
-                    <div className="col-span-2 py-12 flex flex-col items-center justify-center text-muted-foreground">
-                      <div className="w-12 h-12 rounded-full bg-secondary/30 flex items-center justify-center mb-4">
-                        <Plus className="w-6 h-6 opacity-20" />
-                      </div>
-                      <p className="text-sm font-medium opacity-60">No departments found</p>
-                    </div>
-                  ) : (
-                    departments.slice(0, 4).map((dept) => (
-                      <div key={dept.id} className="p-4 rounded-2xl border border-border/50 bg-background/50 hover:bg-background transition-colors flex items-center justify-between group">
-                        <div className="flex items-center gap-3">
-                          <div className="w-2 h-8 rounded-full" style={ { backgroundColor: dept.color } } />
-                          <div>
-                            <p className="text-sm font-bold">{dept.name}</p>
-                            <p className="text-[10px] text-muted-foreground line-clamp-1">{dept.description}</p>
-                          </div>
+              <CardContent className="p-4 space-y-4">
+                {isLoadingNews ? (
+                  Array.from({ length: 2 }).map((_, i) => (
+                    <div key={i} className="h-16 rounded-2xl bg-secondary/20 animate-pulse" />
+                  ))
+                ) : (
+                  news.slice(0, 3).map((item, i) => (
+                    <div key={item.id} className="flex items-center justify-between p-3 rounded-2xl hover:bg-secondary/20 transition-colors cursor-pointer group">
+                      <div className="space-y-1">
+                        <p className="text-sm font-bold group-hover:text-primary transition-colors">{item.title}</p>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-muted-foreground">
+                            {new Date(item.createdAt).toLocaleDateString([], { month: 'short', day: '2-digit', year: 'numeric' })}
+                          </span>
+                          <Badge variant="outline" className="text-[9px] py-0 h-4 border-indigo-500/20 text-indigo-500">{item.category}</Badge>
                         </div>
-                        <ChevronRightIcon className="w-4 h-4 text-muted-foreground group-hover:translate-x-1 transition-transform" />
                       </div>
-                    ))
-                  )}
-                </div>
+                      <ChevronRightIcon className="w-4 h-4 text-muted-foreground group-hover:translate-x-1 transition-transform" />
+                    </div>
+                  ))
+                )}
               </CardContent>
             </Card>
 
@@ -223,41 +219,45 @@ export default function Dashboard() {
               </CardContent>
             </Card>
 
-            {/* Company News */}
+            {/* Departments Card */}
             <Card className="border border-border/50 shadow-sm rounded-3xl overflow-hidden bg-white/60 dark:bg-card/60 backdrop-blur-md">
               <CardHeader className="flex flex-row items-center justify-between border-b border-border/40 pb-4 bg-secondary/10">
                 <div className="flex items-center gap-3">
-                  <div className="p-1.5 bg-indigo-500/10 rounded-lg">
-                    <Bell className="w-4 h-4 text-indigo-500" />
-                  </div>
-                  <CardTitle className="text-lg font-bold text-primary">Company News</CardTitle>
+                  <Building2 className="w-5 h-5 text-primary" />
+                  <CardTitle className="text-lg font-bold text-primary">Departments</CardTitle>
                 </div>
                 <Button variant="ghost" size="sm" className="text-primary font-bold hover:bg-primary/5 px-4 rounded-xl">
-                  View All
-                  <ChevronRightIcon className="w-4 h-4 ml-1" />
+                  Manage
                 </Button>
               </CardHeader>
-              <CardContent className="p-4 space-y-4">
-                {isLoadingNews ? (
-                  Array.from({ length: 2 }).map((_, i) => (
-                    <div key={i} className="h-16 rounded-2xl bg-secondary/20 animate-pulse" />
-                  ))
-                ) : (
-                  news.slice(0, 3).map((item, i) => (
-                    <div key={item.id} className="flex items-center justify-between p-3 rounded-2xl hover:bg-secondary/20 transition-colors cursor-pointer group">
-                      <div className="space-y-1">
-                        <p className="text-sm font-bold group-hover:text-primary transition-colors">{item.title}</p>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] text-muted-foreground">
-                            {new Date(item.createdAt).toLocaleDateString([], { month: 'short', day: '2-digit', year: 'numeric' })}
-                          </span>
-                          <Badge variant="outline" className="text-[9px] py-0 h-4 border-indigo-500/20 text-indigo-500">{item.category}</Badge>
-                        </div>
+              <CardContent className="p-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {isLoadingDepts ? (
+                    Array.from({ length: 2 }).map((_, i) => (
+                      <div key={i} className="h-20 rounded-2xl bg-secondary/20 animate-pulse" />
+                    ))
+                  ) : departments.length === 0 ? (
+                    <div className="col-span-2 py-12 flex flex-col items-center justify-center text-muted-foreground">
+                      <div className="w-12 h-12 rounded-full bg-secondary/30 flex items-center justify-center mb-4">
+                        <Plus className="w-6 h-6 opacity-20" />
                       </div>
-                      <ChevronRightIcon className="w-4 h-4 text-muted-foreground group-hover:translate-x-1 transition-transform" />
+                      <p className="text-sm font-medium opacity-60">No departments found</p>
                     </div>
-                  ))
-                )}
+                  ) : (
+                    departments.slice(0, 4).map((dept) => (
+                      <div key={dept.id} className="p-4 rounded-2xl border border-border/50 bg-background/50 hover:bg-background transition-colors flex items-center justify-between group">
+                        <div className="flex items-center gap-3">
+                          <div className="w-2 h-8 rounded-full" style={ { backgroundColor: dept.color } } />
+                          <div>
+                            <p className="text-sm font-bold">{dept.name}</p>
+                            <p className="text-[10px] text-muted-foreground line-clamp-1">{dept.description}</p>
+                          </div>
+                        </div>
+                        <ChevronRightIcon className="w-4 h-4 text-muted-foreground group-hover:translate-x-1 transition-transform" />
+                      </div>
+                    ))
+                  )}
+                </div>
               </CardContent>
             </Card>
           </div>
