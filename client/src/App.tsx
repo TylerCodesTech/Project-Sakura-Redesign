@@ -9,10 +9,12 @@ import Helpdesk from "@/pages/Helpdesk";
 import Documents from "@/pages/Documents";
 import BookView from "@/pages/BookView";
 import DocEditor from "@/pages/DocEditor";
+import Login from "@/pages/Login";
 
 function Router() {
   return (
     <Switch>
+      <Route path="/login" component={Login} />
       <Route path="/" component={Dashboard} />
       <Route path="/helpdesk" component={Helpdesk} />
       <Route path="/documents" component={Documents} />
