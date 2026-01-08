@@ -59,6 +59,23 @@ export const externalLinks = pgTable("external_links", {
   order: text("order").notNull().default("0"),
 });
 
+export const news = pgTable("news", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull(),
+  content: text("content").notNull(),
+  category: text("category").notNull().default("General"),
+  authorId: varchar("author_id").notNull(),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const stats = pgTable("stats", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  key: text("key").notNull().unique(),
+  value: text("value").notNull(),
+  change: text("change").notNull().default("0"),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
 export const departments = pgTable("departments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
@@ -79,12 +96,24 @@ export const insertDepartmentSchema = createInsertSchema(departments).omit({
   id: true,
 });
 
+export const insertNewsSchema = createInsertSchema(news).omit({
+  id: true,
+});
+
+export const insertStatSchema = createInsertSchema(stats).omit({
+  id: true,
+});
+
 export type Notification = typeof notifications.$inferSelect;
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 export type ExternalLink = typeof externalLinks.$inferSelect;
 export type InsertExternalLink = z.infer<typeof insertExternalLinkSchema>;
 export type Department = typeof departments.$inferSelect;
 export type InsertDepartment = z.infer<typeof insertDepartmentSchema>;
+export type News = typeof news.$inferSelect;
+export type InsertNews = z.infer<typeof insertNewsSchema>;
+export type Stat = typeof stats.$inferSelect;
+export type InsertStat = z.infer<typeof insertStatSchema>;
 
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,

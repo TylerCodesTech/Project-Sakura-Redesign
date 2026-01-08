@@ -5,7 +5,9 @@ import {
   type Comment, type InsertComment,
   type Notification, type InsertNotification,
   type ExternalLink, type InsertExternalLink,
-  type Department, type InsertDepartment
+  type Department, type InsertDepartment,
+  type News, type InsertNews,
+  type Stat, type InsertStat
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -42,6 +44,12 @@ export interface IStorage {
   createDepartment(department: InsertDepartment): Promise<Department>;
   updateDepartment(id: string, update: Partial<InsertDepartment>): Promise<Department>;
   deleteDepartment(id: string): Promise<void>;
+
+  getNews(): Promise<News[]>;
+  createNews(news: InsertNews): Promise<News>;
+
+  getStats(): Promise<Stat[]>;
+  updateStat(key: string, update: Partial<InsertStat>): Promise<Stat>;
 }
 
 export class MemStorage implements IStorage {
@@ -52,6 +60,8 @@ export class MemStorage implements IStorage {
   private notifications: Map<string, Notification>;
   private externalLinks: Map<string, ExternalLink>;
   private departments: Map<string, Department>;
+  private news: Map<string, News>;
+  private stats: Map<string, Stat>;
 
   constructor() {
     this.users = new Map();
@@ -61,6 +71,29 @@ export class MemStorage implements IStorage {
     this.notifications = new Map();
     this.externalLinks = new Map();
     this.departments = new Map();
+    this.news = new Map();
+    this.stats = new Map();
+
+    // Add initial stats
+    const initialStats = [
+      { key: "active_tickets", value: "12", change: "+2" },
+      { key: "internal_docs", value: "48", change: "+5" },
+      { key: "team_members", value: "24", change: "+1" },
+    ];
+    initialStats.forEach(s => {
+      const id = randomUUID();
+      this.stats.set(s.key, { ...s, id, updatedAt: new Date().toISOString() });
+    });
+
+    // Add initial news
+    const initialNews = [
+      { title: "Q1 Strategy Meeting", content: "Meeting details...", category: "Corporate", authorId: "system" },
+      { title: "New AI Features Released", content: "Check out the new engine!", category: "Product", authorId: "system" },
+    ];
+    initialNews.forEach(n => {
+      const id = randomUUID();
+      this.news.set(id, { ...n, id, createdAt: new Date().toISOString() });
+    });
 
     // Add some default departments
     const defaultDepts = [
@@ -250,7 +283,7 @@ export class MemStorage implements IStorage {
       id, 
       description: insertDept.description ?? null, 
       headId: insertDept.headId ?? null,
-      color: insertDept.color ?? "#3b82f6"
+      color: insertDept.color || "#3b82f6"
     };
     this.departments.set(id, dept);
     return dept;
@@ -270,6 +303,29 @@ export class MemStorage implements IStorage {
 
   async deleteDepartment(id: string): Promise<void> {
     this.departments.delete(id);
+  }
+
+  async getNews(): Promise<News[]> {
+    return Array.from(this.news.values()).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }
+
+  async createNews(insertNews: InsertNews): Promise<News> {
+    const id = randomUUID();
+    const n: News = { ...insertNews, id, createdAt: new Date().toISOString() };
+    this.news.set(id, n);
+    return n;
+  }
+
+  async getStats(): Promise<Stat[]> {
+    return Array.from(this.stats.values());
+  }
+
+  async updateStat(key: string, update: Partial<InsertStat>): Promise<Stat> {
+    const existing = Array.from(this.stats.values()).find(s => s.key === key);
+    if (!existing) throw new Error("Stat not found");
+    const updated = { ...existing, ...update, updatedAt: new Date().toISOString() };
+    this.stats.set(key, updated);
+    return updated;
   }
 }
 

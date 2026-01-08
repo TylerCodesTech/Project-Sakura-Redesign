@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertBookSchema, insertPageSchema, insertCommentSchema, insertNotificationSchema, insertExternalLinkSchema, insertDepartmentSchema } from "@shared/schema";
+import { insertBookSchema, insertPageSchema, insertCommentSchema, insertNotificationSchema, insertExternalLinkSchema, insertDepartmentSchema, insertNewsSchema, insertStatSchema } from "@shared/schema";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -98,6 +98,36 @@ export async function registerRoutes(
   app.delete("/api/departments/:id", async (req, res) => {
     await storage.deleteDepartment(req.params.id);
     res.sendStatus(204);
+  });
+
+  // News
+  app.get("/api/news", async (_req, res) => {
+    const news = await storage.getNews();
+    res.json(news);
+  });
+
+  app.post("/api/news", async (req, res) => {
+    const result = insertNewsSchema.safeParse(req.body);
+    if (!result.success) return res.status(400).json({ error: result.error });
+    const news = await storage.createNews(result.data);
+    res.json(news);
+  });
+
+  // Stats
+  app.get("/api/stats", async (_req, res) => {
+    const stats = await storage.getStats();
+    res.json(stats);
+  });
+
+  app.patch("/api/stats/:key", async (req, res) => {
+    const result = insertStatSchema.partial().safeParse(req.body);
+    if (!result.success) return res.status(400).json({ error: result.error });
+    try {
+      const stat = await storage.updateStat(req.params.key, result.data);
+      res.json(stat);
+    } catch (e: any) {
+      res.status(404).json({ error: e.message });
+    }
   });
 
   app.get("/api/notifications/:userId", async (req, res) => {
