@@ -103,6 +103,7 @@ export default function BookView() {
     editorProps: {
       attributes: {
         class: 'prose prose-sakura max-w-none focus:outline-none',
+        style: 'font-size: 16px;',
       },
     },
     editable: isEditing,
@@ -295,6 +296,26 @@ export default function BookView() {
                 <SelectItem value="Inter">Inter</SelectItem>
                 <SelectItem value="serif">Serif</SelectItem>
                 <SelectItem value="monospace">Mono</SelectItem>
+                <SelectItem value="Comic Sans MS, Comic Sans">Comic Sans</SelectItem>
+                <SelectItem value="cursive">Cursive</SelectItem>
+                <SelectItem value="fantasy">Fantasy</SelectItem>
+              </SelectContent>
+            </Select>
+            <Separator orientation="vertical" className="h-6 mx-1 opacity-50" />
+            <Select onValueChange={(value) => editor?.chain().focus().setMark('textStyle', { fontSize: value }).run()}>
+              <SelectTrigger className="w-[80px] h-8 rounded-lg border-transparent bg-transparent hover:bg-secondary/40 font-bold text-xs">
+                <SelectValue placeholder="Size" />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl">
+                <SelectItem value="12px">12px</SelectItem>
+                <SelectItem value="14px">14px</SelectItem>
+                <SelectItem value="16px">16px</SelectItem>
+                <SelectItem value="18px">18px</SelectItem>
+                <SelectItem value="20px">20px</SelectItem>
+                <SelectItem value="24px">24px</SelectItem>
+                <SelectItem value="30px">30px</SelectItem>
+                <SelectItem value="36px">36px</SelectItem>
+                <SelectItem value="48px">48px</SelectItem>
               </SelectContent>
             </Select>
             <Separator orientation="vertical" className="h-6 mx-1 opacity-50" />
