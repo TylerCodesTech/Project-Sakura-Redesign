@@ -1,7 +1,46 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+
+export const systemSettings = pgTable("system_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  key: text("key").notNull().unique(),
+  value: text("value").notNull(),
+  category: text("category").notNull().default("general"),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const insertSystemSettingSchema = createInsertSchema(systemSettings).omit({
+  id: true,
+});
+
+export type SystemSetting = typeof systemSettings.$inferSelect;
+export type InsertSystemSetting = z.infer<typeof insertSystemSettingSchema>;
+
+export const systemSettingsDefaults: Record<string, string> = {
+  companyName: "Sakura",
+  platformName: "Sakura Helpdesk",
+  supportEmail: "",
+  logoUrl: "",
+  faviconUrl: "",
+  primaryColor: "#7c3aed",
+  defaultTheme: "system",
+  allowUserThemeOverride: "true",
+  defaultTimezone: "pst",
+  defaultLanguage: "en",
+  dateFormat: "mdy",
+  timeFormat: "12",
+  emailNewTicketAssigned: "true",
+  emailTicketUpdated: "true",
+  emailSLAWarning: "true",
+  emailWeeklyDigest: "false",
+  inAppDesktopNotifications: "true",
+  inAppSoundAlerts: "false",
+  inAppNotificationBadge: "true",
+};
+
+export type SystemSettingsKeys = keyof typeof systemSettingsDefaults;
 
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

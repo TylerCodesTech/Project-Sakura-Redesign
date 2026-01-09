@@ -7,7 +7,9 @@ import {
   type ExternalLink, type InsertExternalLink,
   type Department, type InsertDepartment,
   type News, type InsertNews,
-  type Stat, type InsertStat
+  type Stat, type InsertStat,
+  type SystemSetting, type InsertSystemSetting,
+  systemSettingsDefaults
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -54,6 +56,12 @@ export interface IStorage {
   // Watercooler
   getWatercoolerMessages(): Promise<Comment[]>;
   createWatercoolerMessage(message: InsertComment): Promise<Comment>;
+
+  // System Settings
+  getSystemSettings(): Promise<Record<string, string>>;
+  getSystemSetting(key: string): Promise<string | undefined>;
+  setSystemSetting(key: string, value: string, category?: string): Promise<SystemSetting>;
+  setSystemSettings(settings: Record<string, string>): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
@@ -66,6 +74,7 @@ export class MemStorage implements IStorage {
   private departments: Map<string, Department>;
   private news: Map<string, News>;
   private stats: Map<string, Stat>;
+  private settings: Map<string, SystemSetting>;
 
   constructor() {
     this.users = new Map();
@@ -77,6 +86,19 @@ export class MemStorage implements IStorage {
     this.departments = new Map();
     this.news = new Map();
     this.stats = new Map();
+    this.settings = new Map();
+
+    // Initialize default system settings
+    Object.entries(systemSettingsDefaults).forEach(([key, value]) => {
+      const id = randomUUID();
+      this.settings.set(key, {
+        id,
+        key,
+        value,
+        category: this.getSettingCategory(key),
+        updatedAt: new Date().toISOString(),
+      });
+    });
 
     // Add initial stats
     const initialStats = [
@@ -353,6 +375,45 @@ export class MemStorage implements IStorage {
     };
     this.comments.set(id, comment);
     return comment;
+  }
+
+  private getSettingCategory(key: string): string {
+    if (key.startsWith('email') || key.startsWith('inApp')) return 'notifications';
+    if (['companyName', 'logoUrl', 'faviconUrl', 'primaryColor', 'defaultTheme', 'allowUserThemeOverride'].includes(key)) return 'branding';
+    if (['defaultTimezone', 'defaultLanguage', 'dateFormat', 'timeFormat'].includes(key)) return 'localization';
+    return 'general';
+  }
+
+  async getSystemSettings(): Promise<Record<string, string>> {
+    const result: Record<string, string> = {};
+    this.settings.forEach((setting) => {
+      result[setting.key] = setting.value;
+    });
+    return result;
+  }
+
+  async getSystemSetting(key: string): Promise<string | undefined> {
+    return this.settings.get(key)?.value;
+  }
+
+  async setSystemSetting(key: string, value: string, category?: string): Promise<SystemSetting> {
+    const existing = this.settings.get(key);
+    const id = existing?.id || randomUUID();
+    const setting: SystemSetting = {
+      id,
+      key,
+      value,
+      category: category || this.getSettingCategory(key),
+      updatedAt: new Date().toISOString(),
+    };
+    this.settings.set(key, setting);
+    return setting;
+  }
+
+  async setSystemSettings(settings: Record<string, string>): Promise<void> {
+    await Promise.all(
+      Object.entries(settings).map(([key, value]) => this.setSystemSetting(key, value))
+    );
   }
 }
 

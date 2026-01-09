@@ -1,7 +1,34 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertBookSchema, insertPageSchema, insertCommentSchema, insertNotificationSchema, insertExternalLinkSchema, insertDepartmentSchema, insertNewsSchema, insertStatSchema } from "@shared/schema";
+import { insertBookSchema, insertPageSchema, insertCommentSchema, insertNotificationSchema, insertExternalLinkSchema, insertDepartmentSchema, insertNewsSchema, insertStatSchema, systemSettingsDefaults } from "@shared/schema";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+
+const uploadsDir = path.join(process.cwd(), "uploads");
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, uploadsDir),
+    filename: (_req, file, cb) => {
+      const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+      cb(null, uniqueSuffix + path.extname(file.originalname));
+    },
+  }),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowedTypes = ["image/png", "image/jpeg", "image/gif", "image/svg+xml", "image/webp", "image/x-icon"];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error("Only image files are allowed"));
+    }
+  },
+});
 
 export async function registerRoutes(
   httpServer: Server,
@@ -337,6 +364,62 @@ export async function registerRoutes(
     if (!result.success) return res.status(400).json({ error: result.error });
     const message = await storage.createWatercoolerMessage(result.data);
     res.json(message);
+  });
+
+  // Serve uploaded files
+  app.use("/uploads", (req, res, next) => {
+    const filePath = path.join(uploadsDir, req.path.replace(/^\//, ""));
+    if (fs.existsSync(filePath)) {
+      res.sendFile(filePath);
+    } else {
+      res.status(404).send("File not found");
+    }
+  });
+
+  // File upload endpoint
+  app.post("/api/upload", upload.single("file"), (req, res) => {
+    if (!req.file) {
+      return res.status(400).json({ error: "No file uploaded" });
+    }
+    const fileUrl = `/uploads/${req.file.filename}`;
+    res.json({ url: fileUrl, filename: req.file.filename });
+  });
+
+  // System Settings
+  app.get("/api/system-settings", async (_req, res) => {
+    const settings = await storage.getSystemSettings();
+    res.json(settings);
+  });
+
+  app.get("/api/system-settings/:key", async (req, res) => {
+    const value = await storage.getSystemSetting(req.params.key);
+    if (value === undefined) {
+      const defaultValue = systemSettingsDefaults[req.params.key as keyof typeof systemSettingsDefaults];
+      if (defaultValue !== undefined) {
+        return res.json({ key: req.params.key, value: defaultValue });
+      }
+      return res.status(404).json({ error: "Setting not found" });
+    }
+    res.json({ key: req.params.key, value });
+  });
+
+  app.patch("/api/system-settings", async (req, res) => {
+    const settings = req.body;
+    if (typeof settings !== 'object' || settings === null) {
+      return res.status(400).json({ error: "Invalid settings object" });
+    }
+    await storage.setSystemSettings(settings);
+    const updated = await storage.getSystemSettings();
+    res.json(updated);
+  });
+
+  app.patch("/api/system-settings/:key", async (req, res) => {
+    const { value } = req.body;
+    if (typeof value !== 'string') {
+      return res.status(400).json({ error: "Value must be a string" });
+    }
+    const setting = await storage.setSystemSetting(req.params.key, value);
+    res.json(setting);
   });
 
   return httpServer;

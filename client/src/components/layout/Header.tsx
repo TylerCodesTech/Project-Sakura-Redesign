@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
+import { useSystemSettings } from "@/contexts/SystemSettingsContext";
 import { 
   Popover,
   PopoverContent,
@@ -48,11 +49,19 @@ export function Header() {
   const [location] = useLocation();
   const [isLauncherOpen, setIsLauncherOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('system');
+  const { settings, isLoading } = useSystemSettings();
+  const [userTheme, setUserTheme] = useState<'light' | 'dark' | 'system' | null>(null);
   const [resourceSearch, setResourceSearch] = useState("");
   const [globalSearch, setGlobalSearch] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
+  const canOverrideTheme = settings.allowUserThemeOverride === "true";
+  const theme = canOverrideTheme && userTheme !== null ? userTheme : (settings.defaultTheme as 'light' | 'dark' | 'system') || 'system';
+  const setTheme = (newTheme: 'light' | 'dark' | 'system') => {
+    if (canOverrideTheme) {
+      setUserTheme(newTheme);
+    }
+  };
 
   const { data: searchResults = [], isLoading: isSearching } = useQuery<SearchResult[]>({
     queryKey: ["/api/search", { q: globalSearch }],
@@ -128,10 +137,14 @@ export function Header() {
     <header className="h-16 border-b border-border bg-background/50 backdrop-blur-md sticky top-0 z-20 flex items-center justify-between px-6 md:px-8">
       <div className="flex items-center gap-4 flex-1 max-w-2xl">
         <Link href="/" className="flex items-center gap-2 mr-4 group hover:opacity-80 transition-opacity cursor-pointer">
-            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary/20 transition-colors">
-              <Sparkles className="w-5 h-5 fill-primary/20" />
-            </div>
-            <span className="font-display font-bold text-xl tracking-tight">Sakura</span>
+            {settings.logoUrl ? (
+              <img src={settings.logoUrl} alt={settings.companyName} className="w-8 h-8 rounded-lg object-contain" />
+            ) : (
+              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary/20 transition-colors">
+                <Sparkles className="w-5 h-5 fill-primary/20" />
+              </div>
+            )}
+            <span className="font-display font-bold text-xl tracking-tight">{settings.companyName}</span>
         </Link>
 
         <div className="h-6 w-px bg-border mx-2"></div>
@@ -241,7 +254,7 @@ export function Header() {
               <ScrollArea className="h-[480px] -mr-4 pr-4">
                 <div className="space-y-8 pb-4">
                   <div>
-                    <h3 className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-6">Sakura Apps</h3>
+                    <h3 className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-6">{settings.companyName} Apps</h3>
                     <div className="grid grid-cols-4 gap-4">
                       {navItems.map((item) => {
                         const isActive = location === item.href;
