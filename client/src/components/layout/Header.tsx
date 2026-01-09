@@ -1,8 +1,8 @@
-import { Search, Bell, HelpCircle, X, Sparkles, User, Settings, LogOut, Moon, Sun, Monitor, Mail, MessageSquare, Globe, Loader2 } from "lucide-react";
+import { Search, Bell, HelpCircle, X, Sparkles, User, Settings, LogOut, Moon, Sun, Monitor, Mail, MessageSquare, Globe, Loader2, Book, FileText, Building2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { currentUser, navItems } from "@/lib/mockData";
 import { Input } from "@/components/ui/input";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { 
@@ -37,12 +37,33 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 
+interface SearchResult {
+  type: 'book' | 'page' | 'department';
+  id: string;
+  title: string;
+  link: string;
+}
+
 export function Header() {
   const [location] = useLocation();
   const [isLauncherOpen, setIsLauncherOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('system');
   const [resourceSearch, setResourceSearch] = useState("");
+  const [globalSearch, setGlobalSearch] = useState("");
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
+
+  const { data: searchResults = [], isLoading: isSearching } = useQuery<SearchResult[]>({
+    queryKey: ["/api/search", { q: globalSearch }],
+    queryFn: async () => {
+      if (!globalSearch) return [];
+      const res = await fetch(`/api/search?q=${encodeURIComponent(globalSearch)}`);
+      if (!res.ok) throw new Error("Search failed");
+      return res.json();
+    },
+    enabled: globalSearch.length > 0,
+  });
 
   const { data: links = [], isLoading: isLoadingLinks } = useQuery<ExternalLink[]>({
     queryKey: ["/api/external-links"],
@@ -57,6 +78,16 @@ export function Header() {
     queryKey: ["/api/notifications", currentUser.id],
     enabled: !!currentUser.id,
   });
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+        setIsSearchOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const markReadMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -105,15 +136,75 @@ export function Header() {
 
         <div className="h-6 w-px bg-border mx-2"></div>
 
-        <div className="flex-1 max-w-md hidden md:block">
+        <div className="flex-1 max-w-md hidden md:block relative" ref={searchRef}>
           <div className="relative group">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
             <Input 
               placeholder="Ask AI or search..." 
               className="pl-10 h-9 bg-secondary/50 border-transparent focus-visible:bg-background focus-visible:border-primary/20 w-full transition-all duration-300"
               data-testid="global-search"
+              value={globalSearch}
+              onChange={(e) => {
+                setGlobalSearch(e.target.value);
+                setIsSearchOpen(true);
+              }}
+              onFocus={() => setIsSearchOpen(true)}
             />
           </div>
+
+          {isSearchOpen && (globalSearch || isSearching) && (
+            <div className="absolute top-full left-0 right-0 mt-2 bg-background border border-border shadow-2xl rounded-2xl overflow-hidden z-50">
+              <ScrollArea className="max-h-[400px]">
+                <div className="p-2">
+                  {isSearching ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="w-6 h-6 animate-spin text-primary/30" />
+                    </div>
+                  ) : searchResults.length === 0 ? (
+                    <div className="py-8 text-center text-sm text-muted-foreground">
+                      No results found for "{globalSearch}"
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      {searchResults.map((result) => (
+                        <Link 
+                          key={`${result.type}-${result.id}`} 
+                          href={result.link}
+                          onClick={() => {
+                            setIsSearchOpen(false);
+                            setGlobalSearch("");
+                          }}
+                        >
+                          <div className="flex items-center gap-3 p-3 hover:bg-secondary/50 rounded-xl cursor-pointer transition-colors group">
+                            <div className={cn(
+                              "w-8 h-8 rounded-lg flex items-center justify-center shrink-0",
+                              result.type === 'book' && "bg-emerald-50 text-emerald-600",
+                              result.type === 'page' && "bg-rose-50 text-rose-600",
+                              result.type === 'department' && "bg-indigo-50 text-indigo-600",
+                            )}>
+                              {result.type === 'book' && <Book className="w-4 h-4" />}
+                              {result.type === 'page' && <FileText className="w-4 h-4" />}
+                              {result.type === 'department' && <Building2 className="w-4 h-4" />}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-bold truncate group-hover:text-primary transition-colors">{result.title}</p>
+                              <p className="text-[10px] uppercase font-black tracking-wider text-muted-foreground/60">{result.type}</p>
+                            </div>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </ScrollArea>
+              <div className="p-3 bg-secondary/20 border-t border-border flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-3 h-3 text-primary" />
+                  <span className="text-[10px] font-bold uppercase tracking-tight text-muted-foreground">AI Enhanced Search</span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
