@@ -326,5 +326,18 @@ export async function registerRoutes(
     res.json(results);
   });
 
+  // Watercooler
+  app.get("/api/watercooler", async (_req, res) => {
+    const messages = await storage.getWatercoolerMessages();
+    res.json(messages);
+  });
+
+  app.post("/api/watercooler", async (req, res) => {
+    const result = insertCommentSchema.safeParse({ ...req.body, pageId: "watercooler" });
+    if (!result.success) return res.status(400).json({ error: result.error });
+    const message = await storage.createWatercoolerMessage(result.data);
+    res.json(message);
+  });
+
   return httpServer;
 }

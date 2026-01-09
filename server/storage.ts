@@ -50,6 +50,10 @@ export interface IStorage {
 
   getStats(): Promise<Stat[]>;
   updateStat(key: string, update: Partial<InsertStat>): Promise<Stat>;
+  
+  // Watercooler
+  getWatercoolerMessages(): Promise<Comment[]>;
+  createWatercoolerMessage(message: InsertComment): Promise<Comment>;
 }
 
 export class MemStorage implements IStorage {
@@ -331,6 +335,24 @@ export class MemStorage implements IStorage {
     const updated = { ...existing, ...update, updatedAt: new Date().toISOString() };
     this.stats.set(key, updated);
     return updated;
+  }
+
+  async getWatercoolerMessages(): Promise<Comment[]> {
+    return Array.from(this.comments.values())
+      .filter(c => c.pageId === "watercooler")
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  }
+
+  async createWatercoolerMessage(insertComment: InsertComment): Promise<Comment> {
+    const id = randomUUID();
+    const comment: Comment = { 
+      ...insertComment, 
+      id, 
+      pageId: "watercooler",
+      createdAt: new Date().toISOString() 
+    };
+    this.comments.set(id, comment);
+    return comment;
   }
 }
 

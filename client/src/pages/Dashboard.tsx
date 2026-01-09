@@ -17,7 +17,8 @@ import {
   TrendingUp,
   Users,
   Building2,
-  Bell
+  Bell,
+  ChevronRight as ChevronRightIcon
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,13 +29,18 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
-import { useQuery } from "@tanstack/react-query";
-import { type Department, type News, type Stat } from "@shared/schema";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { type Department, type News, type Stat, type Comment } from "@shared/schema";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { currentUser } from "@/lib/mockData";
 
 export default function Dashboard() {
   const [time, setTime] = useState(new Date());
+  const [message, setMessage] = useState("");
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const { data: departments = [], isLoading: isLoadingDepts } = useQuery<Department[]>({
     queryKey: ["/api/departments"],
@@ -48,10 +54,39 @@ export default function Dashboard() {
     queryKey: ["/api/stats"],
   });
 
+  const { data: messages = [] } = useQuery<Comment[]>({
+    queryKey: ["/api/watercooler"],
+    refetchInterval: 3000,
+  });
+
+  const postMessageMutation = useMutation({
+    mutationFn: async (content: string) => {
+      await apiRequest("POST", "/api/watercooler", {
+        content,
+        userId: currentUser.id,
+      });
+    },
+    onSuccess: () => {
+      setMessage("");
+      queryClient.invalidateQueries({ queryKey: ["/api/watercooler"] });
+    }
+  });
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages]);
+
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  const handleSendMessage = () => {
+    if (!message.trim()) return;
+    postMessageMutation.mutate(message);
+  };
 
   const systems = [
     { name: "AI Engine", status: "Operational", color: "bg-emerald-400", latency: "42ms" },
@@ -60,34 +95,12 @@ export default function Dashboard() {
     { name: "Auth Service", status: "Operational", color: "bg-emerald-400", latency: "24ms" },
   ];
 
-  const statConfig: Record<string, { icon: any, color: string, bg: string, label: string }> = {
-    active_tickets: { icon: Activity, color: "text-blue-500", bg: "bg-blue-50", label: "Active Tickets" },
-    internal_docs: { icon: FileText, color: "text-emerald-500", bg: "bg-emerald-50", label: "Internal Docs" },
-    team_members: { icon: Users, color: "text-amber-500", bg: "bg-amber-50", label: "Team Members" },
-  };
-
-  const displayStats = [
-    ...backendStats.map(s => ({
-      ...s,
-      ...statConfig[s.key],
-    })),
-    { 
-      key: "departments", 
-      value: departments.length.toString(), 
-      change: "0", 
-      icon: Building2, 
-      color: "text-purple-500", 
-      bg: "bg-purple-50",
-      label: "Departments"
-    }
-  ];
-
   return (
     <Layout>
       <div className="space-y-8">
         <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
           <div className="space-y-2">
-            <h1 className="text-4xl font-display font-bold text-primary tracking-tight">Good Evening, Tyler</h1>
+            <h1 className="text-4xl font-display font-bold text-primary tracking-tight">Good Evening, {currentUser.name.split(' ')[0]}</h1>
             <p className="text-muted-foreground text-lg">Here's what's happening at Sakura Corp today.</p>
           </div>
           
@@ -136,9 +149,7 @@ export default function Dashboard() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Main Content Column */}
           <div className="lg:col-span-8 space-y-8">
-            {/* Company News */}
             <Card className="border border-border/50 shadow-sm rounded-3xl overflow-hidden bg-white/60 dark:bg-card/60 backdrop-blur-md">
               <CardHeader className="flex flex-row items-center justify-between border-b border-border/40 pb-4 bg-secondary/10">
                 <div className="flex items-center gap-3">
@@ -158,7 +169,7 @@ export default function Dashboard() {
                     <div key={i} className="h-16 rounded-2xl bg-secondary/20 animate-pulse" />
                   ))
                 ) : (
-                  news.slice(0, 3).map((item, i) => (
+                  news.slice(0, 3).map((item) => (
                     <div key={item.id} className="flex items-center justify-between p-3 rounded-2xl hover:bg-secondary/20 transition-colors cursor-pointer group">
                       <div className="space-y-1">
                         <p className="text-sm font-bold group-hover:text-primary transition-colors">{item.title}</p>
@@ -176,7 +187,6 @@ export default function Dashboard() {
               </CardContent>
             </Card>
 
-            {/* Watercooler Section */}
             <Card className="border border-border/50 shadow-sm rounded-3xl overflow-hidden bg-white/60 dark:bg-card/60 backdrop-blur-md">
               <CardHeader className="flex flex-row items-center justify-between border-b border-border/40 pb-4 bg-secondary/10">
                 <div className="flex items-center gap-3">
@@ -189,37 +199,69 @@ export default function Dashboard() {
                     Live
                   </div>
                   <div className="h-4 w-px bg-border/50" />
-                  <span className="text-xs font-bold text-muted-foreground tabular-nums">0 Online</span>
+                  <span className="text-xs font-bold text-muted-foreground tabular-nums">1 Online</span>
                 </div>
               </CardHeader>
-              <CardContent className="p-0">
-                <div className="h-[240px] flex items-center justify-center text-muted-foreground bg-secondary/5">
-                  <div className="text-center space-y-2">
-                    <MessageSquare className="w-8 h-8 mx-auto opacity-10" />
-                    <p className="text-xs font-medium opacity-40 italic">Start the conversation...</p>
+              <CardContent className="p-0 flex flex-col h-[320px]">
+                <ScrollArea className="flex-1 p-4" viewportRef={scrollRef}>
+                  <div className="space-y-4">
+                    {messages.length === 0 ? (
+                      <div className="h-full flex items-center justify-center text-muted-foreground py-12">
+                        <div className="text-center space-y-2">
+                          <MessageSquare className="w-8 h-8 mx-auto opacity-10" />
+                          <p className="text-xs font-medium opacity-40 italic">Start the conversation...</p>
+                        </div>
+                      </div>
+                    ) : (
+                      messages.map((msg) => (
+                        <div key={msg.id} className={cn(
+                          "flex flex-col gap-1 max-w-[80%]",
+                          msg.userId === currentUser.id ? "ml-auto items-end" : "items-start"
+                        )}>
+                          <div className={cn(
+                            "px-4 py-2 rounded-2xl text-sm",
+                            msg.userId === currentUser.id 
+                              ? "bg-primary text-white rounded-br-none shadow-md shadow-primary/20" 
+                              : "bg-secondary/40 text-foreground rounded-bl-none border border-border/50"
+                          )}>
+                            {msg.content}
+                          </div>
+                          <span className="text-[10px] text-muted-foreground px-1">
+                            {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                      ))
+                    )}
                   </div>
-                </div>
+                </ScrollArea>
                 <div className="p-4 border-t border-border/40 flex items-center gap-4 bg-background/30">
-                  <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-xl transition-all">
+                  <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-xl transition-all shrink-0">
                     <Paperclip className="w-5 h-5" />
                   </Button>
                   <div className="relative flex-1 group">
                     <Input 
                       placeholder="Type a message..." 
-                      className="bg-secondary/30 border-transparent focus-visible:bg-background focus-visible:ring-2 focus-visible:ring-primary/20 rounded-2xl pl-4 pr-10 transition-all" 
+                      className="bg-secondary/30 border-transparent focus-visible:bg-background focus-visible:ring-2 focus-visible:ring-primary/20 rounded-2xl pl-4 pr-10 transition-all h-11"
+                      value={message}
+                      onChange={(e) => setMessage(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
                     />
                     <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary rounded-lg">
                       <Smile className="w-5 h-5" />
                     </Button>
                   </div>
-                  <Button size="icon" className="rounded-2xl w-11 h-11 shadow-lg shadow-primary/20 hover:scale-105 transition-all">
+                  <Button 
+                    size="icon" 
+                    className="rounded-2xl w-11 h-11 shadow-lg shadow-primary/20 hover:scale-105 transition-all shrink-0"
+                    onClick={handleSendMessage}
+                    disabled={postMessageMutation.isPending || !message.trim()}
+                  >
                     <SendHorizontal className="w-5 h-5" />
                   </Button>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Departments Card */}
             <Card className="border border-border/50 shadow-sm rounded-3xl overflow-hidden bg-white/60 dark:bg-card/60 backdrop-blur-md">
               <CardHeader className="flex flex-row items-center justify-between border-b border-border/40 pb-4 bg-secondary/10">
                 <div className="flex items-center gap-3">
@@ -262,9 +304,7 @@ export default function Dashboard() {
             </Card>
           </div>
 
-          {/* Sidebar Column */}
           <div className="lg:col-span-4 space-y-8">
-            {/* Quick Actions Card */}
             <Card className="border border-border/50 shadow-sm rounded-3xl overflow-hidden bg-white/60 dark:bg-card/60 backdrop-blur-md p-6">
               <div className="flex items-center justify-between mb-8">
                 <CardTitle className="text-lg font-bold text-primary">Quick Actions</CardTitle>
@@ -289,7 +329,6 @@ export default function Dashboard() {
               </div>
             </Card>
 
-            {/* Notifications Card */}
             <Card className="border border-border/50 shadow-sm rounded-3xl overflow-hidden bg-white/60 dark:bg-card/60 backdrop-blur-md">
               <CardHeader className="flex flex-row items-center justify-between border-b border-border/40 pb-4 bg-primary/5">
                 <div className="flex items-center gap-3">
@@ -320,7 +359,6 @@ export default function Dashboard() {
               </CardContent>
             </Card>
 
-            {/* Volunteer Events Card */}
             <Card className="border border-border/50 shadow-sm rounded-3xl overflow-hidden bg-white/60 dark:bg-card/60 backdrop-blur-md">
               <CardHeader className="flex flex-row items-center justify-between border-b border-border/40 pb-4 bg-indigo-500/5">
                 <div className="flex items-center gap-3">
@@ -349,13 +387,5 @@ export default function Dashboard() {
         </div>
       </div>
     </Layout>
-  );
-}
-
-function ChevronRightIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="m9 18 6-6-6-6"/>
-    </svg>
   );
 }
