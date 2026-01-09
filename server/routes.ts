@@ -438,6 +438,12 @@ export async function registerRoutes(
   app.post("/api/helpdesks", async (req, res) => {
     const result = insertHelpdeskSchema.safeParse(req.body);
     if (!result.success) return res.status(400).json({ error: result.error });
+    
+    const existing = await storage.getHelpdeskByDepartment(result.data.departmentId);
+    if (existing) {
+      return res.json(existing);
+    }
+    
     const helpdesk = await storage.createHelpdesk(result.data);
     res.json(helpdesk);
   });

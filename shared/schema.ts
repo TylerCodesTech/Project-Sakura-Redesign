@@ -184,7 +184,7 @@ export type InsertComment = z.infer<typeof insertCommentSchema>;
 // Helpdesk configuration per department
 export const helpdesks = pgTable("helpdesks", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  departmentId: varchar("department_id").notNull(),
+  departmentId: varchar("department_id").notNull().unique(),
   name: text("name").notNull(),
   description: text("description"),
   enabled: text("enabled").notNull().default("true"),

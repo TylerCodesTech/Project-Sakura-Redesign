@@ -7,17 +7,19 @@ import {
   MessagesSquare,
   Plus,
   Trash2,
-  ChevronRight,
   Globe,
-  Save,
   Settings,
   FolderKanban,
   AlertCircle,
   CheckCircle2,
   Edit3,
-  Copy,
   ToggleLeft,
   Loader2,
+  GripVertical,
+  ArrowRight,
+  Users,
+  Building2,
+  GitBranch,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -44,14 +46,8 @@ import {
   DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
-import { useQuery } from "@tanstack/react-query";
-import { type Department } from "@shared/schema";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { type Department, type Helpdesk, type SlaState, type SlaPolicy, type EscalationRule, type InboundEmailConfig, type DepartmentHierarchy, type DepartmentManager } from "@shared/schema";
 import { cn } from "@/lib/utils";
 import {
   SettingsHeader,
@@ -60,43 +56,225 @@ import {
   SettingsRow,
   DepartmentSelector,
 } from "../components";
+import { apiRequest } from "@/lib/queryClient";
 
 interface HelpdeskSettingsProps {
   subsection?: string;
   initialDepartmentId?: string;
 }
 
-const mockCustomFields = [
-  { id: "1", name: "Asset ID", type: "text", required: true },
-  { id: "2", name: "Urgency Level", type: "select", required: true, options: ["Low", "Medium", "High", "Critical"] },
-  { id: "3", name: "Affected Systems", type: "multiselect", required: false, options: ["Email", "VPN", "CRM", "ERP"] },
-];
-
-const mockEmailTemplates = [
-  { id: "1", name: "Ticket Created", trigger: "ticket_created", enabled: true },
-  { id: "2", name: "Status Updated", trigger: "ticket_updated", enabled: true },
-  { id: "3", name: "Ticket Resolved", trigger: "ticket_resolved", enabled: true },
-  { id: "4", name: "SLA Warning", trigger: "sla_warning", enabled: false },
-];
-
-const mockWebhooks = [
-  { id: "1", name: "Slack Notifications", url: "https://hooks.slack.com/...", events: ["ticket.created", "ticket.resolved"], enabled: true },
-  { id: "2", name: "JIRA Integration", url: "https://company.atlassian.net/...", events: ["ticket.created"], enabled: true },
-];
-
 export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSettingsProps) {
   const [selectedDepartment, setSelectedDepartment] = useState<Department | null>(null);
-  const getInitialTab = () => {
+  const [activeTab, setActiveTab] = useState(() => {
     if (!subsection || subsection === "helpdesk" || subsection === "helpdesk-overview") return "overview";
     return subsection.replace("helpdesk-", "");
-  };
-  const [activeTab, setActiveTab] = useState(getInitialTab());
-  const [isAddFieldOpen, setIsAddFieldOpen] = useState(false);
-  const [isAddWebhookOpen, setIsAddWebhookOpen] = useState(false);
-  const [isAddTemplateOpen, setIsAddTemplateOpen] = useState(false);
+  });
+  const [isAddStateOpen, setIsAddStateOpen] = useState(false);
+  const [isAddPolicyOpen, setIsAddPolicyOpen] = useState(false);
+  const [isAddRuleOpen, setIsAddRuleOpen] = useState(false);
+  const [editingState, setEditingState] = useState<SlaState | null>(null);
+  const [newStateName, setNewStateName] = useState("");
+  const [newStateColor, setNewStateColor] = useState("#3b82f6");
+  const [newStateIsFinal, setNewStateIsFinal] = useState(false);
+  const [newStateTargetHours, setNewStateTargetHours] = useState<number | undefined>();
+  const [creatingHelpdesk, setCreatingHelpdesk] = useState(false);
+
+  const queryClient = useQueryClient();
 
   const { data: departments = [], isLoading: isLoadingDepts } = useQuery<Department[]>({
     queryKey: ["/api/departments"],
+  });
+
+  const { data: helpdesk, isLoading: isLoadingHelpdesk } = useQuery<Helpdesk | null>({
+    queryKey: ["/api/helpdesks/by-department", selectedDepartment?.id],
+    queryFn: async () => {
+      if (!selectedDepartment) return null;
+      const res = await fetch(`/api/helpdesks/by-department/${selectedDepartment.id}`);
+      const data = await res.json();
+      return data;
+    },
+    enabled: !!selectedDepartment,
+  });
+
+  const { data: slaStates = [], isLoading: isLoadingSlaStates } = useQuery<SlaState[]>({
+    queryKey: ["/api/helpdesks", helpdesk?.id, "sla-states"],
+    queryFn: async () => {
+      if (!helpdesk?.id) return [];
+      const res = await fetch(`/api/helpdesks/${helpdesk.id}/sla-states`);
+      return res.json();
+    },
+    enabled: !!helpdesk?.id,
+  });
+
+  const { data: slaPolicies = [] } = useQuery<SlaPolicy[]>({
+    queryKey: ["/api/helpdesks", helpdesk?.id, "sla-policies"],
+    queryFn: async () => {
+      if (!helpdesk?.id) return [];
+      const res = await fetch(`/api/helpdesks/${helpdesk.id}/sla-policies`);
+      return res.json();
+    },
+    enabled: !!helpdesk?.id,
+  });
+
+  const { data: escalationRules = [] } = useQuery<EscalationRule[]>({
+    queryKey: ["/api/helpdesks", helpdesk?.id, "escalation-rules"],
+    queryFn: async () => {
+      if (!helpdesk?.id) return [];
+      const res = await fetch(`/api/helpdesks/${helpdesk.id}/escalation-rules`);
+      return res.json();
+    },
+    enabled: !!helpdesk?.id,
+  });
+
+  const { data: emailConfig } = useQuery<InboundEmailConfig | null>({
+    queryKey: ["/api/helpdesks", helpdesk?.id, "email-config"],
+    queryFn: async () => {
+      if (!helpdesk?.id) return null;
+      const res = await fetch(`/api/helpdesks/${helpdesk.id}/email-config`);
+      return res.json();
+    },
+    enabled: !!helpdesk?.id,
+  });
+
+  const { data: departmentHierarchy = [] } = useQuery<DepartmentHierarchy[]>({
+    queryKey: ["/api/department-hierarchy"],
+  });
+
+  const { data: departmentManagers = [] } = useQuery<DepartmentManager[]>({
+    queryKey: ["/api/departments", selectedDepartment?.id, "managers"],
+    queryFn: async () => {
+      if (!selectedDepartment?.id) return [];
+      const res = await fetch(`/api/departments/${selectedDepartment.id}/managers`);
+      return res.json();
+    },
+    enabled: !!selectedDepartment?.id,
+  });
+
+  const createHelpdeskMutation = useMutation({
+    mutationFn: async (data: { departmentId: string; name: string }) => {
+      const res = await apiRequest("POST", "/api/helpdesks", data);
+      return res.json();
+    },
+    onSuccess: () => {
+      setCreatingHelpdesk(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/helpdesks/by-department", selectedDepartment?.id] });
+    },
+    onError: () => {
+      setCreatingHelpdesk(false);
+    },
+  });
+
+  const updateHelpdeskMutation = useMutation({
+    mutationFn: async ({ id, ...data }: { id: string } & Partial<Helpdesk>) => {
+      const res = await apiRequest("PATCH", `/api/helpdesks/${id}`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/helpdesks/by-department", selectedDepartment?.id] });
+    },
+  });
+
+  const createSlaStateMutation = useMutation({
+    mutationFn: async (data: { name: string; color: string; isFinal: string; targetHours?: number }) => {
+      const res = await apiRequest("POST", `/api/helpdesks/${helpdesk?.id}/sla-states`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/helpdesks", helpdesk?.id, "sla-states"] });
+      setIsAddStateOpen(false);
+      resetStateForm();
+    },
+  });
+
+  const updateSlaStateMutation = useMutation({
+    mutationFn: async ({ id, ...data }: { id: string } & Partial<SlaState>) => {
+      const res = await apiRequest("PATCH", `/api/sla-states/${id}`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/helpdesks", helpdesk?.id, "sla-states"] });
+      setEditingState(null);
+      resetStateForm();
+    },
+  });
+
+  const deleteSlaStateMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/sla-states/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/helpdesks", helpdesk?.id, "sla-states"] });
+    },
+  });
+
+  const createSlaPolicyMutation = useMutation({
+    mutationFn: async (data: Partial<SlaPolicy>) => {
+      const res = await apiRequest("POST", `/api/helpdesks/${helpdesk?.id}/sla-policies`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/helpdesks", helpdesk?.id, "sla-policies"] });
+      setIsAddPolicyOpen(false);
+    },
+  });
+
+  const createEscalationRuleMutation = useMutation({
+    mutationFn: async (data: Partial<EscalationRule>) => {
+      const res = await apiRequest("POST", `/api/helpdesks/${helpdesk?.id}/escalation-rules`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/helpdesks", helpdesk?.id, "escalation-rules"] });
+      setIsAddRuleOpen(false);
+    },
+  });
+
+  const deleteEscalationRuleMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/escalation-rules/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/helpdesks", helpdesk?.id, "escalation-rules"] });
+    },
+  });
+
+  const createEmailConfigMutation = useMutation({
+    mutationFn: async (data: Partial<InboundEmailConfig>) => {
+      const res = await apiRequest("POST", `/api/helpdesks/${helpdesk?.id}/email-config`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/helpdesks", helpdesk?.id, "email-config"] });
+    },
+  });
+
+  const updateEmailConfigMutation = useMutation({
+    mutationFn: async ({ id, ...data }: { id: string } & Partial<InboundEmailConfig>) => {
+      const res = await apiRequest("PATCH", `/api/email-config/${id}`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/helpdesks", helpdesk?.id, "email-config"] });
+    },
+  });
+
+  const createDepartmentHierarchyMutation = useMutation({
+    mutationFn: async (data: { parentDepartmentId: string; childDepartmentId: string }) => {
+      const res = await apiRequest("POST", "/api/department-hierarchy", data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/department-hierarchy"] });
+    },
+  });
+
+  const deleteDepartmentHierarchyMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/department-hierarchy/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/department-hierarchy"] });
+    },
   });
 
   useEffect(() => {
@@ -110,6 +288,57 @@ export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSe
     }
   }, [departments, initialDepartmentId, selectedDepartment]);
 
+  useEffect(() => {
+    if (!selectedDepartment || isLoadingHelpdesk || creatingHelpdesk || createHelpdeskMutation.isPending) {
+      return;
+    }
+    if (helpdesk === null) {
+      setCreatingHelpdesk(true);
+      createHelpdeskMutation.mutate({
+        departmentId: selectedDepartment.id,
+        name: `${selectedDepartment.name} Helpdesk`,
+      });
+    }
+  }, [selectedDepartment?.id, isLoadingHelpdesk]);
+
+  const resetStateForm = () => {
+    setNewStateName("");
+    setNewStateColor("#3b82f6");
+    setNewStateIsFinal(false);
+    setNewStateTargetHours(undefined);
+  };
+
+  const handleSaveState = () => {
+    if (editingState) {
+      updateSlaStateMutation.mutate({
+        id: editingState.id,
+        name: newStateName,
+        color: newStateColor,
+        isFinal: newStateIsFinal ? "true" : "false",
+        targetHours: newStateTargetHours,
+      });
+    } else {
+      createSlaStateMutation.mutate({
+        name: newStateName,
+        color: newStateColor,
+        isFinal: newStateIsFinal ? "true" : "false",
+        targetHours: newStateTargetHours,
+      });
+    }
+  };
+
+  const getChildDepartments = (parentId: string) => {
+    return departmentHierarchy
+      .filter((h) => h.parentDepartmentId === parentId)
+      .map((h) => departments.find((d) => d.id === h.childDepartmentId))
+      .filter(Boolean) as Department[];
+  };
+
+  const getParentDepartment = (childId: string) => {
+    const hierarchy = departmentHierarchy.find((h) => h.childDepartmentId === childId);
+    return hierarchy ? departments.find((d) => d.id === hierarchy.parentDepartmentId) : null;
+  };
+
   const renderOverview = () => (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -117,36 +346,36 @@ export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSe
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2">
               <Ticket className="w-4 h-4 text-primary" />
-              Ticket Settings
+              SLA States
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">{mockCustomFields.length}</p>
-            <p className="text-xs text-muted-foreground">Custom fields configured</p>
+            <p className="text-2xl font-bold">{slaStates.length}</p>
+            <p className="text-xs text-muted-foreground">Custom states configured</p>
           </CardContent>
         </Card>
         <Card className="border-border/40">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2">
-              <Mail className="w-4 h-4 text-primary" />
-              Email Templates
+              <Clock className="w-4 h-4 text-primary" />
+              SLA Policies
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">{mockEmailTemplates.filter(t => t.enabled).length}/{mockEmailTemplates.length}</p>
-            <p className="text-xs text-muted-foreground">Templates active</p>
+            <p className="text-2xl font-bold">{slaPolicies.filter((p) => p.enabled === "true").length}/{slaPolicies.length}</p>
+            <p className="text-xs text-muted-foreground">Policies active</p>
           </CardContent>
         </Card>
         <Card className="border-border/40">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2">
-              <Webhook className="w-4 h-4 text-primary" />
-              Webhooks
+              <AlertCircle className="w-4 h-4 text-primary" />
+              Escalation Rules
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">{mockWebhooks.filter(w => w.enabled).length}</p>
-            <p className="text-xs text-muted-foreground">Active integrations</p>
+            <p className="text-2xl font-bold">{escalationRules.filter((r) => r.enabled === "true").length}</p>
+            <p className="text-xs text-muted-foreground">Active rules</p>
           </CardContent>
         </Card>
       </div>
@@ -158,149 +387,618 @@ export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSe
       >
         <div className="space-y-4">
           <SettingsRow label="Enable Helpdesk" description="Allow ticket submission for this department.">
-            <Switch defaultChecked />
+            <Switch 
+              checked={helpdesk?.enabled === "true"} 
+              onCheckedChange={(checked) => {
+                if (helpdesk) {
+                  updateHelpdeskMutation.mutate({ id: helpdesk.id, enabled: checked ? "true" : "false" });
+                }
+              }}
+            />
           </SettingsRow>
           <Separator />
           <SettingsRow label="Public Access" description="Allow non-authenticated users to submit tickets.">
-            <Switch />
-          </SettingsRow>
-          <Separator />
-          <SettingsRow label="Auto-Assignment" description="Automatically assign tickets to available agents.">
-            <Switch defaultChecked />
-          </SettingsRow>
-          <Separator />
-          <SettingsRow label="AI Suggestions" description="Enable AI-powered response suggestions.">
-            <Switch defaultChecked />
+            <Switch 
+              checked={helpdesk?.publicAccess === "true"}
+              onCheckedChange={(checked) => {
+                if (helpdesk) {
+                  updateHelpdeskMutation.mutate({ id: helpdesk.id, publicAccess: checked ? "true" : "false" });
+                }
+              }}
+            />
           </SettingsRow>
         </div>
       </SettingsCard>
     </div>
   );
 
-  const renderTicketSettings = () => (
+  const renderSLAStates = () => (
     <div className="space-y-6">
       <SettingsCard
-        title="Custom Fields"
-        description="Define additional fields for ticket creation forms."
-        icon={Edit3}
+        title="Ticket States"
+        description="Define custom states for tickets in this helpdesk. States define the lifecycle of a ticket."
+        icon={FolderKanban}
         actions={
-          <Dialog open={isAddFieldOpen} onOpenChange={setIsAddFieldOpen}>
+          <Dialog open={isAddStateOpen} onOpenChange={(open) => {
+            setIsAddStateOpen(open);
+            if (!open) resetStateForm();
+          }}>
             <DialogTrigger asChild>
               <Button size="sm" className="gap-2">
-                <Plus className="w-4 h-4" /> Add Field
+                <Plus className="w-4 h-4" /> Add State
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Add Custom Field</DialogTitle>
+                <DialogTitle>Add Ticket State</DialogTitle>
                 <DialogDescription>
-                  Create a new custom field for ticket forms in this department.
+                  Create a new state for tickets in this helpdesk.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                  <Label>Field Name</Label>
-                  <Input placeholder="e.g., Asset ID" />
+                  <Label>State Name</Label>
+                  <Input 
+                    placeholder="e.g., Waiting for Customer" 
+                    value={newStateName}
+                    onChange={(e) => setNewStateName(e.target.value)}
+                  />
                 </div>
                 <div className="space-y-2">
-                  <Label>Field Type</Label>
-                  <Select defaultValue="text">
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="text">Text</SelectItem>
-                      <SelectItem value="textarea">Text Area</SelectItem>
-                      <SelectItem value="select">Dropdown</SelectItem>
-                      <SelectItem value="multiselect">Multi-Select</SelectItem>
-                      <SelectItem value="checkbox">Checkbox</SelectItem>
-                      <SelectItem value="date">Date</SelectItem>
-                      <SelectItem value="number">Number</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label>Color</Label>
+                  <div className="flex gap-2">
+                    <Input 
+                      type="color" 
+                      className="w-16 h-10 p-1" 
+                      value={newStateColor}
+                      onChange={(e) => setNewStateColor(e.target.value)}
+                    />
+                    <Input 
+                      value={newStateColor}
+                      onChange={(e) => setNewStateColor(e.target.value)}
+                      className="flex-1"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Target Hours (Optional)</Label>
+                  <Input 
+                    type="number" 
+                    placeholder="Hours before escalation"
+                    value={newStateTargetHours || ""}
+                    onChange={(e) => setNewStateTargetHours(e.target.value ? parseInt(e.target.value) : undefined)}
+                  />
                 </div>
                 <div className="flex items-center justify-between">
-                  <Label>Required Field</Label>
-                  <Switch />
+                  <div>
+                    <Label>Final State</Label>
+                    <p className="text-xs text-muted-foreground">Marks ticket as completed</p>
+                  </div>
+                  <Switch 
+                    checked={newStateIsFinal}
+                    onCheckedChange={setNewStateIsFinal}
+                  />
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setIsAddFieldOpen(false)}>
+                <Button variant="outline" onClick={() => setIsAddStateOpen(false)}>
                   Cancel
                 </Button>
-                <Button>Create Field</Button>
+                <Button onClick={handleSaveState} disabled={!newStateName}>
+                  Create State
+                </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
         }
       >
-        <div className="space-y-3">
-          {mockCustomFields.map((field) => (
-            <div
-              key={field.id}
-              className="flex items-center justify-between p-4 rounded-lg border bg-secondary/10"
-            >
-              <div className="flex items-center gap-4">
-                <div className="space-y-1">
+        {isLoadingSlaStates ? (
+          <div className="flex justify-center py-8">
+            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : slaStates.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            <FolderKanban className="w-12 h-12 mx-auto mb-2 opacity-20" />
+            <p className="text-sm">No custom states configured</p>
+            <p className="text-xs">Add states to define ticket lifecycle</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {slaStates.map((state, index) => (
+              <div
+                key={state.id}
+                className="flex items-center justify-between p-4 rounded-lg border bg-secondary/10"
+              >
+                <div className="flex items-center gap-4">
                   <div className="flex items-center gap-2">
-                    <span className="font-medium text-sm">{field.name}</span>
-                    {field.required && (
-                      <Badge variant="secondary" className="text-[10px]">Required</Badge>
+                    <GripVertical className="w-4 h-4 text-muted-foreground cursor-move" />
+                    <div 
+                      className="w-4 h-4 rounded-full" 
+                      style={{ backgroundColor: state.color }}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-sm">{state.name}</span>
+                      {state.isDefault === "true" && (
+                        <Badge variant="secondary" className="text-[10px]">Default</Badge>
+                      )}
+                      {state.isFinal === "true" && (
+                        <Badge variant="outline" className="text-[10px]">Final</Badge>
+                      )}
+                    </div>
+                    {state.targetHours && (
+                      <p className="text-xs text-muted-foreground">
+                        Target: {state.targetHours} hours
+                      </p>
                     )}
                   </div>
-                  <p className="text-xs text-muted-foreground capitalize">{field.type}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-8 w-8"
+                    onClick={() => {
+                      setEditingState(state);
+                      setNewStateName(state.name);
+                      setNewStateColor(state.color);
+                      setNewStateIsFinal(state.isFinal === "true");
+                      setNewStateTargetHours(state.targetHours ?? undefined);
+                      setIsAddStateOpen(true);
+                    }}
+                  >
+                    <Edit3 className="w-4 h-4" />
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-8 w-8 text-destructive"
+                    onClick={() => deleteSlaStateMutation.mutate(state.id)}
+                    disabled={state.isDefault === "true"}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                  <Edit3 className="w-4 h-4" />
-                </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
-                  <Trash2 className="w-4 h-4" />
-                </Button>
-              </div>
+            ))}
+          </div>
+        )}
+      </SettingsCard>
+
+      <SettingsCard
+        title="SLA Policies"
+        description="Define response and resolution time targets by priority."
+        icon={Clock}
+        actions={
+          <Dialog open={isAddPolicyOpen} onOpenChange={setIsAddPolicyOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" className="gap-2">
+                <Plus className="w-4 h-4" /> Add Policy
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Add SLA Policy</DialogTitle>
+                <DialogDescription>
+                  Create a new SLA policy for this helpdesk.
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget);
+                createSlaPolicyMutation.mutate({
+                  name: formData.get("name") as string,
+                  priority: formData.get("priority") as string,
+                  firstResponseHours: parseInt(formData.get("firstResponse") as string) || null,
+                  resolutionHours: parseInt(formData.get("resolution") as string) || null,
+                });
+              }}>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label>Policy Name</Label>
+                    <Input name="name" placeholder="e.g., Critical Priority SLA" required />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Priority</Label>
+                    <Select name="priority" defaultValue="medium">
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="low">Low</SelectItem>
+                        <SelectItem value="medium">Medium</SelectItem>
+                        <SelectItem value="high">High</SelectItem>
+                        <SelectItem value="urgent">Urgent</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>First Response (hours)</Label>
+                      <Input name="firstResponse" type="number" placeholder="4" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Resolution (hours)</Label>
+                      <Input name="resolution" type="number" placeholder="24" />
+                    </div>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button type="button" variant="outline" onClick={() => setIsAddPolicyOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit">Create Policy</Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        }
+      >
+        <div className="space-y-3">
+          {slaPolicies.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Clock className="w-12 h-12 mx-auto mb-2 opacity-20" />
+              <p className="text-sm">No SLA policies configured</p>
             </div>
-          ))}
+          ) : (
+            slaPolicies.map((policy) => (
+              <div
+                key={policy.id}
+                className="grid grid-cols-1 md:grid-cols-4 gap-4 items-center p-4 rounded-lg bg-secondary/10"
+              >
+                <div>
+                  <span className="font-medium text-sm">{policy.name}</span>
+                  <Badge 
+                    variant={policy.priority === "urgent" ? "destructive" : policy.priority === "high" ? "default" : "secondary"}
+                    className="ml-2 text-xs"
+                  >
+                    {policy.priority}
+                  </Badge>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">First Response</Label>
+                  <p className="text-sm">{policy.firstResponseHours ? `${policy.firstResponseHours}h` : "N/A"}</p>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Resolution Target</Label>
+                  <p className="text-sm">{policy.resolutionHours ? `${policy.resolutionHours}h` : "N/A"}</p>
+                </div>
+                <div className="flex items-center justify-end gap-2">
+                  <Switch checked={policy.enabled === "true"} />
+                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <Edit3 className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </SettingsCard>
+    </div>
+  );
+
+  const renderEscalationRules = () => (
+    <div className="space-y-6">
+      <SettingsCard
+        title="Department Hierarchy"
+        description="Configure parent-child relationships between departments for escalation paths."
+        icon={GitBranch}
+      >
+        <div className="space-y-4">
+          {departments.map((dept) => {
+            const children = getChildDepartments(dept.id);
+            const parent = getParentDepartment(dept.id);
+            const managers = departmentManagers.filter((m) => m.departmentId === dept.id);
+            
+            return (
+              <div key={dept.id} className="p-4 rounded-lg border bg-secondary/10">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-3">
+                    <div 
+                      className="w-3 h-3 rounded-full" 
+                      style={{ backgroundColor: dept.color }}
+                    />
+                    <span className="font-medium">{dept.name}</span>
+                    {parent && (
+                      <Badge variant="outline" className="text-xs">
+                        Under: {parent.name}
+                      </Badge>
+                    )}
+                  </div>
+                  <Select
+                    value={parent?.id || "none"}
+                    onValueChange={(value) => {
+                      const existingHierarchy = departmentHierarchy.find(
+                        (h) => h.childDepartmentId === dept.id
+                      );
+                      if (existingHierarchy) {
+                        deleteDepartmentHierarchyMutation.mutate(existingHierarchy.id);
+                      }
+                      if (value !== "none") {
+                        createDepartmentHierarchyMutation.mutate({
+                          parentDepartmentId: value,
+                          childDepartmentId: dept.id,
+                        });
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="w-48">
+                      <SelectValue placeholder="Set parent department" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No Parent (Top Level)</SelectItem>
+                      {departments
+                        .filter((d) => d.id !== dept.id)
+                        .map((d) => (
+                          <SelectItem key={d.id} value={d.id}>
+                            {d.name}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {children.length > 0 && (
+                  <div className="mt-2 pl-6 border-l-2 border-muted">
+                    <p className="text-xs text-muted-foreground mb-1">Sub-departments:</p>
+                    <div className="flex flex-wrap gap-1">
+                      {children.map((child) => (
+                        <Badge key={child.id} variant="secondary" className="text-xs">
+                          {child.name}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </SettingsCard>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <SettingsCard
-          title="Form Settings"
-          description="Configure ticket form behavior."
-          icon={Ticket}
-        >
+      <SettingsCard
+        title="Escalation Rules"
+        description="Configure automatic escalation when tickets meet certain conditions."
+        icon={AlertCircle}
+        actions={
+          <Dialog open={isAddRuleOpen} onOpenChange={setIsAddRuleOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" className="gap-2">
+                <Plus className="w-4 h-4" /> Add Rule
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[600px]">
+              <DialogHeader>
+                <DialogTitle>Add Escalation Rule</DialogTitle>
+                <DialogDescription>
+                  Create a rule to automatically escalate tickets based on conditions.
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget);
+                createEscalationRuleMutation.mutate({
+                  name: formData.get("name") as string,
+                  triggerType: formData.get("triggerType") as string,
+                  triggerHours: parseInt(formData.get("triggerHours") as string) || null,
+                  priority: formData.get("priority") as string || null,
+                  targetDepartmentId: formData.get("targetDepartment") as string || null,
+                  notifyManagers: formData.get("notifyManagers") ? "true" : "false",
+                });
+              }}>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label>Rule Name</Label>
+                    <Input name="name" placeholder="e.g., Escalate to IT Manager after 4 hours" required />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Trigger Type</Label>
+                      <Select name="triggerType" defaultValue="time_based">
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="time_based">Time Based</SelectItem>
+                          <SelectItem value="sla_breach">SLA Breach</SelectItem>
+                          <SelectItem value="priority_change">Priority Change</SelectItem>
+                          <SelectItem value="state_change">State Change</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Trigger After (hours)</Label>
+                      <Input name="triggerHours" type="number" placeholder="4" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>When Priority Is</Label>
+                      <Select name="priority">
+                        <SelectTrigger>
+                          <SelectValue placeholder="Any priority" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="low">Low</SelectItem>
+                          <SelectItem value="medium">Medium</SelectItem>
+                          <SelectItem value="high">High</SelectItem>
+                          <SelectItem value="urgent">Urgent</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Escalate To Department</Label>
+                      <Select name="targetDepartment">
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select department" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {departments.map((dept) => (
+                            <SelectItem key={dept.id} value={dept.id}>
+                              {dept.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label>Notify Managers</Label>
+                      <p className="text-xs text-muted-foreground">Send notification to department managers</p>
+                    </div>
+                    <Switch name="notifyManagers" defaultChecked />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button type="button" variant="outline" onClick={() => setIsAddRuleOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit">Create Rule</Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        }
+      >
+        {escalationRules.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            <AlertCircle className="w-12 h-12 mx-auto mb-2 opacity-20" />
+            <p className="text-sm">No escalation rules configured</p>
+            <p className="text-xs">Add rules to automatically escalate tickets</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {escalationRules.map((rule) => {
+              const targetDept = departments.find((d) => d.id === rule.targetDepartmentId);
+              return (
+                <div
+                  key={rule.id}
+                  className="flex items-center justify-between p-4 rounded-lg border bg-secondary/10"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className={cn(
+                      "w-10 h-10 rounded-lg flex items-center justify-center",
+                      rule.enabled === "true" ? "bg-orange-500/10 text-orange-600" : "bg-muted text-muted-foreground"
+                    )}>
+                      <AlertCircle className="w-5 h-5" />
+                    </div>
+                    <div className="space-y-1">
+                      <span className="font-medium text-sm">{rule.name}</span>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Badge variant="outline" className="text-[10px]">
+                          {rule.triggerType?.replace("_", " ")}
+                        </Badge>
+                        {rule.triggerHours && (
+                          <span>After {rule.triggerHours}h</span>
+                        )}
+                        {targetDept && (
+                          <>
+                            <ArrowRight className="w-3 h-3" />
+                            <span>{targetDept.name}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Switch checked={rule.enabled === "true"} />
+                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <Edit3 className="w-4 h-4" />
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-8 w-8 text-destructive"
+                      onClick={() => deleteEscalationRuleMutation.mutate(rule.id)}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </SettingsCard>
+    </div>
+  );
+
+  const renderEmailSettings = () => (
+    <div className="space-y-6">
+      <SettingsCard
+        title="Inbound Email Configuration"
+        description="Configure email address for receiving tickets via email. Replies to ticket notifications will automatically update the ticket."
+        icon={Mail}
+      >
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-4">
-            <SettingsRow label="Rich Text Editor" description="Allow formatted text in descriptions.">
-              <Switch defaultChecked />
+            <SettingsRow label="Email Address" vertical>
+              <Input 
+                placeholder="support@yourdomain.com" 
+                value={emailConfig?.emailAddress || ""}
+                onChange={(e) => {
+                  if (emailConfig) {
+                    updateEmailConfigMutation.mutate({ id: emailConfig.id, emailAddress: e.target.value });
+                  }
+                }}
+              />
             </SettingsRow>
-            <SettingsRow label="File Attachments" description="Allow users to attach files.">
-              <Switch defaultChecked />
-            </SettingsRow>
-            <SettingsRow label="Max Attachment Size" vertical>
-              <Select defaultValue="10">
+            <SettingsRow label="Email Provider" vertical>
+              <Select 
+                value={emailConfig?.provider || "custom"}
+                onValueChange={(value) => {
+                  if (emailConfig) {
+                    updateEmailConfigMutation.mutate({ id: emailConfig.id, provider: value });
+                  } else if (helpdesk) {
+                    createEmailConfigMutation.mutate({ provider: value });
+                  }
+                }}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="5">5 MB</SelectItem>
-                  <SelectItem value="10">10 MB</SelectItem>
-                  <SelectItem value="25">25 MB</SelectItem>
-                  <SelectItem value="50">50 MB</SelectItem>
+                  <SelectItem value="custom">Custom SMTP</SelectItem>
+                  <SelectItem value="gmail">Gmail</SelectItem>
+                  <SelectItem value="outlook">Outlook/Office 365</SelectItem>
+                  <SelectItem value="agentmail">AgentMail</SelectItem>
                 </SelectContent>
               </Select>
             </SettingsRow>
           </div>
-        </SettingsCard>
-
-        <SettingsCard
-          title="Default Values"
-          description="Set defaults for new tickets."
-          icon={Settings}
-        >
           <div className="space-y-4">
+            <SettingsRow label="Enable Inbound Email" description="Create tickets from incoming emails.">
+              <Switch 
+                checked={emailConfig?.enabled === "true"}
+                onCheckedChange={(checked) => {
+                  if (emailConfig) {
+                    updateEmailConfigMutation.mutate({ id: emailConfig.id, enabled: checked ? "true" : "false" });
+                  } else if (helpdesk) {
+                    createEmailConfigMutation.mutate({ enabled: checked ? "true" : "false" });
+                  }
+                }}
+              />
+            </SettingsRow>
+            <SettingsRow label="Auto-Create Tickets" description="Automatically create tickets from new emails.">
+              <Switch 
+                checked={emailConfig?.autoCreateTickets === "true"}
+                onCheckedChange={(checked) => {
+                  if (emailConfig) {
+                    updateEmailConfigMutation.mutate({ id: emailConfig.id, autoCreateTickets: checked ? "true" : "false" });
+                  }
+                }}
+              />
+            </SettingsRow>
             <SettingsRow label="Default Priority" vertical>
-              <Select defaultValue="medium">
+              <Select 
+                value={emailConfig?.defaultPriority || "medium"}
+                onValueChange={(value) => {
+                  if (emailConfig) {
+                    updateEmailConfigMutation.mutate({ id: emailConfig.id, defaultPriority: value });
+                  }
+                }}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -312,450 +1010,38 @@ export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSe
                 </SelectContent>
               </Select>
             </SettingsRow>
-            <SettingsRow label="Auto-Tagging" description="Automatically tag tickets using AI.">
-              <Switch defaultChecked />
-            </SettingsRow>
-          </div>
-        </SettingsCard>
-      </div>
-    </div>
-  );
-
-  const renderSLASettings = () => (
-    <div className="space-y-6">
-      <SettingsCard
-        title="SLA Policies"
-        description="Define response and resolution time targets by priority."
-        icon={Clock}
-      >
-        <div className="space-y-6">
-          {["Urgent", "High", "Medium", "Low"].map((priority, index) => (
-            <div key={priority} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-center p-4 rounded-lg bg-secondary/10">
-              <div>
-                <Badge
-                  variant={index === 0 ? "destructive" : index === 1 ? "default" : "secondary"}
-                  className="text-xs"
-                >
-                  {priority}
-                </Badge>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">First Response</Label>
-                <div className="flex items-center gap-2">
-                  <Input type="number" defaultValue={[15, 60, 240, 480][index]} className="w-20 h-8" />
-                  <span className="text-xs text-muted-foreground">min</span>
-                </div>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Resolution Target</Label>
-                <div className="flex items-center gap-2">
-                  <Input type="number" defaultValue={[60, 240, 480, 1440][index]} className="w-20 h-8" />
-                  <span className="text-xs text-muted-foreground">min</span>
-                </div>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Escalation</Label>
-                <Switch defaultChecked={index < 2} />
-              </div>
-            </div>
-          ))}
-        </div>
-      </SettingsCard>
-
-      <SettingsCard
-        title="Business Hours"
-        description="Define when SLA timers are active."
-        icon={Globe}
-      >
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-4">
-            <SettingsRow label="Use Custom Hours" description="Override global business hours for this department.">
-              <Switch />
-            </SettingsRow>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Start Time</Label>
-                <Input type="time" defaultValue="09:00" />
-              </div>
-              <div className="space-y-2">
-                <Label>End Time</Label>
-                <Input type="time" defaultValue="17:00" />
-              </div>
-            </div>
-          </div>
-          <div className="space-y-4">
-            <SettingsRow label="Timezone" vertical>
-              <Select defaultValue="pst">
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pst">(GMT-08:00) Pacific Time</SelectItem>
-                  <SelectItem value="est">(GMT-05:00) Eastern Time</SelectItem>
-                  <SelectItem value="utc">(GMT+00:00) UTC</SelectItem>
-                  <SelectItem value="gmt">(GMT+00:00) London</SelectItem>
-                </SelectContent>
-              </Select>
-            </SettingsRow>
-            <SettingsRow label="24/7 Support" description="SLA timers run continuously.">
-              <Switch />
-            </SettingsRow>
-          </div>
-        </div>
-      </SettingsCard>
-    </div>
-  );
-
-  const renderEmailSettings = () => (
-    <div className="space-y-6">
-      <SettingsCard
-        title="Email Configuration"
-        description="Configure outbound email settings for this department."
-        icon={Mail}
-      >
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-4">
-            <SettingsRow label="From Address" vertical>
-              <Input placeholder="support@company.com" defaultValue={`${selectedDepartment?.name.toLowerCase().replace(/\s+/g, '-') || 'support'}@company.com`} />
-            </SettingsRow>
-            <SettingsRow label="From Name" vertical>
-              <Input placeholder="IT Support" defaultValue={`${selectedDepartment?.name || 'Support'} Team`} />
-            </SettingsRow>
-          </div>
-          <div className="space-y-4">
-            <SettingsRow label="Reply-To Address" vertical>
-              <Input placeholder="tickets@company.com" />
-            </SettingsRow>
-            <SettingsRow label="Enable Email Notifications" description="Send automatic email notifications.">
-              <Switch defaultChecked />
-            </SettingsRow>
           </div>
         </div>
       </SettingsCard>
 
       <SettingsCard
-        title="Email Templates"
-        description="Customize automated email templates for different events."
-        icon={Mail}
-        actions={
-          <Dialog open={isAddTemplateOpen} onOpenChange={setIsAddTemplateOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm" className="gap-2">
-                <Plus className="w-4 h-4" /> Add Template
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[600px]">
-              <DialogHeader>
-                <DialogTitle>Create Email Template</DialogTitle>
-                <DialogDescription>
-                  Define a new email template for automated notifications.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label>Template Name</Label>
-                  <Input placeholder="e.g., Ticket Assigned" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Trigger Event</Label>
-                  <Select>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select trigger" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="ticket_created">Ticket Created</SelectItem>
-                      <SelectItem value="ticket_assigned">Ticket Assigned</SelectItem>
-                      <SelectItem value="ticket_updated">Status Updated</SelectItem>
-                      <SelectItem value="ticket_resolved">Ticket Resolved</SelectItem>
-                      <SelectItem value="sla_warning">SLA Warning</SelectItem>
-                      <SelectItem value="custom">Custom / Manual</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Subject Line</Label>
-                  <Input placeholder="[Ticket #{{ticket_id}}] {{subject}}" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Email Body</Label>
-                  <Textarea
-                    placeholder="Dear {{requester_name}},&#10;&#10;Your ticket has been received..."
-                    rows={6}
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsAddTemplateOpen(false)}>
-                  Cancel
-                </Button>
-                <Button>Create Template</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        }
-      >
-        <div className="space-y-3">
-          {mockEmailTemplates.map((template) => (
-            <div
-              key={template.id}
-              className="flex items-center justify-between p-4 rounded-lg border bg-secondary/10"
-            >
-              <div className="flex items-center gap-4">
-                <div className={cn(
-                  "w-10 h-10 rounded-lg flex items-center justify-center",
-                  template.enabled ? "bg-green-500/10 text-green-600" : "bg-muted text-muted-foreground"
-                )}>
-                  <Mail className="w-5 h-5" />
-                </div>
-                <div className="space-y-1">
-                  <span className="font-medium text-sm">{template.name}</span>
-                  <p className="text-xs text-muted-foreground">
-                    Trigger: {template.trigger.replace(/_/g, " ")}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <Switch defaultChecked={template.enabled} />
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                  <Edit3 className="w-4 h-4" />
-                </Button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </SettingsCard>
-
-      <SettingsCard
-        title="Email Signature"
-        description="Default signature appended to all outgoing emails."
-        icon={Edit3}
-      >
-        <Textarea
-          rows={4}
-          placeholder="Best regards,&#10;{{agent_name}}&#10;{{department_name}}"
-          defaultValue={`Best regards,\n{{agent_name}}\n${selectedDepartment?.name || 'Support'} Team`}
-        />
-      </SettingsCard>
-    </div>
-  );
-
-  const renderWebhookSettings = () => (
-    <div className="space-y-6">
-      <SettingsCard
-        title="Webhook Endpoints"
-        description="Configure external integrations that receive ticket events."
-        icon={Webhook}
-        actions={
-          <Dialog open={isAddWebhookOpen} onOpenChange={setIsAddWebhookOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm" className="gap-2">
-                <Plus className="w-4 h-4" /> Add Webhook
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[500px]">
-              <DialogHeader>
-                <DialogTitle>Add Webhook</DialogTitle>
-                <DialogDescription>
-                  Create a webhook to send ticket events to external services.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label>Webhook Name</Label>
-                  <Input placeholder="e.g., Slack Notifications" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Endpoint URL</Label>
-                  <Input placeholder="https://hooks.example.com/..." />
-                </div>
-                <div className="space-y-2">
-                  <Label>Events</Label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {["Ticket Created", "Ticket Updated", "Ticket Resolved", "SLA Breach", "Comment Added", "Agent Assigned"].map((event) => (
-                      <div key={event} className="flex items-center gap-2 p-2 rounded border bg-secondary/10">
-                        <Switch id={event} />
-                        <Label htmlFor={event} className="text-xs cursor-pointer">{event}</Label>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label>Secret Key (Optional)</Label>
-                  <Input type="password" placeholder="For signature verification" />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsAddWebhookOpen(false)}>
-                  Cancel
-                </Button>
-                <Button>Create Webhook</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        }
-      >
-        <div className="space-y-3">
-          {mockWebhooks.map((webhook) => (
-            <div
-              key={webhook.id}
-              className="flex items-center justify-between p-4 rounded-lg border bg-secondary/10"
-            >
-              <div className="flex items-center gap-4">
-                <div className={cn(
-                  "w-10 h-10 rounded-lg flex items-center justify-center",
-                  webhook.enabled ? "bg-green-500/10 text-green-600" : "bg-muted text-muted-foreground"
-                )}>
-                  <Webhook className="w-5 h-5" />
-                </div>
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-sm">{webhook.name}</span>
-                    {webhook.enabled && (
-                      <Badge variant="secondary" className="text-[10px] gap-1">
-                        <CheckCircle2 className="w-3 h-3" /> Active
-                      </Badge>
-                    )}
-                  </div>
-                  <p className="text-xs text-muted-foreground font-mono truncate max-w-[300px]">
-                    {webhook.url}
-                  </p>
-                  <div className="flex gap-1 flex-wrap">
-                    {webhook.events.map((event) => (
-                      <Badge key={event} variant="outline" className="text-[10px]">
-                        {event}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 shrink-0">
-                <Switch defaultChecked={webhook.enabled} />
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                  <Edit3 className="w-4 h-4" />
-                </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
-                  <Trash2 className="w-4 h-4" />
-                </Button>
-              </div>
-            </div>
-          ))}
-          {mockWebhooks.length === 0 && (
-            <div className="text-center py-8 text-muted-foreground">
-              <Webhook className="w-12 h-12 mx-auto mb-2 opacity-20" />
-              <p className="text-sm">No webhooks configured</p>
-            </div>
-          )}
-        </div>
-      </SettingsCard>
-
-      <SettingsCard
-        title="Webhook Settings"
-        description="Global webhook configuration options."
-        icon={Settings}
-      >
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-4">
-            <SettingsRow label="Retry Failed Requests" description="Automatically retry failed webhook deliveries.">
-              <Switch defaultChecked />
-            </SettingsRow>
-            <SettingsRow label="Max Retries" vertical>
-              <Select defaultValue="3">
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1">1 retry</SelectItem>
-                  <SelectItem value="3">3 retries</SelectItem>
-                  <SelectItem value="5">5 retries</SelectItem>
-                </SelectContent>
-              </Select>
-            </SettingsRow>
-          </div>
-          <div className="space-y-4">
-            <SettingsRow label="Include Full Payload" description="Send complete ticket data in webhook payloads.">
-              <Switch defaultChecked />
-            </SettingsRow>
-            <SettingsRow label="Timeout (seconds)" vertical>
-              <Input type="number" defaultValue="30" />
-            </SettingsRow>
-          </div>
-        </div>
-      </SettingsCard>
-    </div>
-  );
-
-  const renderInteractionRules = () => (
-    <div className="space-y-6">
-      <SettingsCard
-        title="Submission Rules"
-        description="Control how users can submit tickets to this department."
+        title="Email Threading"
+        description="How email replies are matched to existing tickets."
         icon={MessagesSquare}
       >
         <div className="space-y-4">
-          <SettingsRow label="Require Authentication" description="Only logged-in users can submit tickets.">
+          <SettingsRow 
+            label="Thread by Subject" 
+            description="Match emails by subject line containing ticket ID."
+          >
             <Switch defaultChecked />
           </SettingsRow>
           <Separator />
-          <SettingsRow label="Allow Email Submission" description="Create tickets from incoming emails.">
+          <SettingsRow 
+            label="Thread by References" 
+            description="Use email headers (In-Reply-To, References) to match threads."
+          >
             <Switch defaultChecked />
           </SettingsRow>
           <Separator />
-          <SettingsRow label="Allow API Submission" description="Accept tickets via REST API.">
-            <Switch defaultChecked />
-          </SettingsRow>
-          <Separator />
-          <SettingsRow label="Rate Limiting" description="Limit submissions per user per hour." vertical>
-            <div className="flex items-center gap-2">
-              <Input type="number" defaultValue="10" className="w-20" />
-              <span className="text-sm text-muted-foreground">per hour</span>
-            </div>
+          <SettingsRow 
+            label="Thread by Sender" 
+            description="Associate emails from the same sender to their open tickets."
+          >
+            <Switch />
           </SettingsRow>
         </div>
       </SettingsCard>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <SettingsCard
-          title="Escalation Rules"
-          description="Automatic escalation configuration."
-          icon={AlertCircle}
-        >
-          <div className="space-y-4">
-            <SettingsRow label="Enable Escalation" description="Escalate tickets that breach SLA.">
-              <Switch defaultChecked />
-            </SettingsRow>
-            <SettingsRow label="Escalation Delay" vertical>
-              <div className="flex items-center gap-2">
-                <Input type="number" defaultValue="15" className="w-20" />
-                <span className="text-sm text-muted-foreground">minutes after SLA breach</span>
-              </div>
-            </SettingsRow>
-            <SettingsRow label="Notify Emails" vertical>
-              <Textarea
-                placeholder="manager@company.com&#10;escalations@company.com"
-                rows={3}
-              />
-            </SettingsRow>
-          </div>
-        </SettingsCard>
-
-        <SettingsCard
-          title="Auto-Response"
-          description="Automatic replies and acknowledgments."
-          icon={ToggleLeft}
-        >
-          <div className="space-y-4">
-            <SettingsRow label="Auto-Acknowledge" description="Send confirmation when ticket is received.">
-              <Switch defaultChecked />
-            </SettingsRow>
-            <SettingsRow label="Business Hours Reply" description="Send out-of-hours message.">
-              <Switch />
-            </SettingsRow>
-            <SettingsRow label="AI Auto-Response" description="Generate AI responses for common issues.">
-              <Switch />
-            </SettingsRow>
-          </div>
-        </SettingsCard>
-      </div>
     </div>
   );
 
@@ -764,7 +1050,7 @@ export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSe
       <SettingsHeader
         sectionId={subsection || "helpdesk"}
         title="Helpdesk Settings"
-        description="Configure helpdesk behavior, tickets, and integrations per department."
+        description="Configure helpdesk behavior, SLA states, escalation rules, and email settings per department."
         actions={
           <DepartmentSelector
             departments={departments}
@@ -785,7 +1071,7 @@ export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSe
             </p>
           </CardContent>
         </Card>
-      ) : isLoadingDepts ? (
+      ) : isLoadingDepts || isLoadingHelpdesk ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="w-8 h-8 animate-spin text-primary/50" />
         </div>
@@ -795,29 +1081,21 @@ export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSe
             <TabsTrigger value="overview" className="rounded-lg py-2 px-4 gap-2">
               <FolderKanban className="w-4 h-4" /> Overview
             </TabsTrigger>
-            <TabsTrigger value="tickets" className="rounded-lg py-2 px-4 gap-2">
-              <Ticket className="w-4 h-4" /> Ticket Editor
-            </TabsTrigger>
             <TabsTrigger value="sla" className="rounded-lg py-2 px-4 gap-2">
-              <Clock className="w-4 h-4" /> SLA Policies
+              <Clock className="w-4 h-4" /> SLA States
+            </TabsTrigger>
+            <TabsTrigger value="escalation" className="rounded-lg py-2 px-4 gap-2">
+              <AlertCircle className="w-4 h-4" /> Escalation
             </TabsTrigger>
             <TabsTrigger value="emails" className="rounded-lg py-2 px-4 gap-2">
-              <Mail className="w-4 h-4" /> Emails
-            </TabsTrigger>
-            <TabsTrigger value="webhooks" className="rounded-lg py-2 px-4 gap-2">
-              <Webhook className="w-4 h-4" /> Webhooks
-            </TabsTrigger>
-            <TabsTrigger value="rules" className="rounded-lg py-2 px-4 gap-2">
-              <MessagesSquare className="w-4 h-4" /> Rules
+              <Mail className="w-4 h-4" /> Inbound Email
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview">{renderOverview()}</TabsContent>
-          <TabsContent value="tickets">{renderTicketSettings()}</TabsContent>
-          <TabsContent value="sla">{renderSLASettings()}</TabsContent>
+          <TabsContent value="sla">{renderSLAStates()}</TabsContent>
+          <TabsContent value="escalation">{renderEscalationRules()}</TabsContent>
           <TabsContent value="emails">{renderEmailSettings()}</TabsContent>
-          <TabsContent value="webhooks">{renderWebhookSettings()}</TabsContent>
-          <TabsContent value="rules">{renderInteractionRules()}</TabsContent>
         </Tabs>
       )}
     </div>
