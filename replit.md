@@ -46,6 +46,13 @@ Preferred communication style: Simple, everyday language.
 
 4. **Monorepo Structure**: Single repository with clear separation - `client/` for frontend, `server/` for backend, `shared/` for common code.
 
+5. **Modular Settings Architecture**: The system settings are organized in `client/src/features/settings/` with:
+   - **Scalable Sidebar Navigation**: Collapsible sections with sub-items, desktop sidebar + mobile sheet pattern
+   - **Reusable Components**: SettingsSidebar, SettingsHeader, SettingsCard, SettingsSection, SettingsRow, DepartmentSelector
+   - **Independent Section Modules**: Each settings section (AI, Users, Roles, Departments, Helpdesk, Documentation, Links, General) is a self-contained component
+   - **Department-Specific Helpdesk**: Nested tabs for ticket editors, SLA policies, email templates, webhooks, and interaction rules per department
+   - **Navigation System**: Centralized in `navigation.ts` with types in `types.ts` for easy extensibility
+
 ## External Dependencies
 
 ### Database
