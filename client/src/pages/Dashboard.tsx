@@ -203,7 +203,7 @@ export default function Dashboard() {
                 </div>
               </CardHeader>
               <CardContent className="p-0 flex flex-col h-[320px]">
-                <ScrollArea className="flex-1 p-4" viewportRef={scrollRef}>
+                <ScrollArea className="flex-1 p-4" ref={scrollRef}>
                   <div className="space-y-4">
                     {messages.length === 0 ? (
                       <div className="h-full flex items-center justify-center text-muted-foreground py-12">
