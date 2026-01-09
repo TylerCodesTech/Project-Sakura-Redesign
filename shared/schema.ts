@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, boolean, integer } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -180,3 +180,178 @@ export type Page = typeof pages.$inferSelect;
 export type InsertPage = z.infer<typeof insertPageSchema>;
 export type Comment = typeof comments.$inferSelect;
 export type InsertComment = z.infer<typeof insertCommentSchema>;
+
+// Helpdesk configuration per department
+export const helpdesks = pgTable("helpdesks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  departmentId: varchar("department_id").notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  enabled: text("enabled").notNull().default("true"),
+  publicAccess: text("public_access").notNull().default("false"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+// Custom SLA states per helpdesk
+export const slaStates = pgTable("sla_states", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  helpdeskId: varchar("helpdesk_id").notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  color: text("color").notNull().default("#3b82f6"),
+  order: integer("order").notNull().default(0),
+  isFinal: text("is_final").notNull().default("false"),
+  isDefault: text("is_default").notNull().default("false"),
+  targetHours: integer("target_hours"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+// SLA policies with targets
+export const slaPolicies = pgTable("sla_policies", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  helpdeskId: varchar("helpdesk_id").notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  priority: text("priority").notNull().default("medium"),
+  firstResponseHours: integer("first_response_hours"),
+  resolutionHours: integer("resolution_hours"),
+  enabled: text("enabled").notNull().default("true"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+// Department hierarchy for complex organizational structures
+export const departmentHierarchy = pgTable("department_hierarchy", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  parentDepartmentId: varchar("parent_department_id"),
+  childDepartmentId: varchar("child_department_id").notNull(),
+  hierarchyType: text("hierarchy_type").notNull().default("subdivision"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+// Manager assignments for departments
+export const departmentManagers = pgTable("department_managers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  departmentId: varchar("department_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  role: text("role").notNull().default("manager"),
+  isPrimary: text("is_primary").notNull().default("false"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+// Escalation rules for ticket routing
+export const escalationRules = pgTable("escalation_rules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  helpdeskId: varchar("helpdesk_id").notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  triggerType: text("trigger_type").notNull().default("time_based"),
+  triggerHours: integer("trigger_hours"),
+  priority: text("priority"),
+  ticketType: text("ticket_type"),
+  fromStateId: varchar("from_state_id"),
+  targetDepartmentId: varchar("target_department_id"),
+  targetUserId: varchar("target_user_id"),
+  notifyManagers: text("notify_managers").notNull().default("true"),
+  enabled: text("enabled").notNull().default("true"),
+  order: integer("order").notNull().default(0),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+// Escalation rule conditions for complex logic
+export const escalationConditions = pgTable("escalation_conditions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ruleId: varchar("rule_id").notNull(),
+  field: text("field").notNull(),
+  operator: text("operator").notNull(),
+  value: text("value").notNull(),
+  logicOperator: text("logic_operator").notNull().default("and"),
+});
+
+// Inbound email configuration per helpdesk
+export const inboundEmailConfigs = pgTable("inbound_email_configs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  helpdeskId: varchar("helpdesk_id").notNull(),
+  emailAddress: text("email_address"),
+  provider: text("provider").notNull().default("custom"),
+  enabled: text("enabled").notNull().default("false"),
+  autoCreateTickets: text("auto_create_tickets").notNull().default("true"),
+  defaultPriority: text("default_priority").notNull().default("medium"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+// Email thread tracking for ticket updates
+export const emailThreads = pgTable("email_threads", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ticketId: varchar("ticket_id").notNull(),
+  messageId: text("message_id").notNull(),
+  inReplyTo: text("in_reply_to"),
+  references: text("references"),
+  subject: text("subject"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+// Tickets table for helpdesk
+export const tickets = pgTable("tickets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  helpdeskId: varchar("helpdesk_id").notNull(),
+  title: text("title").notNull(),
+  description: text("description"),
+  priority: text("priority").notNull().default("medium"),
+  stateId: varchar("state_id"),
+  assignedTo: varchar("assigned_to"),
+  createdBy: varchar("created_by").notNull(),
+  departmentId: varchar("department_id"),
+  ticketType: text("ticket_type").notNull().default("request"),
+  source: text("source").notNull().default("web"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+// Ticket comments/replies
+export const ticketComments = pgTable("ticket_comments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ticketId: varchar("ticket_id").notNull(),
+  userId: varchar("user_id"),
+  content: text("content").notNull(),
+  isInternal: text("is_internal").notNull().default("false"),
+  source: text("source").notNull().default("web"),
+  emailMessageId: text("email_message_id"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+// Insert schemas
+export const insertHelpdeskSchema = createInsertSchema(helpdesks).omit({ id: true });
+export const insertSlaStateSchema = createInsertSchema(slaStates).omit({ id: true });
+export const insertSlaPolicySchema = createInsertSchema(slaPolicies).omit({ id: true });
+export const insertDepartmentHierarchySchema = createInsertSchema(departmentHierarchy).omit({ id: true });
+export const insertDepartmentManagerSchema = createInsertSchema(departmentManagers).omit({ id: true });
+export const insertEscalationRuleSchema = createInsertSchema(escalationRules).omit({ id: true });
+export const insertEscalationConditionSchema = createInsertSchema(escalationConditions).omit({ id: true });
+export const insertInboundEmailConfigSchema = createInsertSchema(inboundEmailConfigs).omit({ id: true });
+export const insertEmailThreadSchema = createInsertSchema(emailThreads).omit({ id: true });
+export const insertTicketSchema = createInsertSchema(tickets).omit({ id: true });
+export const insertTicketCommentSchema = createInsertSchema(ticketComments).omit({ id: true });
+
+// Types
+export type Helpdesk = typeof helpdesks.$inferSelect;
+export type InsertHelpdesk = z.infer<typeof insertHelpdeskSchema>;
+export type SlaState = typeof slaStates.$inferSelect;
+export type InsertSlaState = z.infer<typeof insertSlaStateSchema>;
+export type SlaPolicy = typeof slaPolicies.$inferSelect;
+export type InsertSlaPolicy = z.infer<typeof insertSlaPolicySchema>;
+export type DepartmentHierarchy = typeof departmentHierarchy.$inferSelect;
+export type InsertDepartmentHierarchy = z.infer<typeof insertDepartmentHierarchySchema>;
+export type DepartmentManager = typeof departmentManagers.$inferSelect;
+export type InsertDepartmentManager = z.infer<typeof insertDepartmentManagerSchema>;
+export type EscalationRule = typeof escalationRules.$inferSelect;
+export type InsertEscalationRule = z.infer<typeof insertEscalationRuleSchema>;
+export type EscalationCondition = typeof escalationConditions.$inferSelect;
+export type InsertEscalationCondition = z.infer<typeof insertEscalationConditionSchema>;
+export type InboundEmailConfig = typeof inboundEmailConfigs.$inferSelect;
+export type InsertInboundEmailConfig = z.infer<typeof insertInboundEmailConfigSchema>;
+export type EmailThread = typeof emailThreads.$inferSelect;
+export type InsertEmailThread = z.infer<typeof insertEmailThreadSchema>;
+export type Ticket = typeof tickets.$inferSelect;
+export type InsertTicket = z.infer<typeof insertTicketSchema>;
+export type TicketComment = typeof ticketComments.$inferSelect;
+export type InsertTicketComment = z.infer<typeof insertTicketCommentSchema>;

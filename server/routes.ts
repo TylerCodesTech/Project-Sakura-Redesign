@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertBookSchema, insertPageSchema, insertCommentSchema, insertNotificationSchema, insertExternalLinkSchema, insertDepartmentSchema, insertNewsSchema, insertStatSchema, systemSettingsDefaults } from "@shared/schema";
+import { insertBookSchema, insertPageSchema, insertCommentSchema, insertNotificationSchema, insertExternalLinkSchema, insertDepartmentSchema, insertNewsSchema, insertStatSchema, systemSettingsDefaults, insertHelpdeskSchema, insertSlaStateSchema, insertSlaPolicySchema, insertDepartmentHierarchySchema, insertDepartmentManagerSchema, insertEscalationRuleSchema, insertEscalationConditionSchema, insertInboundEmailConfigSchema, insertTicketSchema, insertTicketCommentSchema } from "@shared/schema";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -420,6 +420,280 @@ export async function registerRoutes(
     }
     const setting = await storage.setSystemSetting(req.params.key, value);
     res.json(setting);
+  });
+
+  // ============== HELPDESK ROUTES ==============
+
+  // Helpdesks
+  app.get("/api/helpdesks", async (_req, res) => {
+    const helpdesks = await storage.getHelpdesks();
+    res.json(helpdesks);
+  });
+
+  app.get("/api/helpdesks/by-department/:departmentId", async (req, res) => {
+    const helpdesk = await storage.getHelpdeskByDepartment(req.params.departmentId);
+    res.json(helpdesk || null);
+  });
+
+  app.post("/api/helpdesks", async (req, res) => {
+    const result = insertHelpdeskSchema.safeParse(req.body);
+    if (!result.success) return res.status(400).json({ error: result.error });
+    const helpdesk = await storage.createHelpdesk(result.data);
+    res.json(helpdesk);
+  });
+
+  app.patch("/api/helpdesks/:id", async (req, res) => {
+    const result = insertHelpdeskSchema.partial().safeParse(req.body);
+    if (!result.success) return res.status(400).json({ error: result.error });
+    try {
+      const helpdesk = await storage.updateHelpdesk(req.params.id, result.data);
+      res.json(helpdesk);
+    } catch (error: any) {
+      res.status(404).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/helpdesks/:id", async (req, res) => {
+    await storage.deleteHelpdesk(req.params.id);
+    res.sendStatus(204);
+  });
+
+  // SLA States
+  app.get("/api/helpdesks/:helpdeskId/sla-states", async (req, res) => {
+    const states = await storage.getSlaStates(req.params.helpdeskId);
+    res.json(states);
+  });
+
+  app.post("/api/helpdesks/:helpdeskId/sla-states", async (req, res) => {
+    const result = insertSlaStateSchema.safeParse({ ...req.body, helpdeskId: req.params.helpdeskId });
+    if (!result.success) return res.status(400).json({ error: result.error });
+    const state = await storage.createSlaState(result.data);
+    res.json(state);
+  });
+
+  app.patch("/api/sla-states/:id", async (req, res) => {
+    const result = insertSlaStateSchema.partial().safeParse(req.body);
+    if (!result.success) return res.status(400).json({ error: result.error });
+    try {
+      const state = await storage.updateSlaState(req.params.id, result.data);
+      res.json(state);
+    } catch (error: any) {
+      res.status(404).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/sla-states/:id", async (req, res) => {
+    await storage.deleteSlaState(req.params.id);
+    res.sendStatus(204);
+  });
+
+  app.patch("/api/helpdesks/:helpdeskId/sla-states/reorder", async (req, res) => {
+    const { ids } = req.body;
+    if (!Array.isArray(ids)) return res.sendStatus(400);
+    try {
+      await Promise.all(
+        ids.map((id: string, index: number) => storage.updateSlaState(id, { order: index }))
+      );
+      res.sendStatus(204);
+    } catch (error) {
+      res.sendStatus(500);
+    }
+  });
+
+  // SLA Policies
+  app.get("/api/helpdesks/:helpdeskId/sla-policies", async (req, res) => {
+    const policies = await storage.getSlaPolicies(req.params.helpdeskId);
+    res.json(policies);
+  });
+
+  app.post("/api/helpdesks/:helpdeskId/sla-policies", async (req, res) => {
+    const result = insertSlaPolicySchema.safeParse({ ...req.body, helpdeskId: req.params.helpdeskId });
+    if (!result.success) return res.status(400).json({ error: result.error });
+    const policy = await storage.createSlaPolicy(result.data);
+    res.json(policy);
+  });
+
+  app.patch("/api/sla-policies/:id", async (req, res) => {
+    const result = insertSlaPolicySchema.partial().safeParse(req.body);
+    if (!result.success) return res.status(400).json({ error: result.error });
+    try {
+      const policy = await storage.updateSlaPolicy(req.params.id, result.data);
+      res.json(policy);
+    } catch (error: any) {
+      res.status(404).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/sla-policies/:id", async (req, res) => {
+    await storage.deleteSlaPolicy(req.params.id);
+    res.sendStatus(204);
+  });
+
+  // Department Hierarchy
+  app.get("/api/department-hierarchy", async (_req, res) => {
+    const hierarchy = await storage.getDepartmentHierarchy();
+    res.json(hierarchy);
+  });
+
+  app.get("/api/department-hierarchy/children/:parentId", async (req, res) => {
+    const children = await storage.getChildDepartments(req.params.parentId);
+    res.json(children);
+  });
+
+  app.post("/api/department-hierarchy", async (req, res) => {
+    const result = insertDepartmentHierarchySchema.safeParse(req.body);
+    if (!result.success) return res.status(400).json({ error: result.error });
+    const hierarchy = await storage.createDepartmentHierarchy(result.data);
+    res.json(hierarchy);
+  });
+
+  app.delete("/api/department-hierarchy/:id", async (req, res) => {
+    await storage.deleteDepartmentHierarchy(req.params.id);
+    res.sendStatus(204);
+  });
+
+  // Department Managers
+  app.get("/api/departments/:departmentId/managers", async (req, res) => {
+    const managers = await storage.getDepartmentManagers(req.params.departmentId);
+    res.json(managers);
+  });
+
+  app.post("/api/departments/:departmentId/managers", async (req, res) => {
+    const result = insertDepartmentManagerSchema.safeParse({ ...req.body, departmentId: req.params.departmentId });
+    if (!result.success) return res.status(400).json({ error: result.error });
+    const manager = await storage.createDepartmentManager(result.data);
+    res.json(manager);
+  });
+
+  app.patch("/api/department-managers/:id", async (req, res) => {
+    const result = insertDepartmentManagerSchema.partial().safeParse(req.body);
+    if (!result.success) return res.status(400).json({ error: result.error });
+    try {
+      const manager = await storage.updateDepartmentManager(req.params.id, result.data);
+      res.json(manager);
+    } catch (error: any) {
+      res.status(404).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/department-managers/:id", async (req, res) => {
+    await storage.deleteDepartmentManager(req.params.id);
+    res.sendStatus(204);
+  });
+
+  // Escalation Rules
+  app.get("/api/helpdesks/:helpdeskId/escalation-rules", async (req, res) => {
+    const rules = await storage.getEscalationRules(req.params.helpdeskId);
+    res.json(rules);
+  });
+
+  app.post("/api/helpdesks/:helpdeskId/escalation-rules", async (req, res) => {
+    const result = insertEscalationRuleSchema.safeParse({ ...req.body, helpdeskId: req.params.helpdeskId });
+    if (!result.success) return res.status(400).json({ error: result.error });
+    const rule = await storage.createEscalationRule(result.data);
+    res.json(rule);
+  });
+
+  app.patch("/api/escalation-rules/:id", async (req, res) => {
+    const result = insertEscalationRuleSchema.partial().safeParse(req.body);
+    if (!result.success) return res.status(400).json({ error: result.error });
+    try {
+      const rule = await storage.updateEscalationRule(req.params.id, result.data);
+      res.json(rule);
+    } catch (error: any) {
+      res.status(404).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/escalation-rules/:id", async (req, res) => {
+    await storage.deleteEscalationRule(req.params.id);
+    res.sendStatus(204);
+  });
+
+  // Escalation Conditions
+  app.get("/api/escalation-rules/:ruleId/conditions", async (req, res) => {
+    const conditions = await storage.getEscalationConditions(req.params.ruleId);
+    res.json(conditions);
+  });
+
+  app.post("/api/escalation-rules/:ruleId/conditions", async (req, res) => {
+    const result = insertEscalationConditionSchema.safeParse({ ...req.body, ruleId: req.params.ruleId });
+    if (!result.success) return res.status(400).json({ error: result.error });
+    const condition = await storage.createEscalationCondition(result.data);
+    res.json(condition);
+  });
+
+  app.delete("/api/escalation-conditions/:id", async (req, res) => {
+    await storage.deleteEscalationCondition(req.params.id);
+    res.sendStatus(204);
+  });
+
+  // Inbound Email Config
+  app.get("/api/helpdesks/:helpdeskId/email-config", async (req, res) => {
+    const config = await storage.getInboundEmailConfig(req.params.helpdeskId);
+    res.json(config || null);
+  });
+
+  app.post("/api/helpdesks/:helpdeskId/email-config", async (req, res) => {
+    const result = insertInboundEmailConfigSchema.safeParse({ ...req.body, helpdeskId: req.params.helpdeskId });
+    if (!result.success) return res.status(400).json({ error: result.error });
+    const config = await storage.createInboundEmailConfig(result.data);
+    res.json(config);
+  });
+
+  app.patch("/api/email-config/:id", async (req, res) => {
+    const result = insertInboundEmailConfigSchema.partial().safeParse(req.body);
+    if (!result.success) return res.status(400).json({ error: result.error });
+    try {
+      const config = await storage.updateInboundEmailConfig(req.params.id, result.data);
+      res.json(config);
+    } catch (error: any) {
+      res.status(404).json({ error: error.message });
+    }
+  });
+
+  // Tickets
+  app.get("/api/tickets", async (req, res) => {
+    const helpdeskId = req.query.helpdeskId as string | undefined;
+    const tickets = await storage.getTickets(helpdeskId);
+    res.json(tickets);
+  });
+
+  app.get("/api/tickets/:id", async (req, res) => {
+    const ticket = await storage.getTicket(req.params.id);
+    if (!ticket) return res.status(404).json({ error: "Ticket not found" });
+    res.json(ticket);
+  });
+
+  app.post("/api/tickets", async (req, res) => {
+    const result = insertTicketSchema.safeParse(req.body);
+    if (!result.success) return res.status(400).json({ error: result.error });
+    const ticket = await storage.createTicket(result.data);
+    res.json(ticket);
+  });
+
+  app.patch("/api/tickets/:id", async (req, res) => {
+    const result = insertTicketSchema.partial().safeParse(req.body);
+    if (!result.success) return res.status(400).json({ error: result.error });
+    try {
+      const ticket = await storage.updateTicket(req.params.id, result.data);
+      res.json(ticket);
+    } catch (error: any) {
+      res.status(404).json({ error: error.message });
+    }
+  });
+
+  // Ticket Comments
+  app.get("/api/tickets/:ticketId/comments", async (req, res) => {
+    const comments = await storage.getTicketComments(req.params.ticketId);
+    res.json(comments);
+  });
+
+  app.post("/api/tickets/:ticketId/comments", async (req, res) => {
+    const result = insertTicketCommentSchema.safeParse({ ...req.body, ticketId: req.params.ticketId });
+    if (!result.success) return res.status(400).json({ error: result.error });
+    const comment = await storage.createTicketComment(result.data);
+    res.json(comment);
   });
 
   return httpServer;
