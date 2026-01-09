@@ -47,7 +47,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { type Department, type Helpdesk, type SlaState, type SlaPolicy, type EscalationRule, type InboundEmailConfig, type DepartmentHierarchy, type DepartmentManager } from "@shared/schema";
+import { type Department, type Helpdesk, type SlaState, type SlaPolicy, type EscalationRule, type InboundEmailConfig, type DepartmentHierarchy, type DepartmentManager, type HelpdeskWebhook, type TicketFormField } from "@shared/schema";
 import { cn } from "@/lib/utils";
 import {
   SettingsHeader,
@@ -131,6 +131,26 @@ export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSe
     queryFn: async () => {
       if (!helpdesk?.id) return null;
       const res = await fetch(`/api/helpdesks/${helpdesk.id}/email-config`);
+      return res.json();
+    },
+    enabled: !!helpdesk?.id,
+  });
+
+  const { data: webhooks = [] } = useQuery<HelpdeskWebhook[]>({
+    queryKey: ["/api/helpdesks", helpdesk?.id, "webhooks"],
+    queryFn: async () => {
+      if (!helpdesk?.id) return [];
+      const res = await fetch(`/api/helpdesks/${helpdesk.id}/webhooks`);
+      return res.json();
+    },
+    enabled: !!helpdesk?.id,
+  });
+
+  const { data: formFields = [] } = useQuery<TicketFormField[]>({
+    queryKey: ["/api/helpdesks", helpdesk?.id, "form-fields"],
+    queryFn: async () => {
+      if (!helpdesk?.id) return [];
+      const res = await fetch(`/api/helpdesks/${helpdesk.id}/form-fields`);
       return res.json();
     },
     enabled: !!helpdesk?.id,
@@ -274,6 +294,64 @@ export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSe
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/department-hierarchy"] });
+    },
+  });
+
+  const createWebhookMutation = useMutation({
+    mutationFn: async (data: Partial<HelpdeskWebhook>) => {
+      const res = await apiRequest("POST", `/api/helpdesks/${helpdesk?.id}/webhooks`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/helpdesks", helpdesk?.id, "webhooks"] });
+    },
+  });
+
+  const updateWebhookMutation = useMutation({
+    mutationFn: async ({ id, ...data }: { id: string } & Partial<HelpdeskWebhook>) => {
+      const res = await apiRequest("PATCH", `/api/webhooks/${id}`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/helpdesks", helpdesk?.id, "webhooks"] });
+    },
+  });
+
+  const deleteWebhookMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/webhooks/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/helpdesks", helpdesk?.id, "webhooks"] });
+    },
+  });
+
+  const createFormFieldMutation = useMutation({
+    mutationFn: async (data: Partial<TicketFormField>) => {
+      const res = await apiRequest("POST", `/api/helpdesks/${helpdesk?.id}/form-fields`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/helpdesks", helpdesk?.id, "form-fields"] });
+    },
+  });
+
+  const updateFormFieldMutation = useMutation({
+    mutationFn: async ({ id, ...data }: { id: string } & Partial<TicketFormField>) => {
+      const res = await apiRequest("PATCH", `/api/form-fields/${id}`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/helpdesks", helpdesk?.id, "form-fields"] });
+    },
+  });
+
+  const deleteFormFieldMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/form-fields/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/helpdesks", helpdesk?.id, "form-fields"] });
     },
   });
 
@@ -1045,6 +1123,273 @@ export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSe
     </div>
   );
 
+  const renderWebhooks = () => (
+    <div className="space-y-6">
+      <SettingsCard
+        title="Webhooks"
+        description="Configure webhooks to notify external systems about ticket events."
+        icon={Webhook}
+        actions={
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button size="sm">
+                <Plus className="w-4 h-4 mr-2" /> Add Webhook
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Add Webhook</DialogTitle>
+                <DialogDescription>
+                  Configure a new webhook to receive ticket event notifications.
+                </DialogDescription>
+              </DialogHeader>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const formData = new FormData(e.currentTarget);
+                  createWebhookMutation.mutate({
+                    name: formData.get("name") as string,
+                    url: formData.get("url") as string,
+                    events: formData.get("events") as string || "ticket.created,ticket.updated",
+                    secret: formData.get("secret") as string || undefined,
+                  });
+                  (e.target as HTMLFormElement).reset();
+                }}
+                className="space-y-4"
+              >
+                <div className="space-y-2">
+                  <Label htmlFor="webhook-name">Name</Label>
+                  <Input id="webhook-name" name="name" placeholder="Slack Notifications" required />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="webhook-url">URL</Label>
+                  <Input id="webhook-url" name="url" type="url" placeholder="https://..." required />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="webhook-events">Events (comma-separated)</Label>
+                  <Input id="webhook-events" name="events" placeholder="ticket.created,ticket.updated,ticket.resolved" defaultValue="ticket.created,ticket.updated" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="webhook-secret">Secret (optional)</Label>
+                  <Input id="webhook-secret" name="secret" type="password" placeholder="HMAC signing secret" />
+                </div>
+                <DialogFooter>
+                  <Button type="submit" disabled={createWebhookMutation.isPending}>
+                    {createWebhookMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Add Webhook"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        }
+      >
+        <div className="space-y-3">
+          {webhooks.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+              <Webhook className="w-10 h-10 mb-3 opacity-30" />
+              <p className="text-sm">No webhooks configured</p>
+              <p className="text-xs">Add a webhook to notify external services about ticket events</p>
+            </div>
+          ) : (
+            webhooks.map((webhook) => (
+              <div
+                key={webhook.id}
+                className="flex items-center justify-between p-4 border rounded-lg bg-background/50"
+              >
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">{webhook.name}</span>
+                    <Badge variant={webhook.enabled === "true" ? "default" : "secondary"}>
+                      {webhook.enabled === "true" ? "Active" : "Disabled"}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground truncate max-w-md">{webhook.url}</p>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {webhook.events.split(",").map((event) => (
+                      <Badge key={event} variant="outline" className="text-xs">{event}</Badge>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch 
+                    checked={webhook.enabled === "true"}
+                    onCheckedChange={(checked) => {
+                      updateWebhookMutation.mutate({ id: webhook.id, enabled: checked ? "true" : "false" });
+                    }}
+                  />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => deleteWebhookMutation.mutate(webhook.id)}
+                  >
+                    <Trash2 className="w-4 h-4 text-destructive" />
+                  </Button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </SettingsCard>
+    </div>
+  );
+
+  const renderTicketSettings = () => (
+    <div className="space-y-6">
+      <SettingsCard
+        title="Custom Form Fields"
+        description="Add custom fields to your ticket creation form."
+        icon={Ticket}
+        actions={
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button size="sm">
+                <Plus className="w-4 h-4 mr-2" /> Add Field
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Add Custom Field</DialogTitle>
+                <DialogDescription>
+                  Create a new field for your ticket creation form.
+                </DialogDescription>
+              </DialogHeader>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const formData = new FormData(e.currentTarget);
+                  createFormFieldMutation.mutate({
+                    name: (formData.get("label") as string).toLowerCase().replace(/\s+/g, "_"),
+                    label: formData.get("label") as string,
+                    fieldType: formData.get("fieldType") as string || "text",
+                    placeholder: formData.get("placeholder") as string || undefined,
+                    helpText: formData.get("helpText") as string || undefined,
+                    required: formData.get("required") ? "true" : "false",
+                    options: formData.get("options") as string || undefined,
+                    order: formFields.length,
+                  });
+                  (e.target as HTMLFormElement).reset();
+                }}
+                className="space-y-4"
+              >
+                <div className="space-y-2">
+                  <Label htmlFor="field-label">Field Label</Label>
+                  <Input id="field-label" name="label" placeholder="Product Version" required />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="field-type">Field Type</Label>
+                  <Select name="fieldType" defaultValue="text">
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="text">Text</SelectItem>
+                      <SelectItem value="textarea">Long Text</SelectItem>
+                      <SelectItem value="select">Dropdown</SelectItem>
+                      <SelectItem value="checkbox">Checkbox</SelectItem>
+                      <SelectItem value="number">Number</SelectItem>
+                      <SelectItem value="date">Date</SelectItem>
+                      <SelectItem value="email">Email</SelectItem>
+                      <SelectItem value="url">URL</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="field-placeholder">Placeholder (optional)</Label>
+                  <Input id="field-placeholder" name="placeholder" placeholder="Enter placeholder text..." />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="field-options">Options (for dropdown, comma-separated)</Label>
+                  <Input id="field-options" name="options" placeholder="Option 1, Option 2, Option 3" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="field-help">Help Text (optional)</Label>
+                  <Input id="field-help" name="helpText" placeholder="Describe what this field is for" />
+                </div>
+                <div className="flex items-center gap-2">
+                  <input type="checkbox" id="field-required" name="required" />
+                  <Label htmlFor="field-required">Required field</Label>
+                </div>
+                <DialogFooter>
+                  <Button type="submit" disabled={createFormFieldMutation.isPending}>
+                    {createFormFieldMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Add Field"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        }
+      >
+        <div className="space-y-3">
+          {formFields.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+              <Ticket className="w-10 h-10 mb-3 opacity-30" />
+              <p className="text-sm">No custom fields configured</p>
+              <p className="text-xs">Add custom fields to collect additional information with tickets</p>
+            </div>
+          ) : (
+            formFields.map((field) => (
+              <div
+                key={field.id}
+                className="flex items-center justify-between p-4 border rounded-lg bg-background/50"
+              >
+                <div className="flex items-center gap-4">
+                  <GripVertical className="w-4 h-4 text-muted-foreground cursor-move" />
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{field.label}</span>
+                      <Badge variant="outline" className="text-xs">{field.fieldType}</Badge>
+                      {field.required === "true" && (
+                        <Badge variant="secondary" className="text-xs">Required</Badge>
+                      )}
+                    </div>
+                    {field.placeholder && (
+                      <p className="text-xs text-muted-foreground">Placeholder: {field.placeholder}</p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch 
+                    checked={field.enabled === "true"}
+                    onCheckedChange={(checked) => {
+                      updateFormFieldMutation.mutate({ id: field.id, enabled: checked ? "true" : "false" });
+                    }}
+                  />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => deleteFormFieldMutation.mutate(field.id)}
+                  >
+                    <Trash2 className="w-4 h-4 text-destructive" />
+                  </Button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </SettingsCard>
+
+      <SettingsCard
+        title="Default Fields"
+        description="Configure visibility and requirements for standard ticket fields."
+        icon={Settings}
+      >
+        <div className="space-y-4">
+          <SettingsRow label="Priority" description="Allow users to set ticket priority">
+            <Switch defaultChecked />
+          </SettingsRow>
+          <Separator />
+          <SettingsRow label="Type" description="Allow users to categorize tickets (bug, feature, question)">
+            <Switch defaultChecked />
+          </SettingsRow>
+          <Separator />
+          <SettingsRow label="Attachments" description="Allow file uploads with ticket submissions">
+            <Switch defaultChecked />
+          </SettingsRow>
+        </div>
+      </SettingsCard>
+    </div>
+  );
+
   return (
     <div className="space-y-6">
       <SettingsHeader
@@ -1090,12 +1435,20 @@ export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSe
             <TabsTrigger value="emails" className="rounded-lg py-2 px-4 gap-2">
               <Mail className="w-4 h-4" /> Inbound Email
             </TabsTrigger>
+            <TabsTrigger value="webhooks" className="rounded-lg py-2 px-4 gap-2">
+              <Webhook className="w-4 h-4" /> Webhooks
+            </TabsTrigger>
+            <TabsTrigger value="ticket-settings" className="rounded-lg py-2 px-4 gap-2">
+              <Ticket className="w-4 h-4" /> Ticket Settings
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview">{renderOverview()}</TabsContent>
           <TabsContent value="sla">{renderSLAStates()}</TabsContent>
           <TabsContent value="escalation">{renderEscalationRules()}</TabsContent>
           <TabsContent value="emails">{renderEmailSettings()}</TabsContent>
+          <TabsContent value="webhooks">{renderWebhooks()}</TabsContent>
+          <TabsContent value="ticket-settings">{renderTicketSettings()}</TabsContent>
         </Tabs>
       )}
     </div>

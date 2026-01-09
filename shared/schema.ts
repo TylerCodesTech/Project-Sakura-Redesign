@@ -319,6 +319,40 @@ export const ticketComments = pgTable("ticket_comments", {
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
+// Webhooks for helpdesk integrations
+export const helpdeskWebhooks = pgTable("helpdesk_webhooks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  helpdeskId: varchar("helpdesk_id").notNull(),
+  name: text("name").notNull(),
+  url: text("url").notNull(),
+  secret: text("secret"),
+  events: text("events").notNull().default("ticket.created,ticket.updated"),
+  enabled: text("enabled").notNull().default("true"),
+  retryCount: integer("retry_count").notNull().default(3),
+  timeoutSeconds: integer("timeout_seconds").notNull().default(30),
+  lastTriggeredAt: text("last_triggered_at"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+// Custom ticket form fields per helpdesk
+export const ticketFormFields = pgTable("ticket_form_fields", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  helpdeskId: varchar("helpdesk_id").notNull(),
+  name: text("name").notNull(),
+  label: text("label").notNull(),
+  fieldType: text("field_type").notNull().default("text"),
+  placeholder: text("placeholder"),
+  helpText: text("help_text"),
+  required: text("required").notNull().default("false"),
+  options: text("options"),
+  defaultValue: text("default_value"),
+  order: integer("order").notNull().default(0),
+  enabled: text("enabled").notNull().default("true"),
+  showOnCreate: text("show_on_create").notNull().default("true"),
+  showOnEdit: text("show_on_edit").notNull().default("true"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
 // Insert schemas
 export const insertHelpdeskSchema = createInsertSchema(helpdesks).omit({ id: true });
 export const insertSlaStateSchema = createInsertSchema(slaStates).omit({ id: true });
@@ -331,6 +365,8 @@ export const insertInboundEmailConfigSchema = createInsertSchema(inboundEmailCon
 export const insertEmailThreadSchema = createInsertSchema(emailThreads).omit({ id: true });
 export const insertTicketSchema = createInsertSchema(tickets).omit({ id: true });
 export const insertTicketCommentSchema = createInsertSchema(ticketComments).omit({ id: true });
+export const insertHelpdeskWebhookSchema = createInsertSchema(helpdeskWebhooks).omit({ id: true });
+export const insertTicketFormFieldSchema = createInsertSchema(ticketFormFields).omit({ id: true });
 
 // Types
 export type Helpdesk = typeof helpdesks.$inferSelect;
@@ -355,3 +391,7 @@ export type Ticket = typeof tickets.$inferSelect;
 export type InsertTicket = z.infer<typeof insertTicketSchema>;
 export type TicketComment = typeof ticketComments.$inferSelect;
 export type InsertTicketComment = z.infer<typeof insertTicketCommentSchema>;
+export type HelpdeskWebhook = typeof helpdeskWebhooks.$inferSelect;
+export type InsertHelpdeskWebhook = z.infer<typeof insertHelpdeskWebhookSchema>;
+export type TicketFormField = typeof ticketFormFields.$inferSelect;
+export type InsertTicketFormField = z.infer<typeof insertTicketFormFieldSchema>;

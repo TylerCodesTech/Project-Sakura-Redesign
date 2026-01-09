@@ -19,6 +19,8 @@ import {
   type InboundEmailConfig, type InsertInboundEmailConfig,
   type Ticket, type InsertTicket,
   type TicketComment, type InsertTicketComment,
+  type HelpdeskWebhook, type InsertHelpdeskWebhook,
+  type TicketFormField, type InsertTicketFormField,
   systemSettingsDefaults
 } from "@shared/schema";
 import { randomUUID } from "crypto";
@@ -129,6 +131,18 @@ export interface IStorage {
   // Ticket Comments
   getTicketComments(ticketId: string): Promise<TicketComment[]>;
   createTicketComment(comment: InsertTicketComment): Promise<TicketComment>;
+
+  // Webhooks
+  getWebhooks(helpdeskId: string): Promise<HelpdeskWebhook[]>;
+  createWebhook(webhook: InsertHelpdeskWebhook): Promise<HelpdeskWebhook>;
+  updateWebhook(id: string, update: Partial<InsertHelpdeskWebhook>): Promise<HelpdeskWebhook>;
+  deleteWebhook(id: string): Promise<void>;
+
+  // Ticket Form Fields
+  getTicketFormFields(helpdeskId: string): Promise<TicketFormField[]>;
+  createTicketFormField(field: InsertTicketFormField): Promise<TicketFormField>;
+  updateTicketFormField(id: string, update: Partial<InsertTicketFormField>): Promise<TicketFormField>;
+  deleteTicketFormField(id: string): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
@@ -152,6 +166,8 @@ export class MemStorage implements IStorage {
   private inboundEmailConfigs: Map<string, InboundEmailConfig>;
   private tickets: Map<string, Ticket>;
   private ticketComments: Map<string, TicketComment>;
+  private webhooks: Map<string, HelpdeskWebhook>;
+  private ticketFormFields: Map<string, TicketFormField>;
 
   constructor() {
     this.users = new Map();
@@ -174,6 +190,8 @@ export class MemStorage implements IStorage {
     this.inboundEmailConfigs = new Map();
     this.tickets = new Map();
     this.ticketComments = new Map();
+    this.webhooks = new Map();
+    this.ticketFormFields = new Map();
 
     // Initialize default system settings
     Object.entries(systemSettingsDefaults).forEach(([key, value]) => {
@@ -837,6 +855,84 @@ export class MemStorage implements IStorage {
     };
     this.ticketComments.set(id, comment);
     return comment;
+  }
+
+  // Webhook methods
+  async getWebhooks(helpdeskId: string): Promise<HelpdeskWebhook[]> {
+    return Array.from(this.webhooks.values()).filter(w => w.helpdeskId === helpdeskId);
+  }
+
+  async createWebhook(insert: InsertHelpdeskWebhook): Promise<HelpdeskWebhook> {
+    const id = randomUUID();
+    const webhook: HelpdeskWebhook = {
+      id,
+      helpdeskId: insert.helpdeskId,
+      name: insert.name,
+      url: insert.url,
+      secret: insert.secret ?? null,
+      events: insert.events ?? "ticket.created,ticket.updated",
+      enabled: insert.enabled ?? "true",
+      retryCount: insert.retryCount ?? 3,
+      timeoutSeconds: insert.timeoutSeconds ?? 30,
+      lastTriggeredAt: null,
+      createdAt: new Date().toISOString(),
+    };
+    this.webhooks.set(id, webhook);
+    return webhook;
+  }
+
+  async updateWebhook(id: string, update: Partial<InsertHelpdeskWebhook>): Promise<HelpdeskWebhook> {
+    const existing = this.webhooks.get(id);
+    if (!existing) throw new Error("Webhook not found");
+    const updated = { ...existing, ...update };
+    this.webhooks.set(id, updated);
+    return updated;
+  }
+
+  async deleteWebhook(id: string): Promise<void> {
+    this.webhooks.delete(id);
+  }
+
+  // Ticket Form Field methods
+  async getTicketFormFields(helpdeskId: string): Promise<TicketFormField[]> {
+    return Array.from(this.ticketFormFields.values())
+      .filter(f => f.helpdeskId === helpdeskId)
+      .sort((a, b) => a.order - b.order);
+  }
+
+  async createTicketFormField(insert: InsertTicketFormField): Promise<TicketFormField> {
+    const id = randomUUID();
+    const field: TicketFormField = {
+      id,
+      helpdeskId: insert.helpdeskId,
+      name: insert.name,
+      label: insert.label,
+      fieldType: insert.fieldType ?? "text",
+      placeholder: insert.placeholder ?? null,
+      helpText: insert.helpText ?? null,
+      required: insert.required ?? "false",
+      options: insert.options ?? null,
+      defaultValue: insert.defaultValue ?? null,
+      order: insert.order ?? 0,
+      enabled: insert.enabled ?? "true",
+      showOnCreate: insert.showOnCreate ?? "true",
+      showOnEdit: insert.showOnEdit ?? "true",
+      createdAt: new Date().toISOString(),
+    };
+    this.ticketFormFields.set(id, field);
+    return field;
+  }
+
+  async updateTicketFormField(id: string, update: Partial<InsertTicketFormField>): Promise<TicketFormField> {
+    const existing = this.ticketFormFields.get(id);
+    if (!existing) throw new Error("Ticket form field not found");
+    const updated = { ...existing, ...update };
+    this.ticketFormFields.set(id, updated);
+    return updated;
+  }
+
+  async deleteTicketFormField(id: string): Promise<void> {
+    this.ticketFormFields.delete(id);
   }
 }
 

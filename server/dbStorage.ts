@@ -3,7 +3,7 @@ import { eq, and, desc, asc } from "drizzle-orm";
 import {
   users, books, pages, comments, notifications, externalLinks, departments, news, stats, systemSettings,
   helpdesks, slaStates, slaPolicies, departmentHierarchy, departmentManagers, escalationRules, 
-  escalationConditions, inboundEmailConfigs, tickets, ticketComments,
+  escalationConditions, inboundEmailConfigs, tickets, ticketComments, helpdeskWebhooks, ticketFormFields,
   type User, type InsertUser, type Book, type InsertBook, type Page, type InsertPage,
   type Comment, type InsertComment, type Notification, type InsertNotification,
   type ExternalLink, type InsertExternalLink, type Department, type InsertDepartment,
@@ -13,6 +13,7 @@ import {
   type DepartmentManager, type InsertDepartmentManager, type EscalationRule, type InsertEscalationRule,
   type EscalationCondition, type InsertEscalationCondition, type InboundEmailConfig, type InsertInboundEmailConfig,
   type Ticket, type InsertTicket, type TicketComment, type InsertTicketComment,
+  type HelpdeskWebhook, type InsertHelpdeskWebhook, type TicketFormField, type InsertTicketFormField,
   systemSettingsDefaults
 } from "@shared/schema";
 import type { IStorage } from "./storage";
@@ -413,5 +414,45 @@ export class DatabaseStorage implements IStorage {
   async createTicketComment(insert: InsertTicketComment): Promise<TicketComment> {
     const [comment] = await db.insert(ticketComments).values(insert).returning();
     return comment;
+  }
+
+  // Webhook methods
+  async getWebhooks(helpdeskId: string): Promise<HelpdeskWebhook[]> {
+    return db.select().from(helpdeskWebhooks).where(eq(helpdeskWebhooks.helpdeskId, helpdeskId));
+  }
+
+  async createWebhook(insert: InsertHelpdeskWebhook): Promise<HelpdeskWebhook> {
+    const [webhook] = await db.insert(helpdeskWebhooks).values(insert).returning();
+    return webhook;
+  }
+
+  async updateWebhook(id: string, update: Partial<InsertHelpdeskWebhook>): Promise<HelpdeskWebhook> {
+    const [webhook] = await db.update(helpdeskWebhooks).set(update).where(eq(helpdeskWebhooks.id, id)).returning();
+    if (!webhook) throw new Error("Webhook not found");
+    return webhook;
+  }
+
+  async deleteWebhook(id: string): Promise<void> {
+    await db.delete(helpdeskWebhooks).where(eq(helpdeskWebhooks.id, id));
+  }
+
+  // Ticket Form Field methods
+  async getTicketFormFields(helpdeskId: string): Promise<TicketFormField[]> {
+    return db.select().from(ticketFormFields).where(eq(ticketFormFields.helpdeskId, helpdeskId)).orderBy(asc(ticketFormFields.order));
+  }
+
+  async createTicketFormField(insert: InsertTicketFormField): Promise<TicketFormField> {
+    const [field] = await db.insert(ticketFormFields).values(insert).returning();
+    return field;
+  }
+
+  async updateTicketFormField(id: string, update: Partial<InsertTicketFormField>): Promise<TicketFormField> {
+    const [field] = await db.update(ticketFormFields).set(update).where(eq(ticketFormFields.id, id)).returning();
+    if (!field) throw new Error("Ticket form field not found");
+    return field;
+  }
+
+  async deleteTicketFormField(id: string): Promise<void> {
+    await db.delete(ticketFormFields).where(eq(ticketFormFields.id, id));
   }
 }

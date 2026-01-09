@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertBookSchema, insertPageSchema, insertCommentSchema, insertNotificationSchema, insertExternalLinkSchema, insertDepartmentSchema, insertNewsSchema, insertStatSchema, systemSettingsDefaults, insertHelpdeskSchema, insertSlaStateSchema, insertSlaPolicySchema, insertDepartmentHierarchySchema, insertDepartmentManagerSchema, insertEscalationRuleSchema, insertEscalationConditionSchema, insertInboundEmailConfigSchema, insertTicketSchema, insertTicketCommentSchema } from "@shared/schema";
+import { insertBookSchema, insertPageSchema, insertCommentSchema, insertNotificationSchema, insertExternalLinkSchema, insertDepartmentSchema, insertNewsSchema, insertStatSchema, systemSettingsDefaults, insertHelpdeskSchema, insertSlaStateSchema, insertSlaPolicySchema, insertDepartmentHierarchySchema, insertDepartmentManagerSchema, insertEscalationRuleSchema, insertEscalationConditionSchema, insertInboundEmailConfigSchema, insertTicketSchema, insertTicketCommentSchema, insertHelpdeskWebhookSchema, insertTicketFormFieldSchema } from "@shared/schema";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -700,6 +700,64 @@ export async function registerRoutes(
     if (!result.success) return res.status(400).json({ error: result.error });
     const comment = await storage.createTicketComment(result.data);
     res.json(comment);
+  });
+
+  // Webhooks
+  app.get("/api/helpdesks/:helpdeskId/webhooks", async (req, res) => {
+    const webhooks = await storage.getWebhooks(req.params.helpdeskId);
+    res.json(webhooks);
+  });
+
+  app.post("/api/helpdesks/:helpdeskId/webhooks", async (req, res) => {
+    const result = insertHelpdeskWebhookSchema.safeParse({ ...req.body, helpdeskId: req.params.helpdeskId });
+    if (!result.success) return res.status(400).json({ error: result.error });
+    const webhook = await storage.createWebhook(result.data);
+    res.json(webhook);
+  });
+
+  app.patch("/api/webhooks/:id", async (req, res) => {
+    const result = insertHelpdeskWebhookSchema.partial().safeParse(req.body);
+    if (!result.success) return res.status(400).json({ error: result.error });
+    try {
+      const webhook = await storage.updateWebhook(req.params.id, result.data);
+      res.json(webhook);
+    } catch (error: any) {
+      res.status(404).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/webhooks/:id", async (req, res) => {
+    await storage.deleteWebhook(req.params.id);
+    res.sendStatus(204);
+  });
+
+  // Ticket Form Fields
+  app.get("/api/helpdesks/:helpdeskId/form-fields", async (req, res) => {
+    const fields = await storage.getTicketFormFields(req.params.helpdeskId);
+    res.json(fields);
+  });
+
+  app.post("/api/helpdesks/:helpdeskId/form-fields", async (req, res) => {
+    const result = insertTicketFormFieldSchema.safeParse({ ...req.body, helpdeskId: req.params.helpdeskId });
+    if (!result.success) return res.status(400).json({ error: result.error });
+    const field = await storage.createTicketFormField(result.data);
+    res.json(field);
+  });
+
+  app.patch("/api/form-fields/:id", async (req, res) => {
+    const result = insertTicketFormFieldSchema.partial().safeParse(req.body);
+    if (!result.success) return res.status(400).json({ error: result.error });
+    try {
+      const field = await storage.updateTicketFormField(req.params.id, result.data);
+      res.json(field);
+    } catch (error: any) {
+      res.status(404).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/form-fields/:id", async (req, res) => {
+    await storage.deleteTicketFormField(req.params.id);
+    res.sendStatus(204);
   });
 
   return httpServer;

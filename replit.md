@@ -35,6 +35,14 @@ Preferred communication style: Simple, everyday language.
 - **Users**: Basic user authentication with username/password
 - **Books**: Document collections with title, description, and author reference
 - **Pages**: Flexible content pages that can be standalone or belong to books, with support for hierarchical organization (parent/child relationships) and ordering
+- **Helpdesks**: Per-department helpdesk configuration with settings for ticket management
+- **SLA States**: Custom ticket states with colors, SLA tracking, and ordering
+- **SLA Policies**: Response and resolution time targets per priority level
+- **Escalation Rules**: Automatic ticket escalation based on time, priority, or state conditions
+- **Webhooks**: External integrations for ticket event notifications
+- **Ticket Form Fields**: Custom fields for ticket creation forms (text, dropdown, checkbox, etc.)
+- **Inbound Email Config**: Email-to-ticket configuration per helpdesk
+- **Department Hierarchy**: Parent-child relationships between departments for complex organizations
 
 ### Key Design Decisions
 
