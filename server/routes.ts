@@ -306,5 +306,25 @@ export async function registerRoutes(
     res.json(page || null);
   });
 
+  app.get("/api/search", async (req, res) => {
+    const query = req.query.q;
+    if (typeof query !== "string") return res.status(400).send("Query required");
+    
+    const books = await storage.getBooks();
+    const pages = await storage.getStandalonePages();
+    const departments = await storage.getDepartments();
+    
+    const results = [
+      ...books.filter(b => b.title.toLowerCase().includes(query.toLowerCase()))
+        .map(b => ({ type: 'book', id: b.id, title: b.title, link: `/documents/book/${b.id}` })),
+      ...pages.filter(p => p.title.toLowerCase().includes(query.toLowerCase()))
+        .map(p => ({ type: 'page', id: p.id, title: p.title, link: `/documents/edit/${p.id}` })),
+      ...departments.filter(d => d.name.toLowerCase().includes(query.toLowerCase()))
+        .map(d => ({ type: 'department', id: d.id, title: d.name, link: `/system-settings` }))
+    ];
+    
+    res.json(results);
+  });
+
   return httpServer;
 }
