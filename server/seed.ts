@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { departments, stats, news, systemSettings, systemSettingsDefaults } from "@shared/schema";
+import { departments, stats, news, systemSettings, systemSettingsDefaults, roles, rolePermissions, AVAILABLE_PERMISSIONS } from "@shared/schema";
 import { eq } from "drizzle-orm";
 
 export async function seedDatabase() {
@@ -46,6 +46,31 @@ export async function seedDatabase() {
         category: getSettingCategory(key),
       }));
       await db.insert(systemSettings).values(settingsToInsert);
+    }
+
+    // Seed Super Admin role
+    const existingRoles = await db.select().from(roles);
+    const superAdminExists = existingRoles.some(r => r.name === "Super Admin" && r.isSystem === "true");
+    if (!superAdminExists) {
+      console.log("[seed] Creating Super Admin role...");
+      const [superAdmin] = await db.insert(roles).values({
+        name: "Super Admin",
+        description: "Full platform access with all permissions. This role cannot be modified or deleted.",
+        color: "#dc2626",
+        isSystem: "true",
+        priority: 100,
+      }).returning();
+
+      // Add all permissions to Super Admin
+      const allPermissions = Object.keys(AVAILABLE_PERMISSIONS);
+      const permissionInserts = allPermissions.map(permission => ({
+        roleId: superAdmin.id,
+        permission,
+        scopeType: null,
+        scopeId: null,
+      }));
+      await db.insert(rolePermissions).values(permissionInserts);
+      console.log(`[seed] Super Admin role created with ${allPermissions.length} permissions.`);
     }
 
     console.log("[seed] Database initialization complete.");
