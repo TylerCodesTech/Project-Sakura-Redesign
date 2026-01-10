@@ -43,6 +43,11 @@ Preferred communication style: Simple, everyday language.
 - **Ticket Form Fields**: Custom fields for ticket creation forms (text, dropdown, checkbox, etc.)
 - **Inbound Email Config**: Email-to-ticket configuration per helpdesk
 - **Department Hierarchy**: Parent-child relationships between departments for complex organizations
+- **Roles**: Custom roles with name, description, color, and priority level; includes system-protected Super Admin role
+- **Permissions**: Granular permission catalog with 36+ permissions across 6 categories (helpdesk, documentation, users, settings, departments, reports)
+- **Role Permissions**: Many-to-many relationship between roles and permissions with optional scope (department-level permissions)
+- **User Roles**: User-to-role assignments with assigned-by tracking
+- **Audit Logs**: Comprehensive logging of all security-related changes including role/permission modifications
 
 ### Key Design Decisions
 
