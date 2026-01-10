@@ -395,3 +395,139 @@ export type HelpdeskWebhook = typeof helpdeskWebhooks.$inferSelect;
 export type InsertHelpdeskWebhook = z.infer<typeof insertHelpdeskWebhookSchema>;
 export type TicketFormField = typeof ticketFormFields.$inferSelect;
 export type InsertTicketFormField = z.infer<typeof insertTicketFormFieldSchema>;
+
+// ============================================
+// ROLE-BASED ACCESS CONTROL (RBAC) TABLES
+// ============================================
+
+// Permission categories for grouping
+export const PERMISSION_CATEGORIES = {
+  HELPDESK: "helpdesk",
+  DOCUMENTATION: "documentation",
+  USERS: "users",
+  SETTINGS: "settings",
+  DEPARTMENTS: "departments",
+  REPORTS: "reports",
+} as const;
+
+// All available permissions in the system
+export const AVAILABLE_PERMISSIONS = {
+  // Helpdesk permissions
+  "helpdesk.tickets.view": { category: "helpdesk", description: "View tickets" },
+  "helpdesk.tickets.create": { category: "helpdesk", description: "Create tickets" },
+  "helpdesk.tickets.edit": { category: "helpdesk", description: "Edit tickets" },
+  "helpdesk.tickets.delete": { category: "helpdesk", description: "Delete tickets" },
+  "helpdesk.tickets.assign": { category: "helpdesk", description: "Assign tickets to users" },
+  "helpdesk.tickets.close": { category: "helpdesk", description: "Close/resolve tickets" },
+  "helpdesk.settings.manage": { category: "helpdesk", description: "Manage helpdesk settings" },
+  "helpdesk.sla.manage": { category: "helpdesk", description: "Manage SLA states and policies" },
+  "helpdesk.webhooks.manage": { category: "helpdesk", description: "Manage webhooks" },
+  
+  // Documentation permissions
+  "docs.books.view": { category: "documentation", description: "View books and pages" },
+  "docs.books.create": { category: "documentation", description: "Create books" },
+  "docs.books.edit": { category: "documentation", description: "Edit books" },
+  "docs.books.delete": { category: "documentation", description: "Delete books" },
+  "docs.pages.create": { category: "documentation", description: "Create pages" },
+  "docs.pages.edit": { category: "documentation", description: "Edit pages" },
+  "docs.pages.delete": { category: "documentation", description: "Delete pages" },
+  "docs.pages.publish": { category: "documentation", description: "Publish pages" },
+  
+  // User management permissions
+  "users.view": { category: "users", description: "View users" },
+  "users.create": { category: "users", description: "Create users" },
+  "users.edit": { category: "users", description: "Edit users" },
+  "users.delete": { category: "users", description: "Delete users" },
+  "users.roles.assign": { category: "users", description: "Assign roles to users" },
+  
+  // Settings permissions
+  "settings.general.view": { category: "settings", description: "View general settings" },
+  "settings.general.manage": { category: "settings", description: "Manage general settings" },
+  "settings.branding.manage": { category: "settings", description: "Manage branding settings" },
+  "settings.notifications.manage": { category: "settings", description: "Manage notification settings" },
+  "settings.security.manage": { category: "settings", description: "Manage security settings" },
+  "settings.audit.view": { category: "settings", description: "View audit logs" },
+  
+  // Department permissions
+  "departments.view": { category: "departments", description: "View departments" },
+  "departments.create": { category: "departments", description: "Create departments" },
+  "departments.edit": { category: "departments", description: "Edit departments" },
+  "departments.delete": { category: "departments", description: "Delete departments" },
+  "departments.members.manage": { category: "departments", description: "Manage department members" },
+  
+  // Reports permissions
+  "reports.view": { category: "reports", description: "View reports" },
+  "reports.export": { category: "reports", description: "Export reports" },
+  "reports.create": { category: "reports", description: "Create custom reports" },
+} as const;
+
+export type PermissionKey = keyof typeof AVAILABLE_PERMISSIONS;
+
+// Roles table
+export const roles = pgTable("roles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull().unique(),
+  description: text("description"),
+  color: text("color").notNull().default("#6366f1"),
+  isSystem: text("is_system").notNull().default("false"),
+  priority: integer("priority").notNull().default(0),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+// Role permissions - which permissions each role has
+export const rolePermissions = pgTable("role_permissions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  roleId: varchar("role_id").notNull(),
+  permission: text("permission").notNull(),
+  scopeType: text("scope_type"), // null = global, "department" = specific department
+  scopeId: varchar("scope_id"), // department ID if scoped
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+// User roles - which roles each user has
+export const userRoles = pgTable("user_roles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  roleId: varchar("role_id").notNull(),
+  assignedBy: varchar("assigned_by"),
+  assignedAt: text("assigned_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+// Audit logs for tracking all permission/role changes
+export const auditLogs = pgTable("audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  actorId: varchar("actor_id"), // User who performed the action (null for system)
+  actorName: text("actor_name"), // Cached name for display
+  actionType: text("action_type").notNull(), // e.g., "role.created", "role.updated", "user.role_assigned"
+  targetType: text("target_type").notNull(), // e.g., "role", "user", "permission"
+  targetId: varchar("target_id"),
+  targetName: text("target_name"), // Cached name for display
+  description: text("description").notNull(), // Human-readable description
+  metadata: text("metadata"), // JSON with before/after data
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+// Insert schemas for RBAC
+export const insertRoleSchema = createInsertSchema(roles).omit({ id: true });
+export const insertRolePermissionSchema = createInsertSchema(rolePermissions).omit({ id: true });
+export const insertUserRoleSchema = createInsertSchema(userRoles).omit({ id: true });
+export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({ id: true });
+
+// Types for RBAC
+export type Role = typeof roles.$inferSelect;
+export type InsertRole = z.infer<typeof insertRoleSchema>;
+export type RolePermission = typeof rolePermissions.$inferSelect;
+export type InsertRolePermission = z.infer<typeof insertRolePermissionSchema>;
+export type UserRole = typeof userRoles.$inferSelect;
+export type InsertUserRole = z.infer<typeof insertUserRoleSchema>;
+export type AuditLog = typeof auditLogs.$inferSelect;
+export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
+
+// Role with user count for display
+export type RoleWithUserCount = Role & { userCount: number };
+
+// Role with full permission list
+export type RoleWithPermissions = Role & { permissions: RolePermission[] };

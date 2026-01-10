@@ -21,6 +21,12 @@ import {
   type TicketComment, type InsertTicketComment,
   type HelpdeskWebhook, type InsertHelpdeskWebhook,
   type TicketFormField, type InsertTicketFormField,
+  type Role, type InsertRole,
+  type RolePermission, type InsertRolePermission,
+  type UserRole, type InsertUserRole,
+  type AuditLog, type InsertAuditLog,
+  type RoleWithUserCount, type RoleWithPermissions,
+  AVAILABLE_PERMISSIONS,
   systemSettingsDefaults
 } from "@shared/schema";
 import { randomUUID } from "crypto";
@@ -143,6 +149,35 @@ export interface IStorage {
   createTicketFormField(field: InsertTicketFormField): Promise<TicketFormField>;
   updateTicketFormField(id: string, update: Partial<InsertTicketFormField>): Promise<TicketFormField>;
   deleteTicketFormField(id: string): Promise<void>;
+
+  // Roles
+  getRoles(): Promise<RoleWithUserCount[]>;
+  getRole(id: string): Promise<Role | undefined>;
+  getRoleWithPermissions(id: string): Promise<RoleWithPermissions | undefined>;
+  createRole(role: InsertRole): Promise<Role>;
+  updateRole(id: string, update: Partial<InsertRole>): Promise<Role>;
+  deleteRole(id: string): Promise<void>;
+
+  // Role Permissions
+  getRolePermissions(roleId: string): Promise<RolePermission[]>;
+  setRolePermissions(roleId: string, permissions: string[]): Promise<RolePermission[]>;
+  addRolePermission(permission: InsertRolePermission): Promise<RolePermission>;
+  removeRolePermission(roleId: string, permission: string): Promise<void>;
+
+  // User Roles
+  getUserRoles(userId: string): Promise<UserRole[]>;
+  getUsersWithRole(roleId: string): Promise<UserRole[]>;
+  getUserRoleCount(roleId: string): Promise<number>;
+  assignUserRole(assignment: InsertUserRole): Promise<UserRole>;
+  removeUserRole(userId: string, roleId: string): Promise<void>;
+  getUserPermissions(userId: string): Promise<string[]>;
+
+  // Audit Logs
+  getAuditLogs(limit?: number, offset?: number): Promise<AuditLog[]>;
+  getAuditLogsByActor(actorId: string): Promise<AuditLog[]>;
+  getAuditLogsByTarget(targetType: string, targetId: string): Promise<AuditLog[]>;
+  createAuditLog(log: InsertAuditLog): Promise<AuditLog>;
+  getAuditLogCount(): Promise<number>;
 }
 
 export class MemStorage implements IStorage {
@@ -168,6 +203,10 @@ export class MemStorage implements IStorage {
   private ticketComments: Map<string, TicketComment>;
   private webhooks: Map<string, HelpdeskWebhook>;
   private ticketFormFields: Map<string, TicketFormField>;
+  private roles: Map<string, Role>;
+  private rolePermissions: Map<string, RolePermission>;
+  private userRoles: Map<string, UserRole>;
+  private auditLogs: Map<string, AuditLog>;
 
   constructor() {
     this.users = new Map();
@@ -192,6 +231,35 @@ export class MemStorage implements IStorage {
     this.ticketComments = new Map();
     this.webhooks = new Map();
     this.ticketFormFields = new Map();
+    this.roles = new Map();
+    this.rolePermissions = new Map();
+    this.userRoles = new Map();
+    this.auditLogs = new Map();
+
+    // Initialize Super Admin role with all permissions
+    const superAdminId = randomUUID();
+    this.roles.set(superAdminId, {
+      id: superAdminId,
+      name: "Super Admin",
+      description: "Full platform access with all permissions. This role cannot be modified or deleted.",
+      color: "#dc2626",
+      isSystem: "true",
+      priority: 100,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+    // Add all permissions to Super Admin
+    Object.keys(AVAILABLE_PERMISSIONS).forEach(permission => {
+      const permId = randomUUID();
+      this.rolePermissions.set(permId, {
+        id: permId,
+        roleId: superAdminId,
+        permission,
+        scopeType: null,
+        scopeId: null,
+        createdAt: new Date().toISOString(),
+      });
+    });
 
     // Initialize default system settings
     Object.entries(systemSettingsDefaults).forEach(([key, value]) => {
@@ -933,6 +1001,207 @@ export class MemStorage implements IStorage {
 
   async deleteTicketFormField(id: string): Promise<void> {
     this.ticketFormFields.delete(id);
+  }
+
+  // Role methods
+  async getRoles(): Promise<RoleWithUserCount[]> {
+    const rolesArray = Array.from(this.roles.values());
+    return rolesArray.map(role => ({
+      ...role,
+      userCount: Array.from(this.userRoles.values()).filter(ur => ur.roleId === role.id).length
+    })).sort((a, b) => b.priority - a.priority);
+  }
+
+  async getRole(id: string): Promise<Role | undefined> {
+    return this.roles.get(id);
+  }
+
+  async getRoleWithPermissions(id: string): Promise<RoleWithPermissions | undefined> {
+    const role = this.roles.get(id);
+    if (!role) return undefined;
+    const permissions = Array.from(this.rolePermissions.values()).filter(rp => rp.roleId === id);
+    return { ...role, permissions };
+  }
+
+  async createRole(insert: InsertRole): Promise<Role> {
+    const id = randomUUID();
+    const role: Role = {
+      id,
+      name: insert.name,
+      description: insert.description ?? null,
+      color: insert.color ?? "#6366f1",
+      isSystem: insert.isSystem ?? "false",
+      priority: insert.priority ?? 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    this.roles.set(id, role);
+    return role;
+  }
+
+  async updateRole(id: string, update: Partial<InsertRole>): Promise<Role> {
+    const existing = this.roles.get(id);
+    if (!existing) throw new Error("Role not found");
+    if (existing.isSystem === "true") throw new Error("Cannot modify system roles");
+    const updated = { ...existing, ...update, updatedAt: new Date().toISOString() };
+    this.roles.set(id, updated);
+    return updated;
+  }
+
+  async deleteRole(id: string): Promise<void> {
+    const existing = this.roles.get(id);
+    if (existing?.isSystem === "true") throw new Error("Cannot delete system roles");
+    this.roles.delete(id);
+    // Also delete associated permissions and user assignments
+    Array.from(this.rolePermissions.values())
+      .filter(rp => rp.roleId === id)
+      .forEach(rp => this.rolePermissions.delete(rp.id));
+    Array.from(this.userRoles.values())
+      .filter(ur => ur.roleId === id)
+      .forEach(ur => this.userRoles.delete(ur.id));
+  }
+
+  // Role Permission methods
+  async getRolePermissions(roleId: string): Promise<RolePermission[]> {
+    return Array.from(this.rolePermissions.values()).filter(rp => rp.roleId === roleId);
+  }
+
+  async setRolePermissions(roleId: string, permissions: string[]): Promise<RolePermission[]> {
+    // Delete existing permissions for this role
+    Array.from(this.rolePermissions.values())
+      .filter(rp => rp.roleId === roleId)
+      .forEach(rp => this.rolePermissions.delete(rp.id));
+    
+    // Add new permissions
+    const newPermissions: RolePermission[] = [];
+    for (const permission of permissions) {
+      const id = randomUUID();
+      const rp: RolePermission = {
+        id,
+        roleId,
+        permission,
+        scopeType: null,
+        scopeId: null,
+        createdAt: new Date().toISOString(),
+      };
+      this.rolePermissions.set(id, rp);
+      newPermissions.push(rp);
+    }
+    return newPermissions;
+  }
+
+  async addRolePermission(insert: InsertRolePermission): Promise<RolePermission> {
+    const id = randomUUID();
+    const rp: RolePermission = {
+      id,
+      roleId: insert.roleId,
+      permission: insert.permission,
+      scopeType: insert.scopeType ?? null,
+      scopeId: insert.scopeId ?? null,
+      createdAt: new Date().toISOString(),
+    };
+    this.rolePermissions.set(id, rp);
+    return rp;
+  }
+
+  async removeRolePermission(roleId: string, permission: string): Promise<void> {
+    const toDelete = Array.from(this.rolePermissions.values())
+      .find(rp => rp.roleId === roleId && rp.permission === permission);
+    if (toDelete) {
+      this.rolePermissions.delete(toDelete.id);
+    }
+  }
+
+  // User Role methods
+  async getUserRoles(userId: string): Promise<UserRole[]> {
+    return Array.from(this.userRoles.values()).filter(ur => ur.userId === userId);
+  }
+
+  async getUsersWithRole(roleId: string): Promise<UserRole[]> {
+    return Array.from(this.userRoles.values()).filter(ur => ur.roleId === roleId);
+  }
+
+  async getUserRoleCount(roleId: string): Promise<number> {
+    return Array.from(this.userRoles.values()).filter(ur => ur.roleId === roleId).length;
+  }
+
+  async assignUserRole(insert: InsertUserRole): Promise<UserRole> {
+    // Check if already assigned
+    const existing = Array.from(this.userRoles.values())
+      .find(ur => ur.userId === insert.userId && ur.roleId === insert.roleId);
+    if (existing) return existing;
+
+    const id = randomUUID();
+    const ur: UserRole = {
+      id,
+      userId: insert.userId,
+      roleId: insert.roleId,
+      assignedBy: insert.assignedBy ?? null,
+      assignedAt: new Date().toISOString(),
+    };
+    this.userRoles.set(id, ur);
+    return ur;
+  }
+
+  async removeUserRole(userId: string, roleId: string): Promise<void> {
+    const toDelete = Array.from(this.userRoles.values())
+      .find(ur => ur.userId === userId && ur.roleId === roleId);
+    if (toDelete) {
+      this.userRoles.delete(toDelete.id);
+    }
+  }
+
+  async getUserPermissions(userId: string): Promise<string[]> {
+    const userRolesList = await this.getUserRoles(userId);
+    const permissions = new Set<string>();
+    for (const ur of userRolesList) {
+      const rolePerms = await this.getRolePermissions(ur.roleId);
+      rolePerms.forEach(rp => permissions.add(rp.permission));
+    }
+    return Array.from(permissions);
+  }
+
+  // Audit Log methods
+  async getAuditLogs(limit = 100, offset = 0): Promise<AuditLog[]> {
+    return Array.from(this.auditLogs.values())
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .slice(offset, offset + limit);
+  }
+
+  async getAuditLogsByActor(actorId: string): Promise<AuditLog[]> {
+    return Array.from(this.auditLogs.values())
+      .filter(log => log.actorId === actorId)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }
+
+  async getAuditLogsByTarget(targetType: string, targetId: string): Promise<AuditLog[]> {
+    return Array.from(this.auditLogs.values())
+      .filter(log => log.targetType === targetType && log.targetId === targetId)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }
+
+  async createAuditLog(insert: InsertAuditLog): Promise<AuditLog> {
+    const id = randomUUID();
+    const log: AuditLog = {
+      id,
+      actorId: insert.actorId ?? null,
+      actorName: insert.actorName ?? null,
+      actionType: insert.actionType,
+      targetType: insert.targetType,
+      targetId: insert.targetId ?? null,
+      targetName: insert.targetName ?? null,
+      description: insert.description,
+      metadata: insert.metadata ?? null,
+      ipAddress: insert.ipAddress ?? null,
+      userAgent: insert.userAgent ?? null,
+      createdAt: new Date().toISOString(),
+    };
+    this.auditLogs.set(id, log);
+    return log;
+  }
+
+  async getAuditLogCount(): Promise<number> {
+    return this.auditLogs.size;
   }
 }
 
