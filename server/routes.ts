@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertBookSchema, insertPageSchema, insertCommentSchema, insertNotificationSchema, insertExternalLinkSchema, insertDepartmentSchema, insertNewsSchema, insertStatSchema, systemSettingsDefaults, insertHelpdeskSchema, insertSlaStateSchema, insertSlaPolicySchema, insertDepartmentHierarchySchema, insertDepartmentManagerSchema, insertEscalationRuleSchema, insertEscalationConditionSchema, insertInboundEmailConfigSchema, insertTicketSchema, insertTicketCommentSchema, insertHelpdeskWebhookSchema, insertTicketFormFieldSchema } from "@shared/schema";
+import { insertBookSchema, insertPageSchema, insertCommentSchema, insertNotificationSchema, insertExternalLinkSchema, insertDepartmentSchema, insertNewsSchema, insertStatSchema, systemSettingsDefaults, insertHelpdeskSchema, insertSlaStateSchema, insertSlaPolicySchema, insertDepartmentHierarchySchema, insertDepartmentManagerSchema, insertEscalationRuleSchema, insertEscalationConditionSchema, insertInboundEmailConfigSchema, insertTicketSchema, insertTicketCommentSchema, insertHelpdeskWebhookSchema, insertTicketFormFieldSchema, insertRoleSchema, insertUserRoleSchema, insertAuditLogSchema, AVAILABLE_PERMISSIONS, PERMISSION_CATEGORIES } from "@shared/schema";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -758,6 +758,243 @@ export async function registerRoutes(
   app.delete("/api/form-fields/:id", async (req, res) => {
     await storage.deleteTicketFormField(req.params.id);
     res.sendStatus(204);
+  });
+
+  // ============================================
+  // ROLE-BASED ACCESS CONTROL (RBAC) ROUTES
+  // ============================================
+
+  // Get available permissions catalog
+  app.get("/api/permissions", async (_req, res) => {
+    const permissions = Object.entries(AVAILABLE_PERMISSIONS).map(([key, value]) => ({
+      key,
+      ...value,
+    }));
+    const categories = Object.values(PERMISSION_CATEGORIES);
+    res.json({ permissions, categories });
+  });
+
+  // Roles
+  app.get("/api/roles", async (_req, res) => {
+    const roles = await storage.getRoles();
+    res.json(roles);
+  });
+
+  app.get("/api/roles/:id", async (req, res) => {
+    const role = await storage.getRoleWithPermissions(req.params.id);
+    if (!role) return res.status(404).json({ error: "Role not found" });
+    res.json(role);
+  });
+
+  app.post("/api/roles", async (req, res) => {
+    const result = insertRoleSchema.safeParse(req.body);
+    if (!result.success) return res.status(400).json({ error: result.error });
+    try {
+      const role = await storage.createRole(result.data);
+      
+      // Log the creation
+      await storage.createAuditLog({
+        actorId: req.body.actorId || null,
+        actorName: req.body.actorName || "System",
+        actionType: "role.created",
+        targetType: "role",
+        targetId: role.id,
+        targetName: role.name,
+        description: `Created role "${role.name}"`,
+        metadata: JSON.stringify({ role }),
+      });
+      
+      res.json(role);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.patch("/api/roles/:id", async (req, res) => {
+    const result = insertRoleSchema.partial().safeParse(req.body);
+    if (!result.success) return res.status(400).json({ error: result.error });
+    try {
+      const existingRole = await storage.getRole(req.params.id);
+      const userCount = await storage.getUserRoleCount(req.params.id);
+      const role = await storage.updateRole(req.params.id, result.data);
+      
+      // Log the update
+      await storage.createAuditLog({
+        actorId: req.body.actorId || null,
+        actorName: req.body.actorName || "System",
+        actionType: "role.updated",
+        targetType: "role",
+        targetId: role.id,
+        targetName: role.name,
+        description: `Updated role "${role.name}" (affects ${userCount} user${userCount !== 1 ? 's' : ''})`,
+        metadata: JSON.stringify({ before: existingRole, after: role, affectedUsers: userCount }),
+      });
+      
+      res.json(role);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/roles/:id", async (req, res) => {
+    try {
+      const role = await storage.getRole(req.params.id);
+      if (!role) return res.status(404).json({ error: "Role not found" });
+      
+      const userCount = await storage.getUserRoleCount(req.params.id);
+      await storage.deleteRole(req.params.id);
+      
+      // Log the deletion
+      await storage.createAuditLog({
+        actorId: req.body.actorId || null,
+        actorName: req.body.actorName || "System",
+        actionType: "role.deleted",
+        targetType: "role",
+        targetId: role.id,
+        targetName: role.name,
+        description: `Deleted role "${role.name}" (affected ${userCount} user${userCount !== 1 ? 's' : ''})`,
+        metadata: JSON.stringify({ role, affectedUsers: userCount }),
+      });
+      
+      res.sendStatus(204);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // Role Permissions
+  app.get("/api/roles/:roleId/permissions", async (req, res) => {
+    const permissions = await storage.getRolePermissions(req.params.roleId);
+    res.json(permissions);
+  });
+
+  app.put("/api/roles/:roleId/permissions", async (req, res) => {
+    const { permissions } = req.body;
+    if (!Array.isArray(permissions)) return res.status(400).json({ error: "permissions must be an array" });
+    
+    try {
+      const role = await storage.getRole(req.params.roleId);
+      if (!role) return res.status(404).json({ error: "Role not found" });
+      if (role.isSystem === "true") return res.status(400).json({ error: "Cannot modify system role permissions" });
+      
+      const oldPermissions = await storage.getRolePermissions(req.params.roleId);
+      const newPermissions = await storage.setRolePermissions(req.params.roleId, permissions);
+      const userCount = await storage.getUserRoleCount(req.params.roleId);
+      
+      // Log the permission change
+      await storage.createAuditLog({
+        actorId: req.body.actorId || null,
+        actorName: req.body.actorName || "System",
+        actionType: "role.permissions_updated",
+        targetType: "role",
+        targetId: role.id,
+        targetName: role.name,
+        description: `Updated permissions for role "${role.name}" (affects ${userCount} user${userCount !== 1 ? 's' : ''})`,
+        metadata: JSON.stringify({ 
+          before: oldPermissions.map(p => p.permission), 
+          after: permissions,
+          affectedUsers: userCount 
+        }),
+      });
+      
+      res.json(newPermissions);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // User Roles
+  app.get("/api/users/:userId/roles", async (req, res) => {
+    const userRoles = await storage.getUserRoles(req.params.userId);
+    res.json(userRoles);
+  });
+
+  app.get("/api/users/:userId/permissions", async (req, res) => {
+    const permissions = await storage.getUserPermissions(req.params.userId);
+    res.json(permissions);
+  });
+
+  app.post("/api/users/:userId/roles", async (req, res) => {
+    const { roleId, assignedBy, assignedByName } = req.body;
+    if (!roleId) return res.status(400).json({ error: "roleId is required" });
+    
+    try {
+      const role = await storage.getRole(roleId);
+      if (!role) return res.status(404).json({ error: "Role not found" });
+      
+      const user = await storage.getUser(req.params.userId);
+      const userRole = await storage.assignUserRole({
+        userId: req.params.userId,
+        roleId,
+        assignedBy,
+      });
+      
+      // Log the assignment
+      await storage.createAuditLog({
+        actorId: assignedBy || null,
+        actorName: assignedByName || "System",
+        actionType: "user.role_assigned",
+        targetType: "user",
+        targetId: req.params.userId,
+        targetName: user?.username || "Unknown User",
+        description: `Assigned role "${role.name}" to user "${user?.username || req.params.userId}"`,
+        metadata: JSON.stringify({ roleId, roleName: role.name, userId: req.params.userId }),
+      });
+      
+      res.json(userRole);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/users/:userId/roles/:roleId", async (req, res) => {
+    try {
+      const role = await storage.getRole(req.params.roleId);
+      const user = await storage.getUser(req.params.userId);
+      
+      await storage.removeUserRole(req.params.userId, req.params.roleId);
+      
+      // Log the removal
+      await storage.createAuditLog({
+        actorId: req.body.actorId || null,
+        actorName: req.body.actorName || "System",
+        actionType: "user.role_removed",
+        targetType: "user",
+        targetId: req.params.userId,
+        targetName: user?.username || "Unknown User",
+        description: `Removed role "${role?.name || req.params.roleId}" from user "${user?.username || req.params.userId}"`,
+        metadata: JSON.stringify({ roleId: req.params.roleId, roleName: role?.name, userId: req.params.userId }),
+      });
+      
+      res.sendStatus(204);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // Get users assigned to a role
+  app.get("/api/roles/:roleId/users", async (req, res) => {
+    const userRoles = await storage.getUsersWithRole(req.params.roleId);
+    res.json(userRoles);
+  });
+
+  // Audit Logs
+  app.get("/api/audit-logs", async (req, res) => {
+    const limit = parseInt(req.query.limit as string) || 100;
+    const offset = parseInt(req.query.offset as string) || 0;
+    const logs = await storage.getAuditLogs(limit, offset);
+    const total = await storage.getAuditLogCount();
+    res.json({ logs, total, limit, offset });
+  });
+
+  app.get("/api/audit-logs/actor/:actorId", async (req, res) => {
+    const logs = await storage.getAuditLogsByActor(req.params.actorId);
+    res.json(logs);
+  });
+
+  app.get("/api/audit-logs/target/:targetType/:targetId", async (req, res) => {
+    const logs = await storage.getAuditLogsByTarget(req.params.targetType, req.params.targetId);
+    res.json(logs);
   });
 
   return httpServer;

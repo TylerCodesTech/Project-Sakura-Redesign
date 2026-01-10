@@ -1,9 +1,10 @@
 import { db } from "./db";
-import { eq, and, desc, asc } from "drizzle-orm";
+import { eq, and, desc, asc, count, sql } from "drizzle-orm";
 import {
   users, books, pages, comments, notifications, externalLinks, departments, news, stats, systemSettings,
   helpdesks, slaStates, slaPolicies, departmentHierarchy, departmentManagers, escalationRules, 
   escalationConditions, inboundEmailConfigs, tickets, ticketComments, helpdeskWebhooks, ticketFormFields,
+  roles, rolePermissions, userRoles, auditLogs,
   type User, type InsertUser, type Book, type InsertBook, type Page, type InsertPage,
   type Comment, type InsertComment, type Notification, type InsertNotification,
   type ExternalLink, type InsertExternalLink, type Department, type InsertDepartment,
@@ -14,6 +15,9 @@ import {
   type EscalationCondition, type InsertEscalationCondition, type InboundEmailConfig, type InsertInboundEmailConfig,
   type Ticket, type InsertTicket, type TicketComment, type InsertTicketComment,
   type HelpdeskWebhook, type InsertHelpdeskWebhook, type TicketFormField, type InsertTicketFormField,
+  type Role, type InsertRole, type RolePermission, type InsertRolePermission,
+  type UserRole, type InsertUserRole, type AuditLog, type InsertAuditLog,
+  type RoleWithUserCount, type RoleWithPermissions,
   systemSettingsDefaults
 } from "@shared/schema";
 import type { IStorage } from "./storage";
@@ -454,5 +458,133 @@ export class DatabaseStorage implements IStorage {
 
   async deleteTicketFormField(id: string): Promise<void> {
     await db.delete(ticketFormFields).where(eq(ticketFormFields.id, id));
+  }
+
+  // Role methods
+  async getRoles(): Promise<RoleWithUserCount[]> {
+    const allRoles = await db.select().from(roles).orderBy(desc(roles.priority));
+    const rolesWithCounts: RoleWithUserCount[] = [];
+    for (const role of allRoles) {
+      const [countResult] = await db.select({ count: count() }).from(userRoles).where(eq(userRoles.roleId, role.id));
+      rolesWithCounts.push({ ...role, userCount: countResult?.count ?? 0 });
+    }
+    return rolesWithCounts;
+  }
+
+  async getRole(id: string): Promise<Role | undefined> {
+    const [role] = await db.select().from(roles).where(eq(roles.id, id));
+    return role;
+  }
+
+  async getRoleWithPermissions(id: string): Promise<RoleWithPermissions | undefined> {
+    const [role] = await db.select().from(roles).where(eq(roles.id, id));
+    if (!role) return undefined;
+    const permissions = await db.select().from(rolePermissions).where(eq(rolePermissions.roleId, id));
+    return { ...role, permissions };
+  }
+
+  async createRole(insert: InsertRole): Promise<Role> {
+    const [role] = await db.insert(roles).values(insert).returning();
+    return role;
+  }
+
+  async updateRole(id: string, update: Partial<InsertRole>): Promise<Role> {
+    const [existing] = await db.select().from(roles).where(eq(roles.id, id));
+    if (!existing) throw new Error("Role not found");
+    if (existing.isSystem === "true") throw new Error("Cannot modify system roles");
+    const [role] = await db.update(roles).set({ ...update, updatedAt: new Date().toISOString() }).where(eq(roles.id, id)).returning();
+    return role;
+  }
+
+  async deleteRole(id: string): Promise<void> {
+    const [existing] = await db.select().from(roles).where(eq(roles.id, id));
+    if (existing?.isSystem === "true") throw new Error("Cannot delete system roles");
+    await db.delete(rolePermissions).where(eq(rolePermissions.roleId, id));
+    await db.delete(userRoles).where(eq(userRoles.roleId, id));
+    await db.delete(roles).where(eq(roles.id, id));
+  }
+
+  // Role Permission methods
+  async getRolePermissions(roleId: string): Promise<RolePermission[]> {
+    return db.select().from(rolePermissions).where(eq(rolePermissions.roleId, roleId));
+  }
+
+  async setRolePermissions(roleId: string, permissions: string[]): Promise<RolePermission[]> {
+    await db.delete(rolePermissions).where(eq(rolePermissions.roleId, roleId));
+    if (permissions.length === 0) return [];
+    const newPermissions = permissions.map(permission => ({
+      roleId,
+      permission,
+      scopeType: null,
+      scopeId: null,
+    }));
+    return db.insert(rolePermissions).values(newPermissions).returning();
+  }
+
+  async addRolePermission(insert: InsertRolePermission): Promise<RolePermission> {
+    const [permission] = await db.insert(rolePermissions).values(insert).returning();
+    return permission;
+  }
+
+  async removeRolePermission(roleId: string, permission: string): Promise<void> {
+    await db.delete(rolePermissions).where(and(eq(rolePermissions.roleId, roleId), eq(rolePermissions.permission, permission)));
+  }
+
+  // User Role methods
+  async getUserRoles(userId: string): Promise<UserRole[]> {
+    return db.select().from(userRoles).where(eq(userRoles.userId, userId));
+  }
+
+  async getUsersWithRole(roleId: string): Promise<UserRole[]> {
+    return db.select().from(userRoles).where(eq(userRoles.roleId, roleId));
+  }
+
+  async getUserRoleCount(roleId: string): Promise<number> {
+    const [result] = await db.select({ count: count() }).from(userRoles).where(eq(userRoles.roleId, roleId));
+    return result?.count ?? 0;
+  }
+
+  async assignUserRole(insert: InsertUserRole): Promise<UserRole> {
+    const existing = await db.select().from(userRoles).where(and(eq(userRoles.userId, insert.userId), eq(userRoles.roleId, insert.roleId)));
+    if (existing.length > 0) return existing[0];
+    const [userRole] = await db.insert(userRoles).values(insert).returning();
+    return userRole;
+  }
+
+  async removeUserRole(userId: string, roleId: string): Promise<void> {
+    await db.delete(userRoles).where(and(eq(userRoles.userId, userId), eq(userRoles.roleId, roleId)));
+  }
+
+  async getUserPermissions(userId: string): Promise<string[]> {
+    const userRolesList = await this.getUserRoles(userId);
+    const permissions = new Set<string>();
+    for (const ur of userRolesList) {
+      const rolePerms = await this.getRolePermissions(ur.roleId);
+      rolePerms.forEach(rp => permissions.add(rp.permission));
+    }
+    return Array.from(permissions);
+  }
+
+  // Audit Log methods
+  async getAuditLogs(limit = 100, offset = 0): Promise<AuditLog[]> {
+    return db.select().from(auditLogs).orderBy(desc(auditLogs.createdAt)).limit(limit).offset(offset);
+  }
+
+  async getAuditLogsByActor(actorId: string): Promise<AuditLog[]> {
+    return db.select().from(auditLogs).where(eq(auditLogs.actorId, actorId)).orderBy(desc(auditLogs.createdAt));
+  }
+
+  async getAuditLogsByTarget(targetType: string, targetId: string): Promise<AuditLog[]> {
+    return db.select().from(auditLogs).where(and(eq(auditLogs.targetType, targetType), eq(auditLogs.targetId, targetId))).orderBy(desc(auditLogs.createdAt));
+  }
+
+  async createAuditLog(insert: InsertAuditLog): Promise<AuditLog> {
+    const [log] = await db.insert(auditLogs).values(insert).returning();
+    return log;
+  }
+
+  async getAuditLogCount(): Promise<number> {
+    const [result] = await db.select({ count: count() }).from(auditLogs);
+    return result?.count ?? 0;
   }
 }
