@@ -20,6 +20,7 @@ import {
   type Ticket, type InsertTicket,
   type TicketComment, type InsertTicketComment,
   type HelpdeskWebhook, type InsertHelpdeskWebhook,
+  type TicketFormCategory, type InsertTicketFormCategory,
   type TicketFormField, type InsertTicketFormField,
   type Role, type InsertRole,
   type RolePermission, type InsertRolePermission,
@@ -161,7 +162,14 @@ export interface IStorage {
   deleteWebhook(id: string): Promise<void>;
 
   // Ticket Form Fields
+  getTicketFormCategories(helpdeskId: string): Promise<TicketFormCategory[]>;
+  getTicketFormCategory(id: string): Promise<TicketFormCategory | undefined>;
+  createTicketFormCategory(category: InsertTicketFormCategory): Promise<TicketFormCategory>;
+  updateTicketFormCategory(id: string, update: Partial<InsertTicketFormCategory>): Promise<TicketFormCategory>;
+  deleteTicketFormCategory(id: string): Promise<void>;
+
   getTicketFormFields(helpdeskId: string): Promise<TicketFormField[]>;
+  getTicketFormFieldsByCategory(categoryId: string): Promise<TicketFormField[]>;
   createTicketFormField(field: InsertTicketFormField): Promise<TicketFormField>;
   updateTicketFormField(id: string, update: Partial<InsertTicketFormField>): Promise<TicketFormField>;
   deleteTicketFormField(id: string): Promise<void>;
@@ -288,6 +296,7 @@ export class MemStorage implements IStorage {
   private tickets: Map<string, Ticket>;
   private ticketComments: Map<string, TicketComment>;
   private webhooks: Map<string, HelpdeskWebhook>;
+  private ticketFormCategories: Map<string, TicketFormCategory>;
   private ticketFormFields: Map<string, TicketFormField>;
   private roles: Map<string, Role>;
   private rolePermissions: Map<string, RolePermission>;
@@ -320,6 +329,7 @@ export class MemStorage implements IStorage {
     this.tickets = new Map();
     this.ticketComments = new Map();
     this.webhooks = new Map();
+    this.ticketFormCategories = new Map();
     this.ticketFormFields = new Map();
     this.roles = new Map();
     this.rolePermissions = new Map();
@@ -581,12 +591,15 @@ export class MemStorage implements IStorage {
   async createExternalLink(insertLink: InsertExternalLink): Promise<ExternalLink> {
     const id = randomUUID();
     const link: ExternalLink = { 
-      ...insertLink, 
       id,
+      title: insertLink.title,
+      url: insertLink.url,
       description: insertLink.description ?? null,
       icon: insertLink.icon ?? null,
       category: insertLink.category ?? "Resources",
-      order: insertLink.order ?? "0"
+      order: insertLink.order ?? "0",
+      departmentId: insertLink.departmentId ?? null,
+      isCompanyWide: insertLink.isCompanyWide ?? "true"
     };
     this.externalLinks.set(id, link);
     return link;
@@ -1094,10 +1107,56 @@ export class MemStorage implements IStorage {
     this.webhooks.delete(id);
   }
 
+  // Ticket Form Category methods
+  async getTicketFormCategories(helpdeskId: string): Promise<TicketFormCategory[]> {
+    return Array.from(this.ticketFormCategories.values())
+      .filter(c => c.helpdeskId === helpdeskId)
+      .sort((a, b) => a.order - b.order);
+  }
+
+  async getTicketFormCategory(id: string): Promise<TicketFormCategory | undefined> {
+    return this.ticketFormCategories.get(id);
+  }
+
+  async createTicketFormCategory(insert: InsertTicketFormCategory): Promise<TicketFormCategory> {
+    const id = randomUUID();
+    const category: TicketFormCategory = {
+      id,
+      helpdeskId: insert.helpdeskId,
+      name: insert.name,
+      description: insert.description ?? null,
+      icon: insert.icon ?? "layers",
+      color: insert.color ?? "#3b82f6",
+      order: insert.order ?? 0,
+      enabled: insert.enabled ?? "true",
+      createdAt: new Date().toISOString(),
+    };
+    this.ticketFormCategories.set(id, category);
+    return category;
+  }
+
+  async updateTicketFormCategory(id: string, update: Partial<InsertTicketFormCategory>): Promise<TicketFormCategory> {
+    const existing = this.ticketFormCategories.get(id);
+    if (!existing) throw new Error("Ticket form category not found");
+    const updated = { ...existing, ...update };
+    this.ticketFormCategories.set(id, updated);
+    return updated;
+  }
+
+  async deleteTicketFormCategory(id: string): Promise<void> {
+    this.ticketFormCategories.delete(id);
+  }
+
   // Ticket Form Field methods
   async getTicketFormFields(helpdeskId: string): Promise<TicketFormField[]> {
     return Array.from(this.ticketFormFields.values())
       .filter(f => f.helpdeskId === helpdeskId)
+      .sort((a, b) => a.order - b.order);
+  }
+
+  async getTicketFormFieldsByCategory(categoryId: string): Promise<TicketFormField[]> {
+    return Array.from(this.ticketFormFields.values())
+      .filter(f => f.formCategoryId === categoryId)
       .sort((a, b) => a.order - b.order);
   }
 
@@ -1106,6 +1165,7 @@ export class MemStorage implements IStorage {
     const field: TicketFormField = {
       id,
       helpdeskId: insert.helpdeskId,
+      formCategoryId: insert.formCategoryId ?? null,
       name: insert.name,
       label: insert.label,
       fieldType: insert.fieldType ?? "text",
@@ -1118,6 +1178,14 @@ export class MemStorage implements IStorage {
       enabled: insert.enabled ?? "true",
       showOnCreate: insert.showOnCreate ?? "true",
       showOnEdit: insert.showOnEdit ?? "true",
+      category: insert.category ?? null,
+      conditionalField: insert.conditionalField ?? null,
+      conditionalValue: insert.conditionalValue ?? null,
+      minValue: insert.minValue ?? null,
+      maxValue: insert.maxValue ?? null,
+      validationPattern: insert.validationPattern ?? null,
+      width: insert.width ?? "full",
+      internalOnly: insert.internalOnly ?? "false",
       createdAt: new Date().toISOString(),
     };
     this.ticketFormFields.set(id, field);

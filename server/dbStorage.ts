@@ -3,7 +3,8 @@ import { eq, and, desc, asc, count, sql, or, ilike } from "drizzle-orm";
 import {
   users, books, pages, comments, notifications, externalLinks, departments, news, stats, systemSettings,
   helpdesks, slaStates, slaPolicies, departmentHierarchy, departmentManagers, escalationRules, 
-  escalationConditions, inboundEmailConfigs, tickets, ticketComments, helpdeskWebhooks, ticketFormFields,
+  escalationConditions, inboundEmailConfigs, tickets, ticketComments, helpdeskWebhooks, 
+  ticketFormCategories, ticketFormFields,
   roles, rolePermissions, userRoles, auditLogs, documentActivity,
   pageVersions, bookVersions, versionAuditLogs,
   reportDefinitions, reportFields, savedReports, reportSchedules, reportShares, reportAuditLogs, departmentReportSettings,
@@ -16,7 +17,9 @@ import {
   type DepartmentManager, type InsertDepartmentManager, type EscalationRule, type InsertEscalationRule,
   type EscalationCondition, type InsertEscalationCondition, type InboundEmailConfig, type InsertInboundEmailConfig,
   type Ticket, type InsertTicket, type TicketComment, type InsertTicketComment,
-  type HelpdeskWebhook, type InsertHelpdeskWebhook, type TicketFormField, type InsertTicketFormField,
+  type HelpdeskWebhook, type InsertHelpdeskWebhook, 
+  type TicketFormCategory, type InsertTicketFormCategory,
+  type TicketFormField, type InsertTicketFormField,
   type Role, type InsertRole, type RolePermission, type InsertRolePermission,
   type UserRole, type InsertUserRole, type AuditLog, type InsertAuditLog,
   type DocumentActivity, type InsertDocumentActivity,
@@ -479,9 +482,38 @@ export class DatabaseStorage implements IStorage {
     await db.delete(helpdeskWebhooks).where(eq(helpdeskWebhooks.id, id));
   }
 
+  // Ticket Form Category methods
+  async getTicketFormCategories(helpdeskId: string): Promise<TicketFormCategory[]> {
+    return db.select().from(ticketFormCategories).where(eq(ticketFormCategories.helpdeskId, helpdeskId)).orderBy(asc(ticketFormCategories.order));
+  }
+
+  async getTicketFormCategory(id: string): Promise<TicketFormCategory | undefined> {
+    const [category] = await db.select().from(ticketFormCategories).where(eq(ticketFormCategories.id, id));
+    return category;
+  }
+
+  async createTicketFormCategory(insert: InsertTicketFormCategory): Promise<TicketFormCategory> {
+    const [category] = await db.insert(ticketFormCategories).values(insert).returning();
+    return category;
+  }
+
+  async updateTicketFormCategory(id: string, update: Partial<InsertTicketFormCategory>): Promise<TicketFormCategory> {
+    const [category] = await db.update(ticketFormCategories).set(update).where(eq(ticketFormCategories.id, id)).returning();
+    if (!category) throw new Error("Ticket form category not found");
+    return category;
+  }
+
+  async deleteTicketFormCategory(id: string): Promise<void> {
+    await db.delete(ticketFormCategories).where(eq(ticketFormCategories.id, id));
+  }
+
   // Ticket Form Field methods
   async getTicketFormFields(helpdeskId: string): Promise<TicketFormField[]> {
     return db.select().from(ticketFormFields).where(eq(ticketFormFields.helpdeskId, helpdeskId)).orderBy(asc(ticketFormFields.order));
+  }
+
+  async getTicketFormFieldsByCategory(categoryId: string): Promise<TicketFormField[]> {
+    return db.select().from(ticketFormFields).where(eq(ticketFormFields.formCategoryId, categoryId)).orderBy(asc(ticketFormFields.order));
   }
 
   async createTicketFormField(insert: InsertTicketFormField): Promise<TicketFormField> {
