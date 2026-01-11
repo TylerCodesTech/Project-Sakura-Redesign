@@ -1352,6 +1352,113 @@ export async function registerRoutes(
     }
   });
 
+  // AI Model Configurations
+  app.get("/api/ai/models", async (req, res) => {
+    try {
+      const type = req.query.type as string | undefined;
+      const configs = await storage.getAiModelConfigs(type);
+      res.json(configs);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/ai/models/:id", async (req, res) => {
+    try {
+      const config = await storage.getAiModelConfig(req.params.id);
+      if (!config) return res.status(404).json({ error: "AI model config not found" });
+      res.json(config);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/ai/models/active/:type", async (req, res) => {
+    try {
+      const config = await storage.getActiveAiModelConfig(req.params.type);
+      res.json(config || null);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/ai/models", async (req, res) => {
+    try {
+      const config = await storage.createAiModelConfig(req.body);
+      res.json(config);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.patch("/api/ai/models/:id", async (req, res) => {
+    try {
+      const config = await storage.updateAiModelConfig(req.params.id, req.body);
+      res.json(config);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/ai/models/:id", async (req, res) => {
+    try {
+      await storage.deleteAiModelConfig(req.params.id);
+      res.sendStatus(204);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/ai/models/:id/activate", async (req, res) => {
+    try {
+      const config = await storage.getAiModelConfig(req.params.id);
+      if (!config) return res.status(404).json({ error: "AI model config not found" });
+      const updated = await storage.setActiveAiModelConfig(req.params.id, config.type);
+      res.json(updated);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // AI Indexing Statistics
+  app.get("/api/ai/indexing-stats", async (req, res) => {
+    try {
+      const pages = await storage.getPages("");
+      const allPages: any[] = [];
+      const books = await storage.getBooks();
+      for (const book of books) {
+        const bookPages = await storage.getPages(book.id);
+        allPages.push(...bookPages);
+      }
+      const standalonePagesRaw = await storage.getStandalonePages();
+      allPages.push(...standalonePagesRaw);
+      
+      const tickets = await storage.getTickets();
+      
+      const pagesWithEmbedding = allPages.filter(p => p.embedding).length;
+      const pagesPending = allPages.length - pagesWithEmbedding;
+      const ticketsWithEmbedding = tickets.filter(t => t.embedding).length;
+      const ticketsPending = tickets.length - ticketsWithEmbedding;
+      
+      res.json({
+        pages: {
+          total: allPages.length,
+          indexed: pagesWithEmbedding,
+          pending: pagesPending,
+        },
+        tickets: {
+          total: tickets.length,
+          indexed: ticketsWithEmbedding,
+          pending: ticketsPending,
+        },
+        totalIndexed: pagesWithEmbedding + ticketsWithEmbedding,
+        totalPending: pagesPending + ticketsPending,
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Webhooks
   app.get("/api/helpdesks/:helpdeskId/webhooks", async (req, res) => {
     const webhooks = await storage.getWebhooks(req.params.helpdeskId);

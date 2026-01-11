@@ -38,6 +38,7 @@ import {
   type ReportShare, type InsertReportShare,
   type ReportAuditLog, type InsertReportAuditLog,
   type DepartmentReportSettings, type InsertDepartmentReportSettings,
+  type AiModelConfig, type InsertAiModelConfig,
   AVAILABLE_PERMISSIONS,
   systemSettingsDefaults
 } from "@shared/schema";
@@ -272,6 +273,15 @@ export interface IStorage {
   createReportField(field: InsertReportField): Promise<ReportField>;
   updateReportField(id: string, update: Partial<InsertReportField>): Promise<ReportField>;
   deleteReportField(id: string): Promise<void>;
+
+  // AI Model Configurations
+  getAiModelConfigs(type?: string): Promise<AiModelConfig[]>;
+  getAiModelConfig(id: string): Promise<AiModelConfig | undefined>;
+  getActiveAiModelConfig(type: string): Promise<AiModelConfig | undefined>;
+  createAiModelConfig(config: InsertAiModelConfig): Promise<AiModelConfig>;
+  updateAiModelConfig(id: string, update: Partial<InsertAiModelConfig>): Promise<AiModelConfig>;
+  deleteAiModelConfig(id: string): Promise<void>;
+  setActiveAiModelConfig(id: string, type: string): Promise<AiModelConfig>;
 }
 
 export class MemStorage implements IStorage {
@@ -515,6 +525,8 @@ export class MemStorage implements IStorage {
       order: insertPage.order ?? "0",
       status: insertPage.status ?? "draft",
       reviewerId: insertPage.reviewerId ?? null,
+      embedding: null,
+      embeddingUpdatedAt: null,
     };
     this.pages.set(id, page);
     return page;
@@ -1035,6 +1047,8 @@ export class MemStorage implements IStorage {
       source: insert.source ?? "web",
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
+      embedding: null,
+      embeddingUpdatedAt: null,
     };
     this.tickets.set(id, ticket);
     return ticket;
@@ -1458,6 +1472,8 @@ export class MemStorage implements IStorage {
       changeDescription: insert.changeDescription ?? null,
       isArchived: insert.isArchived ?? "false",
       createdAt: new Date().toISOString(),
+      embedding: null,
+      embeddingUpdatedAt: null,
     };
     this.pageVersions.set(id, version);
     return version;
@@ -1639,6 +1655,52 @@ export class MemStorage implements IStorage {
   }
   async updateReportField(_id: string, _update: Partial<InsertReportField>): Promise<ReportField> { throw new Error("Not implemented"); }
   async deleteReportField(_id: string): Promise<void> {}
+
+  // AI Model Configurations (in-memory stub implementations)
+  private aiModelConfigs: Map<string, AiModelConfig> = new Map();
+  async getAiModelConfigs(type?: string): Promise<AiModelConfig[]> {
+    const all = Array.from(this.aiModelConfigs.values());
+    if (type) return all.filter(c => c.type === type);
+    return all;
+  }
+  async getAiModelConfig(id: string): Promise<AiModelConfig | undefined> {
+    return this.aiModelConfigs.get(id);
+  }
+  async getActiveAiModelConfig(type: string): Promise<AiModelConfig | undefined> {
+    return Array.from(this.aiModelConfigs.values()).find(c => c.type === type && c.isActive === "true");
+  }
+  async createAiModelConfig(insert: InsertAiModelConfig): Promise<AiModelConfig> {
+    const id = randomUUID();
+    const config: AiModelConfig = {
+      id,
+      ...insert,
+      isActive: insert.isActive ?? "false",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    this.aiModelConfigs.set(id, config);
+    return config;
+  }
+  async updateAiModelConfig(id: string, update: Partial<InsertAiModelConfig>): Promise<AiModelConfig> {
+    const existing = this.aiModelConfigs.get(id);
+    if (!existing) throw new Error("AI Model Config not found");
+    const updated = { ...existing, ...update, updatedAt: new Date().toISOString() };
+    this.aiModelConfigs.set(id, updated);
+    return updated;
+  }
+  async deleteAiModelConfig(id: string): Promise<void> {
+    this.aiModelConfigs.delete(id);
+  }
+  async setActiveAiModelConfig(id: string, type: string): Promise<AiModelConfig> {
+    for (const [configId, config] of this.aiModelConfigs.entries()) {
+      if (config.type === type) {
+        this.aiModelConfigs.set(configId, { ...config, isActive: configId === id ? "true" : "false", updatedAt: new Date().toISOString() });
+      }
+    }
+    const config = this.aiModelConfigs.get(id);
+    if (!config) throw new Error("AI Model Config not found");
+    return config;
+  }
 }
 
 import { DatabaseStorage } from "./dbStorage";

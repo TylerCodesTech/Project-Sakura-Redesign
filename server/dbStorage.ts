@@ -8,6 +8,7 @@ import {
   roles, rolePermissions, userRoles, auditLogs, documentActivity,
   pageVersions, bookVersions, versionAuditLogs,
   reportDefinitions, reportFields, savedReports, reportSchedules, reportShares, reportAuditLogs, departmentReportSettings,
+  aiModelConfigs,
   type User, type InsertUser, type Book, type InsertBook, type Page, type InsertPage,
   type Comment, type InsertComment, type Notification, type InsertNotification,
   type ExternalLink, type InsertExternalLink, type Department, type InsertDepartment,
@@ -33,6 +34,7 @@ import {
   type ReportShare, type InsertReportShare,
   type ReportAuditLog, type InsertReportAuditLog,
   type DepartmentReportSettings, type InsertDepartmentReportSettings,
+  type AiModelConfig, type InsertAiModelConfig,
   type RoleWithUserCount, type RoleWithPermissions,
   systemSettingsDefaults
 } from "@shared/schema";
@@ -973,5 +975,54 @@ export class DatabaseStorage implements IStorage {
 
   async deleteReportField(id: string): Promise<void> {
     await db.delete(reportFields).where(eq(reportFields.id, id));
+  }
+
+  // AI Model Configurations
+  async getAiModelConfigs(type?: string): Promise<AiModelConfig[]> {
+    if (type) {
+      return db.select().from(aiModelConfigs).where(eq(aiModelConfigs.type, type)).orderBy(desc(aiModelConfigs.createdAt));
+    }
+    return db.select().from(aiModelConfigs).orderBy(desc(aiModelConfigs.createdAt));
+  }
+
+  async getAiModelConfig(id: string): Promise<AiModelConfig | undefined> {
+    const [config] = await db.select().from(aiModelConfigs).where(eq(aiModelConfigs.id, id));
+    return config;
+  }
+
+  async getActiveAiModelConfig(type: string): Promise<AiModelConfig | undefined> {
+    const [config] = await db.select().from(aiModelConfigs)
+      .where(and(eq(aiModelConfigs.type, type), eq(aiModelConfigs.isActive, "true")));
+    return config;
+  }
+
+  async createAiModelConfig(insert: InsertAiModelConfig): Promise<AiModelConfig> {
+    const [config] = await db.insert(aiModelConfigs).values(insert).returning();
+    return config;
+  }
+
+  async updateAiModelConfig(id: string, update: Partial<InsertAiModelConfig>): Promise<AiModelConfig> {
+    const [config] = await db.update(aiModelConfigs)
+      .set({ ...update, updatedAt: new Date().toISOString() })
+      .where(eq(aiModelConfigs.id, id))
+      .returning();
+    if (!config) throw new Error("AI Model Config not found");
+    return config;
+  }
+
+  async deleteAiModelConfig(id: string): Promise<void> {
+    await db.delete(aiModelConfigs).where(eq(aiModelConfigs.id, id));
+  }
+
+  async setActiveAiModelConfig(id: string, type: string): Promise<AiModelConfig> {
+    await db.update(aiModelConfigs)
+      .set({ isActive: "false", updatedAt: new Date().toISOString() })
+      .where(eq(aiModelConfigs.type, type));
+    const [config] = await db.update(aiModelConfigs)
+      .set({ isActive: "true", updatedAt: new Date().toISOString() })
+      .where(eq(aiModelConfigs.id, id))
+      .returning();
+    if (!config) throw new Error("AI Model Config not found");
+    return config;
   }
 }

@@ -852,6 +852,36 @@ export type InsertReportAuditLog = z.infer<typeof insertReportAuditLogSchema>;
 export type DepartmentReportSettings = typeof departmentReportSettings.$inferSelect;
 export type InsertDepartmentReportSettings = z.infer<typeof insertDepartmentReportSettingsSchema>;
 
+// ============================================
+// AI MODEL CONFIGURATIONS
+// ============================================
+
+export const aiModelConfigs = pgTable("ai_model_configs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  type: text("type").notNull(), // "embedding" or "chat"
+  provider: text("provider").notNull(), // "openai", "ollama", "google"
+  model: text("model").notNull(),
+  isActive: text("is_active").notNull().default("false"),
+  apiKeyEnvVar: text("api_key_env_var"), // e.g., "OPENAI_API_KEY"
+  baseUrl: text("base_url"), // For Ollama or custom endpoints
+  dimensions: integer("dimensions"), // For embedding models
+  temperature: text("temperature"), // For chat models
+  maxTokens: integer("max_tokens"),
+  description: text("description"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const insertAiModelConfigSchema = createInsertSchema(aiModelConfigs).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type AiModelConfig = typeof aiModelConfigs.$inferSelect;
+export type InsertAiModelConfig = z.infer<typeof insertAiModelConfigSchema>;
+
 // Report configuration type for the JSON field
 export interface ReportConfiguration {
   dataSource: ReportDataSource;
