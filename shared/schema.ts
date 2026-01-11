@@ -373,6 +373,12 @@ export const ticketFormFields = pgTable("ticket_form_fields", {
   enabled: text("enabled").notNull().default("true"),
   showOnCreate: text("show_on_create").notNull().default("true"),
   showOnEdit: text("show_on_edit").notNull().default("true"),
+  category: text("category"),
+  conditionalField: text("conditional_field"),
+  conditionalValue: text("conditional_value"),
+  minValue: text("min_value"),
+  maxValue: text("max_value"),
+  validationPattern: text("validation_pattern"),
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 

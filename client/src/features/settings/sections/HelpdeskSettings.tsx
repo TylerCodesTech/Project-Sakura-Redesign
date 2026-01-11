@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Clock,
   Ticket,
@@ -28,6 +28,14 @@ import {
   Calendar,
   CheckSquare,
   List,
+  FileUp,
+  Phone,
+  AtSign,
+  ListChecks,
+  Link2,
+  Copy,
+  Layers,
+  EyeOff,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -71,6 +79,23 @@ import {
 } from "../components";
 import { apiRequest } from "@/lib/queryClient";
 import { toast } from "sonner";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 interface HelpdeskSettingsProps {
   subsection?: string;
@@ -78,13 +103,130 @@ interface HelpdeskSettingsProps {
 }
 
 const FIELD_TYPES = [
-  { value: "text", label: "Text Input", icon: Type },
-  { value: "textarea", label: "Text Area", icon: FormInput },
-  { value: "number", label: "Number", icon: Hash },
-  { value: "select", label: "Dropdown", icon: List },
-  { value: "checkbox", label: "Checkbox", icon: CheckSquare },
-  { value: "date", label: "Date", icon: Calendar },
+  { value: "text", label: "Text Input", icon: Type, description: "Single line text" },
+  { value: "textarea", label: "Text Area", icon: FormInput, description: "Multi-line text" },
+  { value: "number", label: "Number", icon: Hash, description: "Numeric input" },
+  { value: "email", label: "Email", icon: AtSign, description: "Email address" },
+  { value: "phone", label: "Phone", icon: Phone, description: "Phone number" },
+  { value: "url", label: "URL", icon: Link2, description: "Web address" },
+  { value: "select", label: "Dropdown", icon: List, description: "Single selection" },
+  { value: "multiselect", label: "Multi-Select", icon: ListChecks, description: "Multiple selections" },
+  { value: "checkbox", label: "Checkbox", icon: CheckSquare, description: "Yes/No toggle" },
+  { value: "date", label: "Date", icon: Calendar, description: "Date picker" },
+  { value: "file", label: "File Upload", icon: FileUp, description: "File attachment" },
 ];
+
+const FIELD_CATEGORIES = [
+  { value: "general", label: "General Information" },
+  { value: "category", label: "Category & Type" },
+  { value: "contact", label: "Contact Details" },
+  { value: "custom", label: "Custom Fields" },
+];
+
+interface SortableFieldItemProps {
+  field: TicketFormField;
+  onEdit: (field: TicketFormField) => void;
+  onDelete: (id: string) => void;
+  onDuplicate: (field: TicketFormField) => void;
+}
+
+function SortableFieldItem({ field, onEdit, onDelete, onDuplicate }: SortableFieldItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: field.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  const fieldType = FIELD_TYPES.find((t) => t.value === field.fieldType);
+  const FieldIcon = fieldType?.icon || Type;
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        "flex items-center justify-between p-4 rounded-lg border bg-secondary/10",
+        isDragging && "ring-2 ring-primary shadow-lg"
+      )}
+    >
+      <div className="flex items-center gap-4">
+        <button
+          {...attributes}
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing touch-none"
+        >
+          <GripVertical className="w-4 h-4 text-muted-foreground" />
+        </button>
+        <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+          <FieldIcon className="w-5 h-5 text-primary" />
+        </div>
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <span className="font-medium text-sm">{field.label}</span>
+            {field.required === "true" && (
+              <Badge variant="destructive" className="text-[10px]">Required</Badge>
+            )}
+            {field.category && (
+              <Badge variant="outline" className="text-[10px]">{field.category}</Badge>
+            )}
+          </div>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Badge variant="secondary" className="text-[10px]">
+              {fieldType?.label || field.fieldType}
+            </Badge>
+            {field.placeholder && (
+              <span className="truncate max-w-[200px]">{field.placeholder}</span>
+            )}
+            {field.conditionalField && (
+              <Badge variant="outline" className="text-[10px] border-amber-500/50 text-amber-600">
+                <EyeOff className="w-3 h-3 mr-1" />
+                Conditional
+              </Badge>
+            )}
+          </div>
+        </div>
+      </div>
+      <div className="flex items-center gap-1">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          onClick={() => onDuplicate(field)}
+          title="Duplicate field"
+        >
+          <Copy className="w-4 h-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          onClick={() => onEdit(field)}
+          title="Edit field"
+        >
+          <Edit3 className="w-4 h-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 text-destructive"
+          onClick={() => onDelete(field.id)}
+          title="Delete field"
+        >
+          <Trash2 className="w-4 h-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSettingsProps) {
   const [selectedDepartment, setSelectedDepartment] = useState<Department | null>(null);
@@ -785,13 +927,21 @@ export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSe
               <form onSubmit={(e) => {
                 e.preventDefault();
                 const formData = new FormData(e.currentTarget);
+                const label = formData.get("label") as string;
                 const fieldData = {
-                  label: formData.get("label") as string,
+                  name: label.toLowerCase().replace(/\s+/g, "_"),
+                  label,
                   fieldType: formData.get("fieldType") as string,
                   placeholder: formData.get("placeholder") as string || null,
                   required: formData.get("required") === "on" ? "true" : "false",
                   options: formData.get("options") as string || null,
                   defaultValue: formData.get("defaultValue") as string || null,
+                  category: formData.get("category") as string || null,
+                  helpText: formData.get("helpText") as string || null,
+                  minValue: formData.get("minValue") as string || null,
+                  maxValue: formData.get("maxValue") as string || null,
+                  conditionalField: formData.get("conditionalField") as string || null,
+                  conditionalValue: formData.get("conditionalValue") as string || null,
                 };
                 
                 if (editingField) {
@@ -889,63 +1039,57 @@ export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSe
             <p className="text-xs">Add fields to customize the ticket creation form</p>
           </div>
         ) : (
-          <div className="space-y-2">
-            {formFields.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).map((field) => {
-              const fieldType = FIELD_TYPES.find((t) => t.value === field.fieldType);
-              const FieldIcon = fieldType?.icon || Type;
-              
-              return (
-                <div
-                  key={field.id}
-                  className="flex items-center justify-between p-4 rounded-lg border bg-secondary/10"
-                >
-                  <div className="flex items-center gap-4">
-                    <GripVertical className="w-4 h-4 text-muted-foreground cursor-move" />
-                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <FieldIcon className="w-5 h-5 text-primary" />
-                    </div>
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-sm">{field.label}</span>
-                        {field.required === "true" && (
-                          <Badge variant="destructive" className="text-[10px]">Required</Badge>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <Badge variant="outline" className="text-[10px]">
-                          {fieldType?.label || field.fieldType}
-                        </Badge>
-                        {field.placeholder && (
-                          <span>Placeholder: {field.placeholder}</span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => {
-                        setEditingField(field);
-                        setIsAddFieldOpen(true);
-                      }}
-                    >
-                      <Edit3 className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-destructive"
-                      onClick={() => deleteFormFieldMutation.mutate(field.id)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          <DndContext
+            sensors={useSensors(
+              useSensor(PointerSensor),
+              useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+            )}
+            collisionDetection={closestCenter}
+            onDragEnd={(event: DragEndEvent) => {
+              const { active, over } = event;
+              if (over && active.id !== over.id) {
+                const oldIndex = formFields.findIndex((f) => f.id === active.id);
+                const newIndex = formFields.findIndex((f) => f.id === over.id);
+                const reorderedFields = arrayMove(formFields, oldIndex, newIndex);
+                reorderedFields.forEach((field, index) => {
+                  updateFormFieldMutation.mutate({ id: field.id, order: index });
+                });
+              }
+            }}
+          >
+            <SortableContext
+              items={formFields.map((f) => f.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="space-y-2">
+                {formFields.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).map((field) => (
+                  <SortableFieldItem
+                    key={field.id}
+                    field={field}
+                    onEdit={(f) => {
+                      setEditingField(f);
+                      setIsAddFieldOpen(true);
+                    }}
+                    onDelete={(id) => deleteFormFieldMutation.mutate(id)}
+                    onDuplicate={(f) => {
+                      createFormFieldMutation.mutate({
+                        name: `${f.name}_copy`,
+                        label: `${f.label} (Copy)`,
+                        fieldType: f.fieldType,
+                        placeholder: f.placeholder,
+                        helpText: f.helpText,
+                        required: f.required,
+                        options: f.options,
+                        defaultValue: f.defaultValue,
+                        category: f.category,
+                        order: formFields.length,
+                      });
+                    }}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
         )}
       </SettingsCard>
 
