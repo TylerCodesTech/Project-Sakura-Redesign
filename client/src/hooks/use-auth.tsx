@@ -150,7 +150,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     onSuccess: (data) => {
       queryClient.setQueryData(["/api/user"], data.user);
-      queryClient.invalidateQueries({ queryKey: ["/api/setup-status"] });
+      queryClient.setQueryData(["/api/setup-status"], { needsSetup: false, userCount: 1 });
       toast.success("Setup completed! Welcome aboard.");
     },
     onError: (error: Error) => {
