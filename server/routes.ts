@@ -167,8 +167,17 @@ export async function registerRoutes(
   app.delete("/api/departments/:id", async (req, res) => {
     const departmentId = req.params.id;
     
+    // Get the department to find its name
+    const departments = await storage.getDepartments();
+    const department = departments.find(d => d.id === departmentId);
+    
+    if (!department) {
+      return res.status(404).json({ error: "Department not found" });
+    }
+    
+    // Check users by department name (users store department name, not ID)
     const users = await storage.getUsers();
-    const usersInDepartment = users.filter(u => u.department === departmentId);
+    const usersInDepartment = users.filter(u => u.department === department.name);
     
     if (usersInDepartment.length > 0) {
       return res.status(400).json({ 
