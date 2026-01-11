@@ -9,6 +9,7 @@ import {
   DepartmentsSettings,
   HelpdeskSettings,
   DocumentationSettings,
+  ReportsSettings,
   LinksSettings,
   GeneralSettings,
 } from "@/features/settings/sections";
@@ -68,6 +69,10 @@ export default function SystemSettings() {
 
     if (section.startsWith("docs")) {
       return <DocumentationSettings subsection={section} />;
+    }
+
+    if (section.startsWith("reports")) {
+      return <ReportsSettings />;
     }
 
     if (section === "integrations") {
