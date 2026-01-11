@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { ReportBuilder } from "@/features/reports/ReportBuilder";
 import { 
   BarChart3, 
   FileText, 
@@ -36,6 +37,33 @@ import {
   ArrowRight
 } from "lucide-react";
 
+interface ReportBuilderEmbedProps {
+  departmentId?: string;
+  onSave: (config: any) => void;
+}
+
+function ReportBuilderEmbed({ departmentId, onSave }: ReportBuilderEmbedProps) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <SlidersHorizontal className="h-5 w-5" />
+          Report Builder
+        </CardTitle>
+        <CardDescription>
+          Create custom reports with drag-and-drop field selection, filtering, and visualization options
+          {departmentId && " for this department"}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="p-0">
+        <div className="min-h-[600px]">
+          <ReportBuilder onSave={onSave} />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 interface ReportDefinition {
   id: string;
   name: string;
@@ -48,6 +76,7 @@ interface ReportDefinition {
   createdBy: string;
   createdAt: string;
   updatedAt: string;
+  config?: string | null;
 }
 
 interface DepartmentReportSettings {
@@ -435,31 +464,27 @@ export function ReportsSettings() {
               exit={{ opacity: 0, y: -10 }}
               className="space-y-6"
             >
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <SlidersHorizontal className="h-5 w-5" />
-                    Report Builder
-                  </CardTitle>
-                  <CardDescription>
-                    Create custom reports with drag-and-drop field selection, filtering, and visualization options
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-center py-12 text-muted-foreground">
-                    <SlidersHorizontal className="h-16 w-16 mx-auto mb-4 opacity-50" />
-                    <h3 className="text-lg font-medium mb-2">Report Builder Coming Soon</h3>
-                    <p className="text-sm max-w-md mx-auto">
-                      The visual report builder with drag-and-drop interface, dynamic field selection, 
-                      and advanced filtering will be available here.
-                    </p>
-                    <Button className="mt-4" onClick={() => setShowNewReportDialog(true)}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Create Report Definition
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+              <ReportBuilderEmbed
+                departmentId={selectedDepartment?.id}
+                onSave={(config) => {
+                  createReportMutation.mutate({
+                    name: config.name,
+                    description: config.description,
+                    type: config.type,
+                    dataSource: config.dataSource,
+                    departmentId: selectedDepartment?.id || null,
+                    isSystem: false,
+                    isActive: true,
+                    createdBy: "current-user-id",
+                    config: JSON.stringify({
+                      fields: config.fields,
+                      filters: config.filters,
+                      groupBy: config.groupBy,
+                      visualization: config.visualization,
+                    }),
+                  });
+                }}
+              />
             </motion.div>
           </TabsContent>
 

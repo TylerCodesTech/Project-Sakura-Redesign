@@ -105,6 +105,34 @@ The application includes a comprehensive version history system for both Pages a
    - **Sub-sections**: Overview, Version History, Access Control (removed unused Categories section)
    - **Real-time Save**: Version history settings save directly to system_settings via API
 
+7. **Reports System** (`client/src/features/settings/sections/ReportsSettings.tsx` and `client/src/features/reports/`):
+   - **Department-Specific Reporting**: Each department has independent report configuration and permissions
+   - **Report Types**: Audit, User Access, Ticket SLA, Monthly Closures, and Custom reports
+   - **Report Builder**: Drag-and-drop interface with field selection, filtering, sorting, grouping, and visualization options
+   - **Data Sources**: tickets, users, audit_logs, sla_states, sla_policies, departments, roles, pages, books
+   - **Scheduling**: Automated report generation with daily, weekly, monthly frequencies
+   - **Sharing**: Share reports with users, roles, or departments with view/edit permissions
+   - **Audit Logging**: All report actions (create, edit, delete, generate, share, schedule) are logged
+   - **Settings Sub-sections**: Overview, Report Builder, Scheduled Reports, Sharing & Access
+
+### Reports Database Schema
+- **report_definitions**: Store report configuration templates
+- **report_fields**: Define available fields per data source with type, filterability, sortability, aggregations
+- **saved_reports**: Generated report instances with result data
+- **report_schedules**: Automated scheduling configuration
+- **report_shares**: Sharing permissions per report
+- **report_audit_logs**: Activity logging for compliance
+- **department_report_settings**: Per-department report configuration
+
+### Reports API Endpoints
+- `GET/POST /api/reports/definitions` - Manage report templates
+- `GET/POST /api/reports/saved` - Access generated reports
+- `GET/POST /api/reports/schedules` - Manage schedules
+- `GET/POST /api/reports/:reportId/shares` - Manage sharing
+- `GET /api/reports/audit-logs` - View report activity
+- `GET/POST /api/departments/:id/report-settings` - Department-specific settings
+- `GET/POST /api/reports/fields` - Available fields metadata
+
 ## External Dependencies
 
 ### Database
