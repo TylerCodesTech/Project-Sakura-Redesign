@@ -4,22 +4,30 @@ import {
   Ticket,
   Mail,
   Webhook,
-  MessagesSquare,
   Plus,
   Trash2,
-  Globe,
   Settings,
   FolderKanban,
   AlertCircle,
-  CheckCircle2,
   Edit3,
-  ToggleLeft,
   Loader2,
   GripVertical,
   ArrowRight,
-  Users,
   Building2,
   GitBranch,
+  Save,
+  LayoutGrid,
+  Eye,
+  ChevronDown,
+  ChevronRight,
+  FormInput,
+  ListOrdered,
+  ToggleLeft,
+  Type,
+  Hash,
+  Calendar,
+  CheckSquare,
+  List,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -46,8 +54,13 @@ import {
   DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { type Department, type Helpdesk, type SlaState, type SlaPolicy, type EscalationRule, type InboundEmailConfig, type DepartmentHierarchy, type DepartmentManager, type HelpdeskWebhook, type TicketFormField } from "@shared/schema";
+import { type Department, type Helpdesk, type SlaState, type SlaPolicy, type EscalationRule, type InboundEmailConfig, type DepartmentHierarchy, type HelpdeskWebhook, type TicketFormField } from "@shared/schema";
 import { cn } from "@/lib/utils";
 import {
   SettingsHeader,
@@ -57,11 +70,21 @@ import {
   DepartmentSelector,
 } from "../components";
 import { apiRequest } from "@/lib/queryClient";
+import { toast } from "sonner";
 
 interface HelpdeskSettingsProps {
   subsection?: string;
   initialDepartmentId?: string;
 }
+
+const FIELD_TYPES = [
+  { value: "text", label: "Text Input", icon: Type },
+  { value: "textarea", label: "Text Area", icon: FormInput },
+  { value: "number", label: "Number", icon: Hash },
+  { value: "select", label: "Dropdown", icon: List },
+  { value: "checkbox", label: "Checkbox", icon: CheckSquare },
+  { value: "date", label: "Date", icon: Calendar },
+];
 
 export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSettingsProps) {
   const [selectedDepartment, setSelectedDepartment] = useState<Department | null>(null);
@@ -69,15 +92,21 @@ export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSe
     if (!subsection || subsection === "helpdesk" || subsection === "helpdesk-overview") return "overview";
     return subsection.replace("helpdesk-", "");
   });
+  
+  const [pendingChanges, setPendingChanges] = useState<Partial<Helpdesk>>({});
   const [isAddStateOpen, setIsAddStateOpen] = useState(false);
   const [isAddPolicyOpen, setIsAddPolicyOpen] = useState(false);
   const [isAddRuleOpen, setIsAddRuleOpen] = useState(false);
+  const [isAddFieldOpen, setIsAddFieldOpen] = useState(false);
+  const [isAddSubdeptOpen, setIsAddSubdeptOpen] = useState(false);
   const [editingState, setEditingState] = useState<SlaState | null>(null);
+  const [editingField, setEditingField] = useState<TicketFormField | null>(null);
   const [newStateName, setNewStateName] = useState("");
   const [newStateColor, setNewStateColor] = useState("#3b82f6");
   const [newStateIsFinal, setNewStateIsFinal] = useState(false);
   const [newStateTargetHours, setNewStateTargetHours] = useState<number | undefined>();
   const [creatingHelpdesk, setCreatingHelpdesk] = useState(false);
+  const [expandedSubdepts, setExpandedSubdepts] = useState<Set<string>>(new Set());
 
   const queryClient = useQueryClient();
 
@@ -160,16 +189,6 @@ export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSe
     queryKey: ["/api/department-hierarchy"],
   });
 
-  const { data: departmentManagers = [] } = useQuery<DepartmentManager[]>({
-    queryKey: ["/api/departments", selectedDepartment?.id, "managers"],
-    queryFn: async () => {
-      if (!selectedDepartment?.id) return [];
-      const res = await fetch(`/api/departments/${selectedDepartment.id}/managers`);
-      return res.json();
-    },
-    enabled: !!selectedDepartment?.id,
-  });
-
   const createHelpdeskMutation = useMutation({
     mutationFn: async (data: { departmentId: string; name: string }) => {
       const res = await apiRequest("POST", "/api/helpdesks", data);
@@ -191,6 +210,11 @@ export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSe
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/helpdesks/by-department", selectedDepartment?.id] });
+      setPendingChanges({});
+      toast.success("Settings saved for this department");
+    },
+    onError: () => {
+      toast.error("Failed to save settings");
     },
   });
 
@@ -203,6 +227,7 @@ export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSe
       queryClient.invalidateQueries({ queryKey: ["/api/helpdesks", helpdesk?.id, "sla-states"] });
       setIsAddStateOpen(false);
       resetStateForm();
+      toast.success("State created");
     },
   });
 
@@ -215,6 +240,7 @@ export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSe
       queryClient.invalidateQueries({ queryKey: ["/api/helpdesks", helpdesk?.id, "sla-states"] });
       setEditingState(null);
       resetStateForm();
+      toast.success("State updated");
     },
   });
 
@@ -224,6 +250,7 @@ export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSe
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/helpdesks", helpdesk?.id, "sla-states"] });
+      toast.success("State deleted");
     },
   });
 
@@ -235,6 +262,17 @@ export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSe
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/helpdesks", helpdesk?.id, "sla-policies"] });
       setIsAddPolicyOpen(false);
+      toast.success("Policy created");
+    },
+  });
+
+  const deleteSlaPolicyMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/sla-policies/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/helpdesks", helpdesk?.id, "sla-policies"] });
+      toast.success("Policy deleted");
     },
   });
 
@@ -246,6 +284,7 @@ export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSe
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/helpdesks", helpdesk?.id, "escalation-rules"] });
       setIsAddRuleOpen(false);
+      toast.success("Rule created");
     },
   });
 
@@ -255,6 +294,7 @@ export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSe
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/helpdesks", helpdesk?.id, "escalation-rules"] });
+      toast.success("Rule deleted");
     },
   });
 
@@ -265,6 +305,7 @@ export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSe
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/helpdesks", helpdesk?.id, "email-config"] });
+      toast.success("Email config saved");
     },
   });
 
@@ -275,6 +316,18 @@ export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSe
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/helpdesks", helpdesk?.id, "email-config"] });
+      toast.success("Email config updated");
+    },
+  });
+
+  const createDepartmentMutation = useMutation({
+    mutationFn: async (data: { name: string; color: string; description?: string }) => {
+      const res = await apiRequest("POST", "/api/departments", data);
+      return res.json();
+    },
+    onSuccess: (newDept) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/departments"] });
+      return newDept;
     },
   });
 
@@ -285,6 +338,7 @@ export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSe
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/department-hierarchy"] });
+      toast.success("Subdepartment added");
     },
   });
 
@@ -294,6 +348,7 @@ export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSe
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/department-hierarchy"] });
+      toast.success("Subdepartment removed");
     },
   });
 
@@ -304,16 +359,7 @@ export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSe
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/helpdesks", helpdesk?.id, "webhooks"] });
-    },
-  });
-
-  const updateWebhookMutation = useMutation({
-    mutationFn: async ({ id, ...data }: { id: string } & Partial<HelpdeskWebhook>) => {
-      const res = await apiRequest("PATCH", `/api/webhooks/${id}`, data);
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/helpdesks", helpdesk?.id, "webhooks"] });
+      toast.success("Webhook created");
     },
   });
 
@@ -323,6 +369,7 @@ export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSe
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/helpdesks", helpdesk?.id, "webhooks"] });
+      toast.success("Webhook deleted");
     },
   });
 
@@ -333,6 +380,8 @@ export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSe
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/helpdesks", helpdesk?.id, "form-fields"] });
+      setIsAddFieldOpen(false);
+      toast.success("Field created");
     },
   });
 
@@ -343,6 +392,8 @@ export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSe
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/helpdesks", helpdesk?.id, "form-fields"] });
+      setEditingField(null);
+      toast.success("Field updated");
     },
   });
 
@@ -352,6 +403,7 @@ export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSe
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/helpdesks", helpdesk?.id, "form-fields"] });
+      toast.success("Field deleted");
     },
   });
 
@@ -405,6 +457,16 @@ export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSe
     }
   };
 
+  const handleSaveDepartmentSettings = () => {
+    if (helpdesk && Object.keys(pendingChanges).length > 0) {
+      updateHelpdeskMutation.mutate({ id: helpdesk.id, ...pendingChanges });
+    }
+  };
+
+  const updatePendingChange = (key: keyof Helpdesk, value: string) => {
+    setPendingChanges((prev) => ({ ...prev, [key]: value }));
+  };
+
   const getChildDepartments = (parentId: string) => {
     return departmentHierarchy
       .filter((h) => h.parentDepartmentId === parentId)
@@ -416,6 +478,14 @@ export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSe
     const hierarchy = departmentHierarchy.find((h) => h.childDepartmentId === childId);
     return hierarchy ? departments.find((d) => d.id === hierarchy.parentDepartmentId) : null;
   };
+
+  const isTopLevelDepartment = (deptId: string) => {
+    return !departmentHierarchy.some((h) => h.childDepartmentId === deptId);
+  };
+
+  const topLevelDepartments = departments.filter((d) => isTopLevelDepartment(d.id));
+
+  const hasPendingChanges = Object.keys(pendingChanges).length > 0;
 
   const renderOverview = () => (
     <div className="space-y-6">
@@ -447,42 +517,51 @@ export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSe
         <Card className="border-border/40">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-primary" />
-              Escalation Rules
+              <FormInput className="w-4 h-4 text-primary" />
+              Form Fields
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">{escalationRules.filter((r) => r.enabled === "true").length}</p>
-            <p className="text-xs text-muted-foreground">Active rules</p>
+            <p className="text-2xl font-bold">{formFields.length}</p>
+            <p className="text-xs text-muted-foreground">Custom fields configured</p>
           </CardContent>
         </Card>
       </div>
 
       <SettingsCard
-        title="Quick Settings"
-        description="Common configurations for this department's helpdesk."
+        title="General Settings"
+        description={`Configure helpdesk settings for ${selectedDepartment?.name || "this department"}.`}
         icon={Settings}
+        actions={
+          hasPendingChanges && (
+            <Button 
+              size="sm" 
+              className="gap-2" 
+              onClick={handleSaveDepartmentSettings}
+              disabled={updateHelpdeskMutation.isPending}
+            >
+              {updateHelpdeskMutation.isPending ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Save className="w-4 h-4" />
+              )}
+              Save Changes
+            </Button>
+          )
+        }
       >
         <div className="space-y-4">
           <SettingsRow label="Enable Helpdesk" description="Allow ticket submission for this department.">
             <Switch 
-              checked={helpdesk?.enabled === "true"} 
-              onCheckedChange={(checked) => {
-                if (helpdesk) {
-                  updateHelpdeskMutation.mutate({ id: helpdesk.id, enabled: checked ? "true" : "false" });
-                }
-              }}
+              checked={(pendingChanges.enabled ?? helpdesk?.enabled) === "true"} 
+              onCheckedChange={(checked) => updatePendingChange("enabled", checked ? "true" : "false")}
             />
           </SettingsRow>
           <Separator />
           <SettingsRow label="Public Access" description="Allow non-authenticated users to submit tickets.">
             <Switch 
-              checked={helpdesk?.publicAccess === "true"}
-              onCheckedChange={(checked) => {
-                if (helpdesk) {
-                  updateHelpdeskMutation.mutate({ id: helpdesk.id, publicAccess: checked ? "true" : "false" });
-                }
-              }}
+              checked={(pendingChanges.publicAccess ?? helpdesk?.publicAccess) === "true"}
+              onCheckedChange={(checked) => updatePendingChange("publicAccess", checked ? "true" : "false")}
             />
           </SettingsRow>
         </div>
@@ -490,16 +569,472 @@ export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSe
     </div>
   );
 
-  const renderSLAStates = () => (
+  const renderSubdepartments = () => (
+    <div className="space-y-6">
+      <SettingsCard
+        title="Subdepartments"
+        description={`Manage subdepartments under ${selectedDepartment?.name}. For example, IT department may have Helpdesk, Hardware, Software subdepartments.`}
+        icon={GitBranch}
+        actions={
+          <Dialog open={isAddSubdeptOpen} onOpenChange={setIsAddSubdeptOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" className="gap-2">
+                <Plus className="w-4 h-4" /> Add Subdepartment
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Add Subdepartment</DialogTitle>
+                <DialogDescription>
+                  Create a new subdepartment under {selectedDepartment?.name}.
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={async (e) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget);
+                const existingDeptId = formData.get("existingDept") as string;
+                
+                if (existingDeptId && existingDeptId !== "new") {
+                  createDepartmentHierarchyMutation.mutate({
+                    parentDepartmentId: selectedDepartment!.id,
+                    childDepartmentId: existingDeptId,
+                  });
+                } else {
+                  const newDept = await createDepartmentMutation.mutateAsync({
+                    name: formData.get("name") as string,
+                    color: formData.get("color") as string || "#6b7280",
+                    description: formData.get("description") as string || undefined,
+                  });
+                  createDepartmentHierarchyMutation.mutate({
+                    parentDepartmentId: selectedDepartment!.id,
+                    childDepartmentId: newDept.id,
+                  });
+                }
+                setIsAddSubdeptOpen(false);
+              }}>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label>Use Existing Department</Label>
+                    <Select name="existingDept" defaultValue="new">
+                      <SelectTrigger>
+                        <SelectValue placeholder="Create new or select existing" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="new">Create New Department</SelectItem>
+                        <Separator className="my-1" />
+                        {departments
+                          .filter((d) => d.id !== selectedDepartment?.id && isTopLevelDepartment(d.id))
+                          .map((dept) => (
+                            <SelectItem key={dept.id} value={dept.id}>
+                              <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: dept.color }} />
+                                {dept.name}
+                              </div>
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Separator />
+                  <p className="text-sm text-muted-foreground">Or create a new department:</p>
+                  <div className="space-y-2">
+                    <Label>Department Name</Label>
+                    <Input name="name" placeholder="e.g., Hardware Support" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Color</Label>
+                    <div className="flex gap-2">
+                      <Input type="color" name="color" defaultValue="#6b7280" className="w-16 h-10 p-1" />
+                      <Input name="colorHex" defaultValue="#6b7280" className="flex-1" />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Description (Optional)</Label>
+                    <Textarea name="description" placeholder="Brief description of this subdepartment" />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button type="button" variant="outline" onClick={() => setIsAddSubdeptOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={createDepartmentMutation.isPending || createDepartmentHierarchyMutation.isPending}>
+                    {(createDepartmentMutation.isPending || createDepartmentHierarchyMutation.isPending) && (
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    )}
+                    Add Subdepartment
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        }
+      >
+        {!selectedDepartment ? (
+          <div className="text-center py-8 text-muted-foreground">
+            <Building2 className="w-12 h-12 mx-auto mb-2 opacity-20" />
+            <p className="text-sm">Select a department to manage subdepartments</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {getChildDepartments(selectedDepartment.id).length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <GitBranch className="w-12 h-12 mx-auto mb-2 opacity-20" />
+                <p className="text-sm">No subdepartments configured</p>
+                <p className="text-xs">Add subdepartments to create a hierarchy</p>
+              </div>
+            ) : (
+              getChildDepartments(selectedDepartment.id).map((subDept) => {
+                const isExpanded = expandedSubdepts.has(subDept.id);
+                const subChildren = getChildDepartments(subDept.id);
+                const hierarchy = departmentHierarchy.find(
+                  (h) => h.parentDepartmentId === selectedDepartment.id && h.childDepartmentId === subDept.id
+                );
+                
+                return (
+                  <Collapsible
+                    key={subDept.id}
+                    open={isExpanded}
+                    onOpenChange={(open) => {
+                      const next = new Set(expandedSubdepts);
+                      if (open) next.add(subDept.id);
+                      else next.delete(subDept.id);
+                      setExpandedSubdepts(next);
+                    }}
+                  >
+                    <div className="rounded-lg border bg-secondary/10 p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <CollapsibleTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-6 w-6">
+                              {isExpanded ? (
+                                <ChevronDown className="w-4 h-4" />
+                              ) : (
+                                <ChevronRight className="w-4 h-4" />
+                              )}
+                            </Button>
+                          </CollapsibleTrigger>
+                          <div
+                            className="w-3 h-3 rounded-full"
+                            style={{ backgroundColor: subDept.color }}
+                          />
+                          <div>
+                            <span className="font-medium">{subDept.name}</span>
+                            {subChildren.length > 0 && (
+                              <Badge variant="secondary" className="ml-2 text-[10px]">
+                                {subChildren.length} sub
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive"
+                            onClick={() => {
+                              if (hierarchy) {
+                                deleteDepartmentHierarchyMutation.mutate(hierarchy.id);
+                              }
+                            }}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                      <CollapsibleContent className="mt-3 pl-9 space-y-2">
+                        {subDept.description && (
+                          <p className="text-sm text-muted-foreground">{subDept.description}</p>
+                        )}
+                        <div className="flex gap-2">
+                          <Badge variant="outline" className="text-xs">
+                            ID: {subDept.id.substring(0, 8)}...
+                          </Badge>
+                        </div>
+                      </CollapsibleContent>
+                    </div>
+                  </Collapsible>
+                );
+              })
+            )}
+          </div>
+        )}
+      </SettingsCard>
+    </div>
+  );
+
+  const renderTicketFormDesigner = () => (
+    <div className="space-y-6">
+      <SettingsCard
+        title="Ticket Form Designer"
+        description="Configure the fields that appear when creating a new ticket. Drag to reorder."
+        icon={LayoutGrid}
+        actions={
+          <Dialog open={isAddFieldOpen} onOpenChange={setIsAddFieldOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" className="gap-2">
+                <Plus className="w-4 h-4" /> Add Field
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{editingField ? "Edit Field" : "Add Form Field"}</DialogTitle>
+                <DialogDescription>
+                  Configure a custom field for the ticket creation form.
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget);
+                const fieldData = {
+                  label: formData.get("label") as string,
+                  fieldType: formData.get("fieldType") as string,
+                  placeholder: formData.get("placeholder") as string || null,
+                  required: formData.get("required") === "on" ? "true" : "false",
+                  options: formData.get("options") as string || null,
+                  defaultValue: formData.get("defaultValue") as string || null,
+                };
+                
+                if (editingField) {
+                  updateFormFieldMutation.mutate({ id: editingField.id, ...fieldData });
+                } else {
+                  createFormFieldMutation.mutate({
+                    ...fieldData,
+                    order: formFields.length,
+                  });
+                }
+              }}>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label>Field Label</Label>
+                    <Input 
+                      name="label" 
+                      placeholder="e.g., Category" 
+                      defaultValue={editingField?.label || ""}
+                      required 
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Field Type</Label>
+                    <Select name="fieldType" defaultValue={editingField?.fieldType || "text"}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {FIELD_TYPES.map((type) => (
+                          <SelectItem key={type.value} value={type.value}>
+                            <div className="flex items-center gap-2">
+                              <type.icon className="w-4 h-4" />
+                              {type.label}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Placeholder Text</Label>
+                    <Input 
+                      name="placeholder" 
+                      placeholder="e.g., Select a category..." 
+                      defaultValue={editingField?.placeholder || ""}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Options (for dropdown, comma-separated)</Label>
+                    <Textarea 
+                      name="options" 
+                      placeholder="Option 1, Option 2, Option 3"
+                      defaultValue={editingField?.options || ""}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Default Value</Label>
+                    <Input 
+                      name="defaultValue" 
+                      placeholder="Default value (optional)"
+                      defaultValue={editingField?.defaultValue || ""}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label>Required Field</Label>
+                      <p className="text-xs text-muted-foreground">User must fill this field</p>
+                    </div>
+                    <Switch 
+                      name="required" 
+                      defaultChecked={editingField?.required === "true"} 
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button type="button" variant="outline" onClick={() => {
+                    setIsAddFieldOpen(false);
+                    setEditingField(null);
+                  }}>
+                    Cancel
+                  </Button>
+                  <Button type="submit">
+                    {editingField ? "Update Field" : "Add Field"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        }
+      >
+        {formFields.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            <FormInput className="w-12 h-12 mx-auto mb-2 opacity-20" />
+            <p className="text-sm">No custom fields configured</p>
+            <p className="text-xs">Add fields to customize the ticket creation form</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {formFields.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).map((field) => {
+              const fieldType = FIELD_TYPES.find((t) => t.value === field.fieldType);
+              const FieldIcon = fieldType?.icon || Type;
+              
+              return (
+                <div
+                  key={field.id}
+                  className="flex items-center justify-between p-4 rounded-lg border bg-secondary/10"
+                >
+                  <div className="flex items-center gap-4">
+                    <GripVertical className="w-4 h-4 text-muted-foreground cursor-move" />
+                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                      <FieldIcon className="w-5 h-5 text-primary" />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-sm">{field.label}</span>
+                        {field.required === "true" && (
+                          <Badge variant="destructive" className="text-[10px]">Required</Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Badge variant="outline" className="text-[10px]">
+                          {fieldType?.label || field.fieldType}
+                        </Badge>
+                        {field.placeholder && (
+                          <span>Placeholder: {field.placeholder}</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => {
+                        setEditingField(field);
+                        setIsAddFieldOpen(true);
+                      }}
+                    >
+                      <Edit3 className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-destructive"
+                      onClick={() => deleteFormFieldMutation.mutate(field.id)}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </SettingsCard>
+
+      <SettingsCard
+        title="Form Preview"
+        description="Preview how the ticket creation form will look with your configured fields."
+        icon={Eye}
+      >
+        <div className="border rounded-lg p-6 bg-card">
+          <h3 className="font-semibold mb-4">New Ticket</h3>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Subject <span className="text-destructive">*</span></Label>
+              <Input placeholder="Brief description of the issue" disabled />
+            </div>
+            <div className="space-y-2">
+              <Label>Description <span className="text-destructive">*</span></Label>
+              <Textarea placeholder="Detailed description..." disabled className="min-h-[100px]" />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Priority</Label>
+                <Select disabled>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select priority" />
+                  </SelectTrigger>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Type</Label>
+                <Select disabled>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select type" />
+                  </SelectTrigger>
+                </Select>
+              </div>
+            </div>
+            {formFields.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).map((field) => (
+              <div key={field.id} className="space-y-2">
+                <Label>
+                  {field.label}
+                  {field.required === "true" && <span className="text-destructive"> *</span>}
+                </Label>
+                {field.fieldType === "text" && (
+                  <Input placeholder={field.placeholder || ""} disabled />
+                )}
+                {field.fieldType === "textarea" && (
+                  <Textarea placeholder={field.placeholder || ""} disabled />
+                )}
+                {field.fieldType === "number" && (
+                  <Input type="number" placeholder={field.placeholder || ""} disabled />
+                )}
+                {field.fieldType === "select" && (
+                  <Select disabled>
+                    <SelectTrigger>
+                      <SelectValue placeholder={field.placeholder || "Select..."} />
+                    </SelectTrigger>
+                  </Select>
+                )}
+                {field.fieldType === "checkbox" && (
+                  <div className="flex items-center gap-2">
+                    <Switch disabled />
+                    <span className="text-sm text-muted-foreground">{field.placeholder}</span>
+                  </div>
+                )}
+                {field.fieldType === "date" && (
+                  <Input type="date" disabled />
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </SettingsCard>
+    </div>
+  );
+
+  const renderSLASettings = () => (
     <div className="space-y-6">
       <SettingsCard
         title="Ticket States"
-        description="Define custom states for tickets in this helpdesk. States define the lifecycle of a ticket."
+        description="Define custom states for tickets in this helpdesk."
         icon={FolderKanban}
         actions={
           <Dialog open={isAddStateOpen} onOpenChange={(open) => {
             setIsAddStateOpen(open);
-            if (!open) resetStateForm();
+            if (!open) {
+              resetStateForm();
+              setEditingState(null);
+            }
           }}>
             <DialogTrigger asChild>
               <Button size="sm" className="gap-2">
@@ -508,16 +1043,16 @@ export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSe
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Add Ticket State</DialogTitle>
+                <DialogTitle>{editingState ? "Edit State" : "Add Ticket State"}</DialogTitle>
                 <DialogDescription>
-                  Create a new state for tickets in this helpdesk.
+                  {editingState ? "Update this ticket state." : "Create a new state for tickets."}
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
                   <Label>State Name</Label>
-                  <Input 
-                    placeholder="e.g., Waiting for Customer" 
+                  <Input
+                    placeholder="e.g., Waiting for Customer"
                     value={newStateName}
                     onChange={(e) => setNewStateName(e.target.value)}
                   />
@@ -525,13 +1060,13 @@ export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSe
                 <div className="space-y-2">
                   <Label>Color</Label>
                   <div className="flex gap-2">
-                    <Input 
-                      type="color" 
-                      className="w-16 h-10 p-1" 
+                    <Input
+                      type="color"
+                      className="w-16 h-10 p-1"
                       value={newStateColor}
                       onChange={(e) => setNewStateColor(e.target.value)}
                     />
-                    <Input 
+                    <Input
                       value={newStateColor}
                       onChange={(e) => setNewStateColor(e.target.value)}
                       className="flex-1"
@@ -540,8 +1075,8 @@ export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSe
                 </div>
                 <div className="space-y-2">
                   <Label>Target Hours (Optional)</Label>
-                  <Input 
-                    type="number" 
+                  <Input
+                    type="number"
                     placeholder="Hours before escalation"
                     value={newStateTargetHours || ""}
                     onChange={(e) => setNewStateTargetHours(e.target.value ? parseInt(e.target.value) : undefined)}
@@ -552,18 +1087,22 @@ export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSe
                     <Label>Final State</Label>
                     <p className="text-xs text-muted-foreground">Marks ticket as completed</p>
                   </div>
-                  <Switch 
+                  <Switch
                     checked={newStateIsFinal}
                     onCheckedChange={setNewStateIsFinal}
                   />
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setIsAddStateOpen(false)}>
+                <Button variant="outline" onClick={() => {
+                  setIsAddStateOpen(false);
+                  setEditingState(null);
+                  resetStateForm();
+                }}>
                   Cancel
                 </Button>
                 <Button onClick={handleSaveState} disabled={!newStateName}>
-                  Create State
+                  {editingState ? "Update State" : "Create State"}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -582,7 +1121,7 @@ export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSe
           </div>
         ) : (
           <div className="space-y-2">
-            {slaStates.map((state, index) => (
+            {slaStates.map((state) => (
               <div
                 key={state.id}
                 className="flex items-center justify-between p-4 rounded-lg border bg-secondary/10"
@@ -590,8 +1129,8 @@ export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSe
                 <div className="flex items-center gap-4">
                   <div className="flex items-center gap-2">
                     <GripVertical className="w-4 h-4 text-muted-foreground cursor-move" />
-                    <div 
-                      className="w-4 h-4 rounded-full" 
+                    <div
+                      className="w-4 h-4 rounded-full"
                       style={{ backgroundColor: state.color }}
                     />
                   </div>
@@ -613,9 +1152,9 @@ export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSe
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
+                  <Button
+                    variant="ghost"
+                    size="icon"
                     className="h-8 w-8"
                     onClick={() => {
                       setEditingState(state);
@@ -628,9 +1167,9 @@ export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSe
                   >
                     <Edit3 className="w-4 h-4" />
                   </Button>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
+                  <Button
+                    variant="ghost"
+                    size="icon"
                     className="h-8 w-8 text-destructive"
                     onClick={() => deleteSlaStateMutation.mutate(state.id)}
                     disabled={state.isDefault === "true"}
@@ -713,21 +1252,21 @@ export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSe
           </Dialog>
         }
       >
-        <div className="space-y-3">
-          {slaPolicies.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <Clock className="w-12 h-12 mx-auto mb-2 opacity-20" />
-              <p className="text-sm">No SLA policies configured</p>
-            </div>
-          ) : (
-            slaPolicies.map((policy) => (
+        {slaPolicies.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            <Clock className="w-12 h-12 mx-auto mb-2 opacity-20" />
+            <p className="text-sm">No SLA policies configured</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {slaPolicies.map((policy) => (
               <div
                 key={policy.id}
                 className="grid grid-cols-1 md:grid-cols-4 gap-4 items-center p-4 rounded-lg bg-secondary/10"
               >
                 <div>
                   <span className="font-medium text-sm">{policy.name}</span>
-                  <Badge 
+                  <Badge
                     variant={policy.priority === "urgent" ? "destructive" : policy.priority === "high" ? "default" : "secondary"}
                     className="ml-2 text-xs"
                   >
@@ -747,93 +1286,25 @@ export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSe
                   <Button variant="ghost" size="icon" className="h-8 w-8">
                     <Edit3 className="w-4 h-4" />
                   </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-destructive"
+                    onClick={() => deleteSlaPolicyMutation.mutate(policy.id)}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
                 </div>
               </div>
-            ))
-          )}
-        </div>
+            ))}
+          </div>
+        )}
       </SettingsCard>
     </div>
   );
 
   const renderEscalationRules = () => (
     <div className="space-y-6">
-      <SettingsCard
-        title="Department Hierarchy"
-        description="Configure parent-child relationships between departments for escalation paths."
-        icon={GitBranch}
-      >
-        <div className="space-y-4">
-          {departments.map((dept) => {
-            const children = getChildDepartments(dept.id);
-            const parent = getParentDepartment(dept.id);
-            const managers = departmentManagers.filter((m) => m.departmentId === dept.id);
-            
-            return (
-              <div key={dept.id} className="p-4 rounded-lg border bg-secondary/10">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-3">
-                    <div 
-                      className="w-3 h-3 rounded-full" 
-                      style={{ backgroundColor: dept.color }}
-                    />
-                    <span className="font-medium">{dept.name}</span>
-                    {parent && (
-                      <Badge variant="outline" className="text-xs">
-                        Under: {parent.name}
-                      </Badge>
-                    )}
-                  </div>
-                  <Select
-                    value={parent?.id || "none"}
-                    onValueChange={(value) => {
-                      const existingHierarchy = departmentHierarchy.find(
-                        (h) => h.childDepartmentId === dept.id
-                      );
-                      if (existingHierarchy) {
-                        deleteDepartmentHierarchyMutation.mutate(existingHierarchy.id);
-                      }
-                      if (value !== "none") {
-                        createDepartmentHierarchyMutation.mutate({
-                          parentDepartmentId: value,
-                          childDepartmentId: dept.id,
-                        });
-                      }
-                    }}
-                  >
-                    <SelectTrigger className="w-48">
-                      <SelectValue placeholder="Set parent department" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">No Parent (Top Level)</SelectItem>
-                      {departments
-                        .filter((d) => d.id !== dept.id)
-                        .map((d) => (
-                          <SelectItem key={d.id} value={d.id}>
-                            {d.name}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                {children.length > 0 && (
-                  <div className="mt-2 pl-6 border-l-2 border-muted">
-                    <p className="text-xs text-muted-foreground mb-1">Sub-departments:</p>
-                    <div className="flex flex-wrap gap-1">
-                      {children.map((child) => (
-                        <Badge key={child.id} variant="secondary" className="text-xs">
-                          {child.name}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </SettingsCard>
-
       <SettingsCard
         title="Escalation Rules"
         description="Configure automatic escalation when tickets meet certain conditions."
@@ -867,7 +1338,7 @@ export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSe
                 <div className="space-y-4 py-4">
                   <div className="space-y-2">
                     <Label>Rule Name</Label>
-                    <Input name="name" placeholder="e.g., Escalate to IT Manager after 4 hours" required />
+                    <Input name="name" placeholder="e.g., Escalate to Manager after 4 hours" required />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
@@ -984,9 +1455,9 @@ export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSe
                     <Button variant="ghost" size="icon" className="h-8 w-8">
                       <Edit3 className="w-4 h-4" />
                     </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       className="h-8 w-8 text-destructive"
                       onClick={() => deleteEscalationRuleMutation.mutate(rule.id)}
                     >
@@ -1006,117 +1477,53 @@ export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSe
     <div className="space-y-6">
       <SettingsCard
         title="Inbound Email Configuration"
-        description="Configure email address for receiving tickets via email. Replies to ticket notifications will automatically update the ticket."
+        description="Configure email address for receiving tickets via email."
         icon={Mail}
       >
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-4">
-            <SettingsRow label="Email Address" vertical>
-              <Input 
-                placeholder="support@yourdomain.com" 
-                value={emailConfig?.emailAddress || ""}
-                onChange={(e) => {
-                  if (emailConfig) {
-                    updateEmailConfigMutation.mutate({ id: emailConfig.id, emailAddress: e.target.value });
-                  }
-                }}
-              />
-            </SettingsRow>
-            <SettingsRow label="Email Provider" vertical>
-              <Select 
-                value={emailConfig?.provider || "custom"}
-                onValueChange={(value) => {
-                  if (emailConfig) {
-                    updateEmailConfigMutation.mutate({ id: emailConfig.id, provider: value });
-                  } else if (helpdesk) {
-                    createEmailConfigMutation.mutate({ provider: value });
-                  }
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="custom">Custom SMTP</SelectItem>
-                  <SelectItem value="gmail">Gmail</SelectItem>
-                  <SelectItem value="outlook">Outlook/Office 365</SelectItem>
-                  <SelectItem value="agentmail">AgentMail</SelectItem>
-                </SelectContent>
-              </Select>
-            </SettingsRow>
-          </div>
-          <div className="space-y-4">
-            <SettingsRow label="Enable Inbound Email" description="Create tickets from incoming emails.">
-              <Switch 
-                checked={emailConfig?.enabled === "true"}
-                onCheckedChange={(checked) => {
-                  if (emailConfig) {
-                    updateEmailConfigMutation.mutate({ id: emailConfig.id, enabled: checked ? "true" : "false" });
-                  } else if (helpdesk) {
-                    createEmailConfigMutation.mutate({ enabled: checked ? "true" : "false" });
-                  }
-                }}
-              />
-            </SettingsRow>
-            <SettingsRow label="Auto-Create Tickets" description="Automatically create tickets from new emails.">
-              <Switch 
-                checked={emailConfig?.autoCreateTickets === "true"}
-                onCheckedChange={(checked) => {
-                  if (emailConfig) {
-                    updateEmailConfigMutation.mutate({ id: emailConfig.id, autoCreateTickets: checked ? "true" : "false" });
-                  }
-                }}
-              />
-            </SettingsRow>
-            <SettingsRow label="Default Priority" vertical>
-              <Select 
-                value={emailConfig?.defaultPriority || "medium"}
-                onValueChange={(value) => {
-                  if (emailConfig) {
-                    updateEmailConfigMutation.mutate({ id: emailConfig.id, defaultPriority: value });
-                  }
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="urgent">Urgent</SelectItem>
-                </SelectContent>
-              </Select>
-            </SettingsRow>
-          </div>
-        </div>
-      </SettingsCard>
-
-      <SettingsCard
-        title="Email Threading"
-        description="How email replies are matched to existing tickets."
-        icon={MessagesSquare}
-      >
         <div className="space-y-4">
-          <SettingsRow 
-            label="Thread by Subject" 
-            description="Match emails by subject line containing ticket ID."
-          >
-            <Switch defaultChecked />
+          <SettingsRow label="Email Address" vertical>
+            <Input
+              placeholder="support@yourdomain.com"
+              value={emailConfig?.emailAddress || ""}
+              onChange={(e) => {
+                if (emailConfig) {
+                  updateEmailConfigMutation.mutate({ id: emailConfig.id, emailAddress: e.target.value });
+                }
+              }}
+            />
+          </SettingsRow>
+          <SettingsRow label="Email Provider" vertical>
+            <Select
+              value={emailConfig?.provider || "custom"}
+              onValueChange={(value) => {
+                if (emailConfig) {
+                  updateEmailConfigMutation.mutate({ id: emailConfig.id, provider: value });
+                } else if (helpdesk) {
+                  createEmailConfigMutation.mutate({ provider: value });
+                }
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="custom">Custom SMTP</SelectItem>
+                <SelectItem value="gmail">Gmail</SelectItem>
+                <SelectItem value="outlook">Outlook/O365</SelectItem>
+                <SelectItem value="sendgrid">SendGrid</SelectItem>
+              </SelectContent>
+            </Select>
           </SettingsRow>
           <Separator />
-          <SettingsRow 
-            label="Thread by References" 
-            description="Use email headers (In-Reply-To, References) to match threads."
-          >
-            <Switch defaultChecked />
-          </SettingsRow>
-          <Separator />
-          <SettingsRow 
-            label="Thread by Sender" 
-            description="Associate emails from the same sender to their open tickets."
-          >
-            <Switch />
+          <SettingsRow label="Auto-Create Tickets" description="Automatically create tickets from incoming emails.">
+            <Switch
+              checked={emailConfig?.autoCreateTickets === "true"}
+              onCheckedChange={(checked) => {
+                if (emailConfig) {
+                  updateEmailConfigMutation.mutate({ id: emailConfig.id, autoCreateTickets: checked ? "true" : "false" });
+                }
+              }}
+            />
           </SettingsRow>
         </div>
       </SettingsCard>
@@ -1127,330 +1534,158 @@ export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSe
     <div className="space-y-6">
       <SettingsCard
         title="Webhooks"
-        description="Configure webhooks to notify external systems about ticket events."
+        description="Configure webhooks to send ticket events to external services."
         icon={Webhook}
         actions={
           <Dialog>
             <DialogTrigger asChild>
-              <Button size="sm">
-                <Plus className="w-4 h-4 mr-2" /> Add Webhook
+              <Button size="sm" className="gap-2">
+                <Plus className="w-4 h-4" /> Add Webhook
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Add Webhook</DialogTitle>
                 <DialogDescription>
-                  Configure a new webhook to receive ticket event notifications.
+                  Configure a webhook endpoint to receive ticket events.
                 </DialogDescription>
               </DialogHeader>
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  const formData = new FormData(e.currentTarget);
-                  createWebhookMutation.mutate({
-                    name: formData.get("name") as string,
-                    url: formData.get("url") as string,
-                    events: formData.get("events") as string || "ticket.created,ticket.updated",
-                    secret: formData.get("secret") as string || undefined,
-                  });
-                  (e.target as HTMLFormElement).reset();
-                }}
-                className="space-y-4"
-              >
-                <div className="space-y-2">
-                  <Label htmlFor="webhook-name">Name</Label>
-                  <Input id="webhook-name" name="name" placeholder="Slack Notifications" required />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="webhook-url">URL</Label>
-                  <Input id="webhook-url" name="url" type="url" placeholder="https://..." required />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="webhook-events">Events (comma-separated)</Label>
-                  <Input id="webhook-events" name="events" placeholder="ticket.created,ticket.updated,ticket.resolved" defaultValue="ticket.created,ticket.updated" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="webhook-secret">Secret (optional)</Label>
-                  <Input id="webhook-secret" name="secret" type="password" placeholder="HMAC signing secret" />
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget);
+                createWebhookMutation.mutate({
+                  name: formData.get("name") as string,
+                  url: formData.get("url") as string,
+                  events: formData.get("events") as string || "ticket.created,ticket.updated",
+                });
+              }}>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label>Webhook Name</Label>
+                    <Input name="name" placeholder="e.g., Slack Notifications" required />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Endpoint URL</Label>
+                    <Input name="url" type="url" placeholder="https://..." required />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Events (comma-separated)</Label>
+                    <Input name="events" placeholder="ticket.created,ticket.updated" defaultValue="ticket.created,ticket.updated" />
+                  </div>
                 </div>
                 <DialogFooter>
-                  <Button type="submit" disabled={createWebhookMutation.isPending}>
-                    {createWebhookMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Add Webhook"}
-                  </Button>
+                  <Button type="submit">Create Webhook</Button>
                 </DialogFooter>
               </form>
             </DialogContent>
           </Dialog>
         }
       >
-        <div className="space-y-3">
-          {webhooks.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-              <Webhook className="w-10 h-10 mb-3 opacity-30" />
-              <p className="text-sm">No webhooks configured</p>
-              <p className="text-xs">Add a webhook to notify external services about ticket events</p>
-            </div>
-          ) : (
-            webhooks.map((webhook) => (
+        {webhooks.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            <Webhook className="w-12 h-12 mx-auto mb-2 opacity-20" />
+            <p className="text-sm">No webhooks configured</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {webhooks.map((webhook) => (
               <div
                 key={webhook.id}
-                className="flex items-center justify-between p-4 border rounded-lg bg-background/50"
+                className="flex items-center justify-between p-4 rounded-lg border bg-secondary/10"
               >
                 <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">{webhook.name}</span>
-                    <Badge variant={webhook.enabled === "true" ? "default" : "secondary"}>
-                      {webhook.enabled === "true" ? "Active" : "Disabled"}
-                    </Badge>
-                  </div>
+                  <span className="font-medium text-sm">{webhook.name}</span>
                   <p className="text-xs text-muted-foreground truncate max-w-md">{webhook.url}</p>
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    {webhook.events.split(",").map((event) => (
-                      <Badge key={event} variant="outline" className="text-xs">{event}</Badge>
+                  <div className="flex flex-wrap gap-1">
+                    {webhook.events?.split(",").map((event) => (
+                      <Badge key={event} variant="outline" className="text-[10px]">
+                        {event.trim()}
+                      </Badge>
                     ))}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Switch 
-                    checked={webhook.enabled === "true"}
-                    onCheckedChange={(checked) => {
-                      updateWebhookMutation.mutate({ id: webhook.id, enabled: checked ? "true" : "false" });
-                    }}
-                  />
+                  <Switch checked={webhook.enabled === "true"} />
                   <Button
                     variant="ghost"
-                    size="sm"
+                    size="icon"
+                    className="h-8 w-8 text-destructive"
                     onClick={() => deleteWebhookMutation.mutate(webhook.id)}
                   >
-                    <Trash2 className="w-4 h-4 text-destructive" />
+                    <Trash2 className="w-4 h-4" />
                   </Button>
                 </div>
               </div>
-            ))
-          )}
-        </div>
+            ))}
+          </div>
+        )}
       </SettingsCard>
     </div>
   );
 
-  const renderTicketSettings = () => (
-    <div className="space-y-6">
-      <SettingsCard
-        title="Custom Form Fields"
-        description="Add custom fields to your ticket creation form."
-        icon={Ticket}
-        actions={
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button size="sm">
-                <Plus className="w-4 h-4 mr-2" /> Add Field
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Add Custom Field</DialogTitle>
-                <DialogDescription>
-                  Create a new field for your ticket creation form.
-                </DialogDescription>
-              </DialogHeader>
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  const formData = new FormData(e.currentTarget);
-                  createFormFieldMutation.mutate({
-                    name: (formData.get("label") as string).toLowerCase().replace(/\s+/g, "_"),
-                    label: formData.get("label") as string,
-                    fieldType: formData.get("fieldType") as string || "text",
-                    placeholder: formData.get("placeholder") as string || undefined,
-                    helpText: formData.get("helpText") as string || undefined,
-                    required: formData.get("required") ? "true" : "false",
-                    options: formData.get("options") as string || undefined,
-                    order: formFields.length,
-                  });
-                  (e.target as HTMLFormElement).reset();
-                }}
-                className="space-y-4"
-              >
-                <div className="space-y-2">
-                  <Label htmlFor="field-label">Field Label</Label>
-                  <Input id="field-label" name="label" placeholder="Product Version" required />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="field-type">Field Type</Label>
-                  <Select name="fieldType" defaultValue="text">
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="text">Text</SelectItem>
-                      <SelectItem value="textarea">Long Text</SelectItem>
-                      <SelectItem value="select">Dropdown</SelectItem>
-                      <SelectItem value="checkbox">Checkbox</SelectItem>
-                      <SelectItem value="number">Number</SelectItem>
-                      <SelectItem value="date">Date</SelectItem>
-                      <SelectItem value="email">Email</SelectItem>
-                      <SelectItem value="url">URL</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="field-placeholder">Placeholder (optional)</Label>
-                  <Input id="field-placeholder" name="placeholder" placeholder="Enter placeholder text..." />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="field-options">Options (for dropdown, comma-separated)</Label>
-                  <Input id="field-options" name="options" placeholder="Option 1, Option 2, Option 3" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="field-help">Help Text (optional)</Label>
-                  <Input id="field-help" name="helpText" placeholder="Describe what this field is for" />
-                </div>
-                <div className="flex items-center gap-2">
-                  <input type="checkbox" id="field-required" name="required" />
-                  <Label htmlFor="field-required">Required field</Label>
-                </div>
-                <DialogFooter>
-                  <Button type="submit" disabled={createFormFieldMutation.isPending}>
-                    {createFormFieldMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Add Field"}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
-        }
-      >
-        <div className="space-y-3">
-          {formFields.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-              <Ticket className="w-10 h-10 mb-3 opacity-30" />
-              <p className="text-sm">No custom fields configured</p>
-              <p className="text-xs">Add custom fields to collect additional information with tickets</p>
-            </div>
-          ) : (
-            formFields.map((field) => (
-              <div
-                key={field.id}
-                className="flex items-center justify-between p-4 border rounded-lg bg-background/50"
-              >
-                <div className="flex items-center gap-4">
-                  <GripVertical className="w-4 h-4 text-muted-foreground cursor-move" />
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">{field.label}</span>
-                      <Badge variant="outline" className="text-xs">{field.fieldType}</Badge>
-                      {field.required === "true" && (
-                        <Badge variant="secondary" className="text-xs">Required</Badge>
-                      )}
-                    </div>
-                    {field.placeholder && (
-                      <p className="text-xs text-muted-foreground">Placeholder: {field.placeholder}</p>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Switch 
-                    checked={field.enabled === "true"}
-                    onCheckedChange={(checked) => {
-                      updateFormFieldMutation.mutate({ id: field.id, enabled: checked ? "true" : "false" });
-                    }}
-                  />
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => deleteFormFieldMutation.mutate(field.id)}
-                  >
-                    <Trash2 className="w-4 h-4 text-destructive" />
-                  </Button>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      </SettingsCard>
-
-      <SettingsCard
-        title="Default Fields"
-        description="Configure visibility and requirements for standard ticket fields."
-        icon={Settings}
-      >
-        <div className="space-y-4">
-          <SettingsRow label="Priority" description="Allow users to set ticket priority">
-            <Switch defaultChecked />
-          </SettingsRow>
-          <Separator />
-          <SettingsRow label="Type" description="Allow users to categorize tickets (bug, feature, question)">
-            <Switch defaultChecked />
-          </SettingsRow>
-          <Separator />
-          <SettingsRow label="Attachments" description="Allow file uploads with ticket submissions">
-            <Switch defaultChecked />
-          </SettingsRow>
-        </div>
-      </SettingsCard>
-    </div>
-  );
+  if (isLoadingDepts) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-8 h-8 animate-spin text-primary/50" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       <SettingsHeader
         sectionId={subsection || "helpdesk"}
-        title="Helpdesk Settings"
-        description="Configure helpdesk behavior, SLA states, escalation rules, and email settings per department."
+        title="Helpdesk Configuration"
+        description="Configure helpdesk settings, ticket workflows, and SLA policies."
         actions={
           <DepartmentSelector
             departments={departments}
             selectedDepartment={selectedDepartment}
             onSelect={setSelectedDepartment}
-            loading={isLoadingDepts}
           />
         }
       />
 
-      {!selectedDepartment && !isLoadingDepts ? (
-        <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <FolderKanban className="w-12 h-12 text-muted-foreground/30 mb-4" />
-            <p className="text-sm font-medium">Select a department</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Choose a department to configure its helpdesk settings.
-            </p>
-          </CardContent>
-        </Card>
-      ) : isLoadingDepts || isLoadingHelpdesk ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-8 h-8 animate-spin text-primary/50" />
-        </div>
-      ) : (
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="bg-secondary/30 p-1 rounded-xl h-auto flex-wrap mb-6">
-            <TabsTrigger value="overview" className="rounded-lg py-2 px-4 gap-2">
-              <FolderKanban className="w-4 h-4" /> Overview
-            </TabsTrigger>
-            <TabsTrigger value="sla" className="rounded-lg py-2 px-4 gap-2">
-              <Clock className="w-4 h-4" /> SLA States
-            </TabsTrigger>
-            <TabsTrigger value="escalation" className="rounded-lg py-2 px-4 gap-2">
-              <AlertCircle className="w-4 h-4" /> Escalation
-            </TabsTrigger>
-            <TabsTrigger value="emails" className="rounded-lg py-2 px-4 gap-2">
-              <Mail className="w-4 h-4" /> Inbound Email
-            </TabsTrigger>
-            <TabsTrigger value="webhooks" className="rounded-lg py-2 px-4 gap-2">
-              <Webhook className="w-4 h-4" /> Webhooks
-            </TabsTrigger>
-            <TabsTrigger value="ticket-settings" className="rounded-lg py-2 px-4 gap-2">
-              <Ticket className="w-4 h-4" /> Ticket Settings
-            </TabsTrigger>
-          </TabsList>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <TabsList className="grid w-full grid-cols-7 lg:w-auto lg:inline-flex">
+          <TabsTrigger value="overview" className="gap-2">
+            <Settings className="w-4 h-4 hidden lg:block" />
+            Overview
+          </TabsTrigger>
+          <TabsTrigger value="subdepartments" className="gap-2">
+            <GitBranch className="w-4 h-4 hidden lg:block" />
+            Subdepts
+          </TabsTrigger>
+          <TabsTrigger value="form-designer" className="gap-2">
+            <LayoutGrid className="w-4 h-4 hidden lg:block" />
+            Form
+          </TabsTrigger>
+          <TabsTrigger value="sla" className="gap-2">
+            <Clock className="w-4 h-4 hidden lg:block" />
+            SLA
+          </TabsTrigger>
+          <TabsTrigger value="escalation" className="gap-2">
+            <AlertCircle className="w-4 h-4 hidden lg:block" />
+            Escalation
+          </TabsTrigger>
+          <TabsTrigger value="email" className="gap-2">
+            <Mail className="w-4 h-4 hidden lg:block" />
+            Email
+          </TabsTrigger>
+          <TabsTrigger value="webhooks" className="gap-2">
+            <Webhook className="w-4 h-4 hidden lg:block" />
+            Webhooks
+          </TabsTrigger>
+        </TabsList>
 
-          <TabsContent value="overview">{renderOverview()}</TabsContent>
-          <TabsContent value="sla">{renderSLAStates()}</TabsContent>
-          <TabsContent value="escalation">{renderEscalationRules()}</TabsContent>
-          <TabsContent value="emails">{renderEmailSettings()}</TabsContent>
-          <TabsContent value="webhooks">{renderWebhooks()}</TabsContent>
-          <TabsContent value="ticket-settings">{renderTicketSettings()}</TabsContent>
-        </Tabs>
-      )}
+        <TabsContent value="overview">{renderOverview()}</TabsContent>
+        <TabsContent value="subdepartments">{renderSubdepartments()}</TabsContent>
+        <TabsContent value="form-designer">{renderTicketFormDesigner()}</TabsContent>
+        <TabsContent value="sla">{renderSLASettings()}</TabsContent>
+        <TabsContent value="escalation">{renderEscalationRules()}</TabsContent>
+        <TabsContent value="email">{renderEmailSettings()}</TabsContent>
+        <TabsContent value="webhooks">{renderWebhooks()}</TabsContent>
+      </Tabs>
     </div>
   );
 }
