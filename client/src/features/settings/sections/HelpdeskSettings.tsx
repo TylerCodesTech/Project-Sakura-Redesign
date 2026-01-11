@@ -74,7 +74,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { type Department, type Helpdesk, type SlaState, type SlaPolicy, type EscalationRule, type InboundEmailConfig, type DepartmentHierarchy, type HelpdeskWebhook, type TicketFormField } from "@shared/schema";
+import { type Department, type Helpdesk, type SlaState, type SlaPolicy, type EscalationRule, type InboundEmailConfig, type DepartmentHierarchy, type HelpdeskWebhook, type TicketFormField, type TicketFormCategory } from "@shared/schema";
 import { cn } from "@/lib/utils";
 import {
   SettingsHeader,
@@ -258,8 +258,10 @@ export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSe
   const [isAddRuleOpen, setIsAddRuleOpen] = useState(false);
   const [isAddFieldOpen, setIsAddFieldOpen] = useState(false);
   const [isAddSubdeptOpen, setIsAddSubdeptOpen] = useState(false);
+  const [isAddCategoryOpen, setIsAddCategoryOpen] = useState(false);
   const [editingState, setEditingState] = useState<SlaState | null>(null);
   const [editingField, setEditingField] = useState<TicketFormField | null>(null);
+  const [editingCategory, setEditingCategory] = useState<TicketFormCategory | null>(null);
   const [newStateName, setNewStateName] = useState("");
   const [newStateColor, setNewStateColor] = useState("#3b82f6");
   const [newStateIsFinal, setNewStateIsFinal] = useState(false);
@@ -344,6 +346,16 @@ export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSe
     queryFn: async () => {
       if (!helpdesk?.id) return [];
       const res = await fetch(`/api/helpdesks/${helpdesk.id}/form-fields`);
+      return res.json();
+    },
+    enabled: !!helpdesk?.id,
+  });
+
+  const { data: formCategories = [] } = useQuery<TicketFormCategory[]>({
+    queryKey: ["/api/helpdesks", helpdesk?.id, "form-categories"],
+    queryFn: async () => {
+      if (!helpdesk?.id) return [];
+      const res = await fetch(`/api/helpdesks/${helpdesk.id}/form-categories`);
       return res.json();
     },
     enabled: !!helpdesk?.id,
@@ -568,6 +580,42 @@ export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSe
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/helpdesks", helpdesk?.id, "form-fields"] });
       toast.success("Field deleted");
+    },
+  });
+
+  const createFormCategoryMutation = useMutation({
+    mutationFn: async (data: Partial<TicketFormCategory>) => {
+      const res = await apiRequest("POST", `/api/helpdesks/${helpdesk?.id}/form-categories`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/helpdesks", helpdesk?.id, "form-categories"] });
+      setIsAddCategoryOpen(false);
+      setEditingCategory(null);
+      toast.success("Form category created");
+    },
+  });
+
+  const updateFormCategoryMutation = useMutation({
+    mutationFn: async ({ id, ...data }: { id: string } & Partial<TicketFormCategory>) => {
+      const res = await apiRequest("PATCH", `/api/form-categories/${id}`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/helpdesks", helpdesk?.id, "form-categories"] });
+      setIsAddCategoryOpen(false);
+      setEditingCategory(null);
+      toast.success("Form category updated");
+    },
+  });
+
+  const deleteFormCategoryMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/form-categories/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/helpdesks", helpdesk?.id, "form-categories"] });
+      toast.success("Form category deleted");
     },
   });
 
@@ -926,8 +974,182 @@ export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSe
     </div>
   );
 
+  const CATEGORY_ICONS = [
+    { value: "Monitor", label: "Hardware", icon: Monitor },
+    { value: "Laptop", label: "Software", icon: Laptop },
+    { value: "Network", label: "Network", icon: Network },
+    { value: "Key", label: "Access", icon: Key },
+    { value: "HelpCircle", label: "Other", icon: HelpCircle },
+    { value: "Settings", label: "Settings", icon: Settings },
+    { value: "Mail", label: "Email", icon: Mail },
+    { value: "Ticket", label: "Ticket", icon: Ticket },
+  ];
+
   const renderTicketFormDesigner = () => (
     <div className="space-y-6">
+      <SettingsCard
+        title="Form Categories"
+        description="Create multiple form categories (e.g., Hardware, Software, Network). Users will select a category before filling out the form."
+        icon={Layers}
+        actions={
+          <Dialog open={isAddCategoryOpen} onOpenChange={(open) => {
+            setIsAddCategoryOpen(open);
+            if (!open) setEditingCategory(null);
+          }}>
+            <DialogTrigger asChild>
+              <Button size="sm" className="gap-2">
+                <Plus className="w-4 h-4" /> Add Category
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{editingCategory ? "Edit Category" : "Add Form Category"}</DialogTitle>
+                <DialogDescription>
+                  Create a category to organize your ticket forms. Each category can have its own set of fields.
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget);
+                const categoryData = {
+                  name: formData.get("name") as string,
+                  description: formData.get("description") as string || null,
+                  icon: formData.get("icon") as string || "HelpCircle",
+                  color: formData.get("color") as string || "#3b82f6",
+                  enabled: "true",
+                  order: editingCategory?.order ?? formCategories.length,
+                };
+                
+                if (editingCategory) {
+                  updateFormCategoryMutation.mutate({ id: editingCategory.id, ...categoryData });
+                } else {
+                  createFormCategoryMutation.mutate(categoryData);
+                }
+              }}>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label>Category Name</Label>
+                    <Input 
+                      name="name" 
+                      placeholder="e.g., Hardware Issue" 
+                      defaultValue={editingCategory?.name || ""}
+                      required 
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Description</Label>
+                    <Textarea 
+                      name="description" 
+                      placeholder="Brief description of this category..."
+                      defaultValue={editingCategory?.description || ""}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Icon</Label>
+                      <Select name="icon" defaultValue={editingCategory?.icon || "HelpCircle"}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {CATEGORY_ICONS.map((iconOption) => (
+                            <SelectItem key={iconOption.value} value={iconOption.value}>
+                              <div className="flex items-center gap-2">
+                                <iconOption.icon className="w-4 h-4" />
+                                {iconOption.label}
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Color</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          type="color"
+                          name="color"
+                          className="w-12 h-10 p-1"
+                          defaultValue={editingCategory?.color || "#3b82f6"}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button type="button" variant="outline" onClick={() => {
+                    setIsAddCategoryOpen(false);
+                    setEditingCategory(null);
+                  }}>
+                    Cancel
+                  </Button>
+                  <Button type="submit">
+                    {editingCategory ? "Update Category" : "Add Category"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        }
+      >
+        {formCategories.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            <Layers className="w-12 h-12 mx-auto mb-2 opacity-20" />
+            <p className="text-sm">No form categories configured</p>
+            <p className="text-xs">Add categories to let users choose the type of issue when creating a ticket</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {formCategories.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).map((category) => {
+              const IconComponent = CATEGORY_ICONS.find(i => i.value === category.icon)?.icon || HelpCircle;
+              return (
+                <div
+                  key={category.id}
+                  className="relative group p-4 rounded-lg border bg-card hover:shadow-md transition-shadow"
+                >
+                  <div className="flex flex-col items-center text-center gap-2">
+                    <div 
+                      className="w-12 h-12 rounded-lg flex items-center justify-center"
+                      style={{ backgroundColor: `${category.color}20` }}
+                    >
+                      <IconComponent className="w-6 h-6" style={{ color: category.color }} />
+                    </div>
+                    <span className="font-medium text-sm">{category.name}</span>
+                    {category.description && (
+                      <span className="text-xs text-muted-foreground line-clamp-2">{category.description}</span>
+                    )}
+                    {category.enabled === "false" && (
+                      <Badge variant="secondary" className="text-[10px]">Disabled</Badge>
+                    )}
+                  </div>
+                  <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => {
+                        setEditingCategory(category);
+                        setIsAddCategoryOpen(true);
+                      }}
+                    >
+                      <Edit3 className="w-3 h-3" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-destructive"
+                      onClick={() => deleteFormCategoryMutation.mutate(category.id)}
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </SettingsCard>
+
       <SettingsCard
         title="Ticket Form Designer"
         description="Configure the fields that appear when creating a new ticket. Drag to reorder."
