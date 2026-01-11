@@ -139,7 +139,8 @@ export default function BookView() {
         title,
         content: `<h1>${title}</h1><p>Start writing...</p>`,
         order: (pages.length).toString(),
-        type: "page"
+        type: "page",
+        authorId: "current-user-id"
       });
       return await res.json() as Page;
     },
