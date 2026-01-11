@@ -5,7 +5,7 @@ import session from "express-session";
 import connectPg from "connect-pg-simple";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
-import { users, insertUserSchema, roles, userRoles } from "@shared/schema";
+import { users, insertUserSchema, roles, userRoles, systemSettings, departments } from "@shared/schema";
 import { db, pool } from "./db";
 import { eq, count } from "drizzle-orm";
 import { fromZodError } from "zod-validation-error";
@@ -150,6 +150,44 @@ export function setupAuth(app: Express) {
         roleId: superAdminRole[0].id,
         assignedBy: newUser.id,
       });
+
+      if (company?.name) {
+        await db
+          .insert(systemSettings)
+          .values({ key: "companyName", value: company.name })
+          .onConflictDoUpdate({
+            target: systemSettings.key,
+            set: { value: company.name },
+          });
+      }
+
+      if (company?.primaryColor) {
+        await db
+          .insert(systemSettings)
+          .values({ key: "primaryColor", value: company.primaryColor })
+          .onConflictDoUpdate({
+            target: systemSettings.key,
+            set: { value: company.primaryColor },
+          });
+      }
+
+      if (department?.name) {
+        const [dept] = await db
+          .insert(departments)
+          .values({
+            name: department.name,
+            description: department.description || "",
+            color: "#7c3aed",
+          })
+          .returning();
+        
+        if (dept) {
+          await db
+            .update(users)
+            .set({ department: dept.name })
+            .where(eq(users.id, newUser.id));
+        }
+      }
 
       req.login(newUser, (err) => {
         if (err) return next(err);

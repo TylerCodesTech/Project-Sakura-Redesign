@@ -35,12 +35,22 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { type Department, type News, type Stat, type Comment } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { currentUser } from "@/lib/mockData";
+import { useAuth } from "@/hooks/use-auth";
+import { useSystemSettings } from "@/contexts/SystemSettingsContext";
+
+function getTimeGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good Morning";
+  if (hour < 17) return "Good Afternoon";
+  return "Good Evening";
+}
 
 export default function Dashboard() {
   const [time, setTime] = useState(new Date());
   const [message, setMessage] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
+  const { user } = useAuth();
+  const { settings } = useSystemSettings();
 
   const { data: departments = [], isLoading: isLoadingDepts } = useQuery<Department[]>({
     queryKey: ["/api/departments"],
@@ -63,7 +73,7 @@ export default function Dashboard() {
     mutationFn: async (content: string) => {
       await apiRequest("POST", "/api/watercooler", {
         content,
-        userId: currentUser.id,
+        userId: user?.id || "anonymous",
       });
     },
     onSuccess: () => {
@@ -95,13 +105,16 @@ export default function Dashboard() {
     { name: "Auth Service", status: "Operational", color: "bg-emerald-400", latency: "24ms" },
   ];
 
+  const userName = user?.username || "User";
+  const companyName = settings.companyName || "Your Company";
+
   return (
     <Layout>
       <div className="space-y-8">
         <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
           <div className="space-y-2">
-            <h1 className="text-4xl font-display font-bold text-primary tracking-tight">Good Evening, {currentUser.name.split(' ')[0]}</h1>
-            <p className="text-muted-foreground text-lg">Here's what's happening at Sakura Corp today.</p>
+            <h1 className="text-4xl font-display font-bold text-primary tracking-tight">{getTimeGreeting()}, {userName}</h1>
+            <p className="text-muted-foreground text-lg">Here's what's happening at {companyName} today.</p>
           </div>
           
           <div className="flex items-center gap-4 p-2 bg-secondary/20 dark:bg-card/40 backdrop-blur-md rounded-[20px] border border-border/50 shadow-sm">
@@ -113,7 +126,7 @@ export default function Dashboard() {
             <div className="flex items-center gap-2.5 px-4 py-2.5 bg-background dark:bg-card rounded-2xl border border-border/50 shadow-sm">
               <Clock className="w-5 h-5 text-primary" />
               <span className="text-sm font-bold tabular-nums">
-                {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} PM
+                {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </span>
             </div>
 
@@ -173,214 +186,182 @@ export default function Dashboard() {
                     <div key={item.id} className="flex items-center justify-between p-3 rounded-2xl hover:bg-secondary/20 transition-colors cursor-pointer group">
                       <div className="space-y-1">
                         <p className="text-sm font-bold group-hover:text-primary transition-colors">{item.title}</p>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] text-muted-foreground">
-                            {new Date(item.createdAt).toLocaleDateString([], { month: 'short', day: '2-digit', year: 'numeric' })}
-                          </span>
-                          <Badge variant="outline" className="text-[9px] py-0 h-4 border-indigo-500/20 text-indigo-500">{item.category}</Badge>
-                        </div>
+                        <p className="text-xs text-muted-foreground">{item.category}</p>
                       </div>
-                      <ChevronRightIcon className="w-4 h-4 text-muted-foreground group-hover:translate-x-1 transition-transform" />
+                      <Badge variant="secondary" className="rounded-full px-3 bg-primary/10 text-primary hover:bg-primary/20">
+                        New
+                      </Badge>
                     </div>
                   ))
                 )}
               </CardContent>
             </Card>
 
-            <Card className="border border-border/50 shadow-sm rounded-3xl overflow-hidden bg-white/60 dark:bg-card/60 backdrop-blur-md">
-              <CardHeader className="flex flex-row items-center justify-between border-b border-border/40 pb-4 bg-secondary/10">
-                <div className="flex items-center gap-3">
-                  <CardTitle className="text-lg font-bold text-primary">Watercooler</CardTitle>
-                  <Badge variant="outline" className="font-mono text-[10px] py-0 border-primary/20 bg-primary/5 text-primary">#general</Badge>
-                </div>
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-1.5 text-xs text-emerald-500 font-bold uppercase tracking-wider bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/10">
-                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    Live
-                  </div>
-                  <div className="h-4 w-px bg-border/50" />
-                  <span className="text-xs font-bold text-muted-foreground tabular-nums">1 Online</span>
-                </div>
-              </CardHeader>
-              <CardContent className="p-0 flex flex-col h-[320px]">
-                <ScrollArea className="flex-1 p-4" ref={scrollRef}>
-                  <div className="space-y-4">
-                    {messages.length === 0 ? (
-                      <div className="h-full flex items-center justify-center text-muted-foreground py-12">
-                        <div className="text-center space-y-2">
-                          <MessageSquare className="w-8 h-8 mx-auto opacity-10" />
-                          <p className="text-xs font-medium opacity-40 italic">Start the conversation...</p>
-                        </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              {isLoadingStats ? (
+                Array.from({ length: 4 }).map((_, i) => (
+                  <Card key={i} className="border border-border/50 shadow-sm rounded-3xl bg-white/60 dark:bg-card/60 backdrop-blur-md">
+                    <CardContent className="p-4 h-24 flex flex-col justify-center">
+                      <div className="h-4 w-16 bg-secondary/30 rounded animate-pulse mb-2" />
+                      <div className="h-8 w-12 bg-secondary/20 rounded animate-pulse" />
+                    </CardContent>
+                  </Card>
+                ))
+              ) : (
+                backendStats.map((stat) => (
+                  <Card key={stat.id} className="border border-border/50 shadow-sm rounded-3xl bg-white/60 dark:bg-card/60 backdrop-blur-md hover:shadow-md transition-shadow group">
+                    <CardContent className="p-4">
+                      <p className="text-xs text-muted-foreground font-medium">{stat.label}</p>
+                      <p className="text-3xl font-black text-primary mt-1 group-hover:scale-105 transition-transform origin-left">
+                        {stat.value}
+                      </p>
+                      <div className="flex items-center gap-1 mt-1">
+                        <TrendingUp className="w-3 h-3 text-emerald-500" />
+                        <span className="text-xs text-emerald-500 font-bold">{stat.change || "+0%"}</span>
                       </div>
-                    ) : (
-                      messages.map((msg) => (
-                        <div key={msg.id} className={cn(
-                          "flex flex-col gap-1 max-w-[80%]",
-                          msg.userId === currentUser.id ? "ml-auto items-end" : "items-start"
-                        )}>
-                          <div className={cn(
-                            "px-4 py-2 rounded-2xl text-sm",
-                            msg.userId === currentUser.id 
-                              ? "bg-primary text-white rounded-br-none shadow-md shadow-primary/20" 
-                              : "bg-secondary/40 text-foreground rounded-bl-none border border-border/50"
-                          )}>
-                            {msg.content}
-                          </div>
-                          <span className="text-[10px] text-muted-foreground px-1">
-                            {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </span>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </ScrollArea>
-                <div className="p-4 border-t border-border/40 flex items-center gap-4 bg-background/30">
-                  <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-xl transition-all shrink-0">
-                    <Paperclip className="w-5 h-5" />
-                  </Button>
-                  <div className="relative flex-1 group">
-                    <Input 
-                      placeholder="Type a message..." 
-                      className="bg-secondary/30 border-transparent focus-visible:bg-background focus-visible:ring-2 focus-visible:ring-primary/20 rounded-2xl pl-4 pr-10 transition-all h-11"
-                      value={message}
-                      onChange={(e) => setMessage(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-                    />
-                    <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary rounded-lg">
-                      <Smile className="w-5 h-5" />
-                    </Button>
-                  </div>
-                  <Button 
-                    size="icon" 
-                    className="rounded-2xl w-11 h-11 shadow-lg shadow-primary/20 hover:scale-105 transition-all shrink-0"
-                    onClick={handleSendMessage}
-                    disabled={postMessageMutation.isPending || !message.trim()}
-                  >
-                    <SendHorizontal className="w-5 h-5" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
 
             <Card className="border border-border/50 shadow-sm rounded-3xl overflow-hidden bg-white/60 dark:bg-card/60 backdrop-blur-md">
               <CardHeader className="flex flex-row items-center justify-between border-b border-border/40 pb-4 bg-secondary/10">
                 <div className="flex items-center gap-3">
-                  <Building2 className="w-5 h-5 text-primary" />
+                  <div className="p-1.5 bg-cyan-500/10 rounded-lg">
+                    <Building2 className="w-4 h-4 text-cyan-500" />
+                  </div>
                   <CardTitle className="text-lg font-bold text-primary">Departments</CardTitle>
                 </div>
                 <Button variant="ghost" size="sm" className="text-primary font-bold hover:bg-primary/5 px-4 rounded-xl">
-                  Manage
+                  View All
+                  <ChevronRightIcon className="w-4 h-4 ml-1" />
                 </Button>
               </CardHeader>
-              <CardContent className="p-6">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {isLoadingDepts ? (
-                    Array.from({ length: 2 }).map((_, i) => (
+              <CardContent className="p-4">
+                {isLoadingDepts ? (
+                  <div className="grid grid-cols-2 gap-3">
+                    {Array.from({ length: 4 }).map((_, i) => (
                       <div key={i} className="h-20 rounded-2xl bg-secondary/20 animate-pulse" />
-                    ))
-                  ) : departments.length === 0 ? (
-                    <div className="col-span-2 py-12 flex flex-col items-center justify-center text-muted-foreground">
-                      <div className="w-12 h-12 rounded-full bg-secondary/30 flex items-center justify-center mb-4">
-                        <Plus className="w-6 h-6 opacity-20" />
-                      </div>
-                      <p className="text-sm font-medium opacity-60">No departments found</p>
-                    </div>
-                  ) : (
-                    departments.slice(0, 4).map((dept) => (
-                      <div key={dept.id} className="p-4 rounded-2xl border border-border/50 bg-background/50 hover:bg-background transition-colors flex items-center justify-between group">
+                    ))}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-3">
+                    {departments.slice(0, 4).map((dept) => (
+                      <div 
+                        key={dept.id} 
+                        className="p-4 rounded-2xl border border-border/50 hover:border-primary/30 hover:bg-primary/5 transition-all cursor-pointer group"
+                      >
                         <div className="flex items-center gap-3">
-                          <div className="w-2 h-8 rounded-full" style={ { backgroundColor: dept.color } } />
-                          <div>
-                            <p className="text-sm font-bold">{dept.name}</p>
-                            <p className="text-[10px] text-muted-foreground line-clamp-1">{dept.description}</p>
+                          <div 
+                            className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-black text-lg shadow-sm"
+                            style={{ backgroundColor: dept.color || '#7c3aed' }}
+                          >
+                            {dept.name.charAt(0)}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-bold text-primary truncate group-hover:text-primary transition-colors">{dept.name}</p>
+                            <p className="text-xs text-muted-foreground">12 members</p>
                           </div>
                         </div>
-                        <ChevronRightIcon className="w-4 h-4 text-muted-foreground group-hover:translate-x-1 transition-transform" />
                       </div>
-                    ))
-                  )}
-                </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
 
-          <div className="lg:col-span-4 space-y-8">
-            <Card className="border border-border/50 shadow-sm rounded-3xl overflow-hidden bg-white/60 dark:bg-card/60 backdrop-blur-md p-6">
-              <div className="flex items-center justify-between mb-8">
-                <CardTitle className="text-lg font-bold text-primary">Quick Actions</CardTitle>
-                <div className="p-1.5 bg-secondary/50 rounded-lg">
-                  <Activity className="w-4 h-4 text-muted-foreground" />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                {[
-                  { icon: Plus, label: "New Ticket", color: "text-blue-500", bg: "bg-blue-500/10" },
-                  { icon: FileText, label: "Write Doc", color: "text-emerald-500", bg: "bg-emerald-500/10" },
-                  { icon: Calendar, label: "Book Room", color: "text-purple-500", bg: "bg-purple-500/10" },
-                  { icon: LifeBuoy, label: "Get Help", color: "text-rose-500", bg: "bg-rose-500/10" }
-                ].map((action) => (
-                  <button key={action.label} className="flex flex-col items-center gap-3 p-5 rounded-2xl hover:bg-secondary/40 border border-transparent hover:border-border/40 transition-all group outline-none">
-                    <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center group-hover:scale-110 group-hover:shadow-lg transition-all", action.bg, action.color)}>
-                      <action.icon className="w-7 h-7" />
-                    </div>
-                    <span className="text-[11px] font-bold text-foreground uppercase tracking-wider">{action.label}</span>
-                  </button>
-                ))}
-              </div>
-            </Card>
-
-            <Card className="border border-border/50 shadow-sm rounded-3xl overflow-hidden bg-white/60 dark:bg-card/60 backdrop-blur-md">
-              <CardHeader className="flex flex-row items-center justify-between border-b border-border/40 pb-4 bg-primary/5">
+          <div className="lg:col-span-4 space-y-6">
+            <Card className="border border-border/50 shadow-sm rounded-3xl bg-white/60 dark:bg-card/60 backdrop-blur-md">
+              <CardHeader className="flex flex-row items-center justify-between border-b border-border/40 pb-4 bg-secondary/10">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
-                    <Bell className="w-4 h-4" />
+                  <div className="p-1.5 bg-purple-500/10 rounded-lg">
+                    <Calendar className="w-4 h-4 text-purple-500" />
                   </div>
-                  <CardTitle className="text-base font-bold text-primary">Recent Notifications</CardTitle>
+                  <CardTitle className="text-lg font-bold text-primary">Quick Actions</CardTitle>
                 </div>
               </CardHeader>
-              <CardContent className="p-0">
-                <div className="divide-y divide-border/40">
-                  {[
-                    { title: "System Update", msg: "v2.4.0 is now live with performance improvements.", time: "2h ago" },
-                    { title: "New Document", msg: "Sarah shared 'Marketing Strategy 2026'.", time: "5h ago" },
-                  ].map((notif, i) => (
-                    <div key={i} className="p-4 hover:bg-secondary/10 transition-colors cursor-pointer group">
-                      <div className="flex justify-between items-start mb-1">
-                        <p className="text-xs font-bold">{notif.title}</p>
-                        <span className="text-[10px] text-muted-foreground">{notif.time}</span>
-                      </div>
-                      <p className="text-[11px] text-muted-foreground line-clamp-2">{notif.msg}</p>
-                    </div>
-                  ))}
-                </div>
-                <Button variant="ghost" className="w-full text-xs font-bold text-primary hover:bg-primary/5 py-4 h-auto border-t rounded-none">
-                  View All Notifications
+              <CardContent className="p-4 space-y-2">
+                <Button variant="outline" className="w-full justify-start gap-3 h-12 rounded-2xl border-border/50 hover:bg-primary/5 hover:text-primary hover:border-primary/30 transition-all font-medium">
+                  <div className="p-1.5 bg-rose-500/10 rounded-lg">
+                    <Plus className="w-4 h-4 text-rose-500" />
+                  </div>
+                  Create Ticket
+                </Button>
+                <Button variant="outline" className="w-full justify-start gap-3 h-12 rounded-2xl border-border/50 hover:bg-primary/5 hover:text-primary hover:border-primary/30 transition-all font-medium">
+                  <div className="p-1.5 bg-blue-500/10 rounded-lg">
+                    <PenLine className="w-4 h-4 text-blue-500" />
+                  </div>
+                  New Document
+                </Button>
+                <Button variant="outline" className="w-full justify-start gap-3 h-12 rounded-2xl border-border/50 hover:bg-primary/5 hover:text-primary hover:border-primary/30 transition-all font-medium">
+                  <div className="p-1.5 bg-amber-500/10 rounded-lg">
+                    <LifeBuoy className="w-4 h-4 text-amber-500" />
+                  </div>
+                  Get Support
                 </Button>
               </CardContent>
             </Card>
 
-            <Card className="border border-border/50 shadow-sm rounded-3xl overflow-hidden bg-white/60 dark:bg-card/60 backdrop-blur-md">
-              <CardHeader className="flex flex-row items-center justify-between border-b border-border/40 pb-4 bg-indigo-500/5">
+            <Card className="border border-border/50 shadow-sm rounded-3xl bg-white/60 dark:bg-card/60 backdrop-blur-md flex flex-col h-[400px]">
+              <CardHeader className="flex flex-row items-center justify-between border-b border-border/40 pb-4 bg-secondary/10">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-500">
-                    <Calendar className="w-4 h-4" />
+                  <div className="p-1.5 bg-green-500/10 rounded-lg">
+                    <MessageSquare className="w-4 h-4 text-green-500" />
                   </div>
-                  <CardTitle className="text-base font-bold text-primary">Volunteer Events</CardTitle>
+                  <CardTitle className="text-lg font-bold text-primary">Water Cooler</CardTitle>
                 </div>
-                <Button variant="ghost" size="sm" className="text-primary font-bold hover:bg-primary/10 px-4 rounded-xl">Calendar</Button>
+                <Badge variant="outline" className="rounded-full text-xs font-black">
+                  Live
+                </Badge>
               </CardHeader>
-              <CardContent className="p-4 space-y-3">
-                <div className="p-3 rounded-2xl bg-secondary/20 flex items-center gap-3 border border-border/40">
-                  <div className="bg-primary/10 p-2 rounded-lg text-primary text-center min-w-[40px]">
-                    <p className="text-[10px] font-bold uppercase">Jan</p>
-                    <p className="text-sm font-black">15</p>
+              <CardContent className="p-0 flex-1 flex flex-col overflow-hidden">
+                <ScrollArea className="flex-1 p-4" ref={scrollRef}>
+                  <div className="space-y-3">
+                    {messages.map((msg, i) => (
+                      <div key={msg.id || i} className="flex gap-2">
+                        <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                          <span className="text-xs font-bold text-primary">
+                            {(msg.userId || "U").charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                        <div className="bg-secondary/30 rounded-2xl rounded-tl-md px-3 py-2 max-w-[85%]">
+                          <p className="text-sm">{msg.content}</p>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                  <div>
-                    <p className="text-xs font-bold">Tech Mentorship</p>
-                    <p className="text-[10px] text-muted-foreground">3:00 PM - Virtual</p>
+                </ScrollArea>
+                <div className="p-3 border-t border-border/40 bg-secondary/5">
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 relative">
+                      <Input 
+                        placeholder="Say something..." 
+                        className="h-10 rounded-2xl border-border/50 pr-20 bg-background/50"
+                        value={message}
+                        onChange={(e) => setMessage(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                      />
+                      <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                        <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full hover:bg-secondary/50">
+                          <Smile className="w-4 h-4 text-muted-foreground" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full hover:bg-secondary/50">
+                          <Paperclip className="w-4 h-4 text-muted-foreground" />
+                        </Button>
+                      </div>
+                    </div>
+                    <Button 
+                      size="icon" 
+                      className="h-10 w-10 rounded-2xl shadow-sm"
+                      onClick={handleSendMessage}
+                      disabled={postMessageMutation.isPending}
+                    >
+                      <SendHorizontal className="w-4 h-4" />
+                    </Button>
                   </div>
                 </div>
-                <p className="text-[10px] text-center text-muted-foreground italic py-2">More events coming soon</p>
               </CardContent>
             </Card>
           </div>

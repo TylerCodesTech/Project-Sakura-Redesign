@@ -94,6 +94,15 @@ export async function registerRoutes(
     }
   });
 
+  // Users
+  app.get("/api/users", async (_req, res) => {
+    const allUsers = await storage.getUsers();
+    res.json(allUsers.map(u => ({
+      ...u,
+      password: undefined,
+    })));
+  });
+
   // Departments
   app.get("/api/departments", async (_req, res) => {
     const departments = await storage.getDepartments();
