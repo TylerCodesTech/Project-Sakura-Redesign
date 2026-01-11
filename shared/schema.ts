@@ -45,6 +45,18 @@ export const systemSettingsDefaults: Record<string, string> = {
   autoArchiveEnabled: "true",
   autoArchiveAfterDays: "180",
   showLegacyVersionsInSearch: "true",
+  // AI Configuration - Embeddings
+  aiEmbeddingProvider: "openai",
+  aiEmbeddingModel: "text-embedding-3-small",
+  aiEmbeddingDimensions: "1536",
+  aiOllamaBaseUrl: "http://localhost:11434",
+  aiAutoVectorization: "true",
+  aiEnableRag: "true",
+  aiChunkSize: "1000",
+  // AI Configuration - Chat
+  aiChatProvider: "openai",
+  aiChatModel: "gpt-4",
+  aiChatTemperature: "0.7",
 };
 
 export type SystemSettingsKeys = keyof typeof systemSettingsDefaults;
