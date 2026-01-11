@@ -35,6 +35,9 @@ Preferred communication style: Simple, everyday language.
 - **Users**: Basic user authentication with username/password
 - **Books**: Document collections with title, description, and author reference
 - **Pages**: Flexible content pages that can be standalone or belong to books, with support for hierarchical organization (parent/child relationships) and ordering
+- **Page Versions**: Complete version history for pages with version numbers, content snapshots, and change descriptions
+- **Book Versions**: Complete version history for books with version numbers, metadata snapshots, and change descriptions
+- **Version Audit Logs**: Comprehensive logging of all version-related actions (created, modified, reverted, deleted, archived, restored)
 - **Helpdesks**: Per-department helpdesk configuration with settings for ticket management
 - **SLA States**: Custom ticket states with colors, SLA tracking, and ordering
 - **SLA Policies**: Response and resolution time targets per priority level
@@ -48,6 +51,32 @@ Preferred communication style: Simple, everyday language.
 - **Role Permissions**: Many-to-many relationship between roles and permissions with optional scope (department-level permissions)
 - **User Roles**: User-to-role assignments with assigned-by tracking
 - **Audit Logs**: Comprehensive logging of all security-related changes including role/permission modifications
+
+### Version History System
+The application includes a comprehensive version history system for both Pages and Books:
+
+**Features:**
+- **Version Timeline**: Git-style sidebar widget showing all document versions with commit-like entries
+- **Version Comparison**: Side-by-side comparison tool for viewing differences between versions (text, images, embedded media)
+- **Revert Functionality**: Auto-saves current state before reverting to preserve history
+- **Archive/Restore**: Archive old versions to reduce clutter, restore when needed
+- **Version Search**: Global search includes legacy versions with visual indicators like "[Legacy Version – v2.3]" or "[Archived – Last Updated: DD/MM/YYYY]"
+
+**Version Retention Settings (System Settings):**
+- `versionRetentionPolicy`: "all", "limit_by_count", "limit_by_time", or "auto_archive"
+- `versionMaxCount`: Maximum versions to keep (default: 50)
+- `versionMaxAgeDays`: Maximum age in days before archiving (default: 365)
+- `autoArchiveEnabled`: Enable automatic archiving of old versions
+
+**API Endpoints:**
+- `GET /api/pages/:id/versions` - Get all versions for a page
+- `POST /api/pages/:id/versions` - Create a new version
+- `POST /api/pages/:id/revert/:versionNumber` - Revert to a specific version
+- `POST /api/pages/:id/versions/:versionId/archive` - Archive a version
+- `POST /api/pages/:id/versions/:versionId/restore` - Restore an archived version
+- `GET /api/pages/:id/compare/:v1/:v2` - Compare two versions
+- `GET /api/versions/search?q=query` - Search across all versions
+- Similar endpoints available for books under `/api/books/:id/versions`
 
 ### Key Design Decisions
 
