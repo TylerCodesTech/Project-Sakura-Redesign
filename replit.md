@@ -25,6 +25,34 @@ Preferred communication style: Simple, everyday language.
 - **API Design**: RESTful endpoints under `/api` prefix
 - **Development**: Hot module replacement via Vite middleware in development mode
 
+### Authentication System
+- **Session Management**: Express-session with PostgreSQL session store (connect-pg-simple)
+- **Password Security**: Scrypt-based hashing with random salt
+- **Strategy**: Passport.js with local strategy
+- **Session Cookie**: HTTP-only, secure in production, 24-hour expiry
+
+**Key Components:**
+- `server/auth.ts` - Passport configuration, session setup, auth routes
+- `client/src/hooks/use-auth.tsx` - React context and hooks for auth state
+- `client/src/lib/protected-route.tsx` - Route guard component
+
+**API Endpoints:**
+- `GET /api/setup-status` - Check if first-time setup is needed
+- `POST /api/setup` - Complete first-time setup (creates super admin, role, department)
+- `POST /api/login` - User login with username/password
+- `POST /api/logout` - End session
+- `POST /api/register` - Create new user account
+- `GET /api/user` - Get current authenticated user
+
+**First-Time Setup Wizard:**
+When no users exist, the application redirects to `/setup` with a 4-step wizard:
+1. **Create Admin** - Username and password for super admin
+2. **Company Info** - Company name and brand color
+3. **AI Settings** - Optional embedding model configuration
+4. **First Department** - Create initial department
+
+The setup automatically creates a "Super Admin" role with full permissions and assigns it to the first user.
+
 ### Data Layer
 - **ORM**: Drizzle ORM with PostgreSQL dialect
 - **Schema Location**: `shared/schema.ts` contains all database table definitions
