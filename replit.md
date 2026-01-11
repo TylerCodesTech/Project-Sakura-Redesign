@@ -33,7 +33,8 @@ Preferred communication style: Simple, everyday language.
 - **Modular Settings Architecture**: Organized settings sections (AI, Users, Roles, Departments, Helpdesk, Documentation, Links, General) with responsive navigation, breadcrumbs, and a settings context provider.
 - **Documentation Settings**: Department-specific configuration for documentation, including version history controls and access management.
 - **Custom Links System**: Department-based and company-wide custom links with favicon auto-fetch and visual indicators.
-- **Helpdesk Settings**: Per-department configuration for helpdesks, including subdepartment management, a ticket form UI designer, SLA states and policies, and escalation rules.
+- **Helpdesk Settings**: Per-department configuration for helpdesks, including subdepartment management, a ticket form UI designer with advanced field configuration, SLA states and policies, and escalation rules.
+- **Multi-Form Ticket Categories**: Support for multiple form categories per helpdesk (e.g., Hardware, Software, Network, Access). When multiple categories exist, users see a category selection screen with icons; when only one exists, it launches directly. Form fields support width settings (full, half, third) and internal-only visibility for staff fields.
 - **Ticket Sidebar Panel**: Quick view and inline editing of ticket details, comments, and status.
 - **Reports System**: A comprehensive report builder accessible at `/reports` with department-specific configuration. Supports various report types (Audit, User Access, Ticket SLA, etc.), drag-and-drop interface, live preview, scheduling, and sharing capabilities.
 
