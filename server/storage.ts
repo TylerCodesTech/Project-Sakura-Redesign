@@ -353,7 +353,8 @@ export class MemStorage implements IStorage {
     const book: Book = { 
       ...insertBook, 
       id,
-      description: insertBook.description ?? null 
+      description: insertBook.description ?? null,
+      parentId: insertBook.parentId ?? null 
     };
     this.books.set(id, book);
     return book;
@@ -368,7 +369,7 @@ export class MemStorage implements IStorage {
   }
 
   async deleteBook(id: string): Promise<void> {
-    for (const [pageId, page] of this.pages) {
+    for (const [pageId, page] of Array.from(this.pages.entries())) {
       if (page.bookId === id) {
         this.pages.delete(pageId);
       }
@@ -422,7 +423,7 @@ export class MemStorage implements IStorage {
   }
 
   async deletePage(id: string): Promise<void> {
-    for (const [commentId, comment] of this.comments) {
+    for (const [commentId, comment] of Array.from(this.comments.entries())) {
       if (comment.pageId === id) {
         this.comments.delete(commentId);
       }
