@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { ChevronDown, ChevronRight, Menu } from "lucide-react";
+import { useState, useEffect } from "react";
+import { ChevronDown, ChevronRight, Menu, X, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +17,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { settingsNavigation, type SettingsNavItem } from "../navigation";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface SettingsSidebarProps {
   activeSection: string;
@@ -34,11 +35,16 @@ function NavItem({
   onSectionChange: (section: string) => void;
   depth?: number;
 }) {
-  const [isOpen, setIsOpen] = useState(
-    item.children?.some(
-      (c: SettingsNavItem) => c.id === activeSection || activeSection.startsWith(c.id)
-    ) || activeSection === item.id
+  const isChildActive = item.children?.some(
+    (c: SettingsNavItem) => c.id === activeSection || activeSection.startsWith(c.id)
   );
+  const [isOpen, setIsOpen] = useState(isChildActive || activeSection === item.id);
+
+  useEffect(() => {
+    if (isChildActive) {
+      setIsOpen(true);
+    }
+  }, [isChildActive]);
 
   const Icon = item.icon;
   const isActive = activeSection === item.id;
@@ -50,64 +56,98 @@ function NavItem({
         <CollapsibleTrigger asChild>
           <button
             className={cn(
-              "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
-              "hover:bg-secondary/50",
-              isOpen && "bg-secondary/30"
+              "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200",
+              "hover:bg-secondary/60 active:scale-[0.98]",
+              isOpen && "bg-secondary/40",
+              isChildActive && "text-primary"
             )}
-            style={{ paddingLeft: `${12 + depth * 12}px` }}
+            style={{ paddingLeft: `${12 + depth * 16}px` }}
           >
-            <Icon className="w-4 h-4 shrink-0" />
+            <div className={cn(
+              "p-1.5 rounded-lg transition-colors",
+              isChildActive ? "bg-primary/10 text-primary" : "bg-muted/50"
+            )}>
+              <Icon className="w-4 h-4 shrink-0" />
+            </div>
             <span className="flex-1 text-left truncate">{item.label}</span>
             {item.badge && (
-              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-medium bg-primary/10 text-primary border-0">
                 {item.badge}
               </Badge>
             )}
-            {isOpen ? (
+            <motion.div
+              animate={{ rotate: isOpen ? 180 : 0 }}
+              transition={{ duration: 0.2 }}
+            >
               <ChevronDown className="w-4 h-4 shrink-0 text-muted-foreground" />
-            ) : (
-              <ChevronRight className="w-4 h-4 shrink-0 text-muted-foreground" />
-            )}
+            </motion.div>
           </button>
         </CollapsibleTrigger>
-        <CollapsibleContent className="space-y-0.5 mt-0.5">
-          {item.children?.map((child: SettingsNavItem) => (
-            <NavItem
-              key={child.id}
-              item={child}
-              activeSection={activeSection}
-              onSectionChange={onSectionChange}
-              depth={depth + 1}
-            />
-          ))}
-        </CollapsibleContent>
+        <AnimatePresence initial={false}>
+          {isOpen && (
+            <CollapsibleContent forceMount asChild>
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="overflow-hidden"
+              >
+                <div className="space-y-0.5 mt-1 ml-3 pl-3 border-l-2 border-border/40">
+                  {item.children?.map((child: SettingsNavItem) => (
+                    <NavItem
+                      key={child.id}
+                      item={child}
+                      activeSection={activeSection}
+                      onSectionChange={onSectionChange}
+                      depth={depth + 1}
+                    />
+                  ))}
+                </div>
+              </motion.div>
+            </CollapsibleContent>
+          )}
+        </AnimatePresence>
       </Collapsible>
     );
   }
 
   return (
-    <button
+    <motion.button
+      whileHover={{ x: 2 }}
+      whileTap={{ scale: 0.98 }}
       onClick={() => onSectionChange(item.id)}
       className={cn(
-        "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors",
-        "hover:bg-secondary/50",
+        "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200",
+        depth > 0 ? "py-2" : "",
         isActive
-          ? "bg-primary text-primary-foreground font-medium"
-          : "text-muted-foreground hover:text-foreground"
+          ? "bg-primary text-primary-foreground font-medium shadow-sm"
+          : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
       )}
-      style={{ paddingLeft: `${12 + depth * 12}px` }}
+      style={{ paddingLeft: depth > 0 ? `${8 + depth * 8}px` : `${12 + depth * 16}px` }}
     >
-      <Icon className="w-4 h-4 shrink-0" />
+      {depth === 0 && (
+        <div className={cn(
+          "p-1.5 rounded-lg transition-colors",
+          isActive ? "bg-primary-foreground/20" : "bg-muted/50"
+        )}>
+          <Icon className="w-4 h-4 shrink-0" />
+        </div>
+      )}
+      {depth > 0 && <Icon className="w-3.5 h-3.5 shrink-0" />}
       <span className="flex-1 text-left truncate">{item.label}</span>
       {item.badge && (
         <Badge
           variant={isActive ? "outline" : "secondary"}
-          className="text-[10px] px-1.5 py-0"
+          className={cn(
+            "text-[10px] px-1.5 py-0 font-medium",
+            isActive ? "border-primary-foreground/30 text-primary-foreground" : "bg-primary/10 text-primary border-0"
+          )}
         >
           {item.badge}
         </Badge>
       )}
-    </button>
+    </motion.button>
   );
 }
 
@@ -117,7 +157,16 @@ function SidebarContent({
 }: SettingsSidebarProps) {
   return (
     <ScrollArea className="h-full">
-      <div className="space-y-1 p-2">
+      <div className="space-y-1.5 p-3">
+        <div className="flex items-center gap-2 px-3 py-2 mb-2">
+          <div className="p-2 rounded-xl bg-primary/10">
+            <Settings className="w-5 h-5 text-primary" />
+          </div>
+          <div>
+            <h2 className="font-semibold text-sm">Settings</h2>
+            <p className="text-xs text-muted-foreground">Configure your workspace</p>
+          </div>
+        </div>
         {settingsNavigation.map((item) => (
           <NavItem
             key={item.id}
@@ -145,38 +194,47 @@ export function SettingsSidebar({
   const activeItem = settingsNavigation.find(
     (item) =>
       item.id === activeSection ||
-      item.children?.some((c) => c.id === activeSection)
+      item.children?.some((c) => c.id === activeSection || activeSection.startsWith(c.id))
+  );
+
+  const activeChild = activeItem?.children?.find(
+    (c) => c.id === activeSection || activeSection.startsWith(c.id)
   );
 
   return (
     <>
-      <div className="hidden lg:block w-64 shrink-0 border-r border-border/40 bg-card/30">
+      <aside className="hidden lg:flex flex-col w-72 shrink-0 border-r border-border/40 bg-gradient-to-b from-card/80 to-card/40 backdrop-blur-sm">
         <div className="sticky top-0 h-[calc(100vh-4rem)]">
           <SidebarContent
             activeSection={activeSection}
             onSectionChange={onSectionChange}
           />
         </div>
-      </div>
+      </aside>
 
-      <div className="lg:hidden">
+      <div className="lg:hidden sticky top-0 z-40 bg-background/95 backdrop-blur-sm border-b border-border/40 -mx-4 sm:-mx-6 px-4 sm:px-6 py-3">
         <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
           <SheetTrigger asChild>
             <Button
               variant="outline"
               size="sm"
-              className="gap-2 mb-4 w-full justify-start"
+              className="gap-2 w-full justify-between h-11 rounded-xl border-border/60 bg-card/50"
             >
-              <Menu className="w-4 h-4" />
-              <span className="flex-1 text-left">
-                {activeItem?.label || "Settings"}
-              </span>
-              <ChevronDown className="w-4 h-4" />
+              <div className="flex items-center gap-2">
+                <Menu className="w-4 h-4" />
+                <span className="font-medium">
+                  {activeChild?.label || activeItem?.label || "Settings"}
+                </span>
+              </div>
+              <ChevronDown className="w-4 h-4 text-muted-foreground" />
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="w-80 p-0">
             <SheetHeader className="p-4 border-b">
-              <SheetTitle>Settings</SheetTitle>
+              <SheetTitle className="flex items-center gap-2">
+                <Settings className="w-5 h-5" />
+                Settings
+              </SheetTitle>
             </SheetHeader>
             <SidebarContent
               activeSection={activeSection}

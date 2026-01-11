@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import { Layout } from "@/components/layout/Layout";
 import { SettingsSidebar } from "@/features/settings/components";
+import { SettingsProvider } from "@/features/settings/context";
 import {
   AISettings,
   UsersSettings,
@@ -11,6 +12,7 @@ import {
   LinksSettings,
   GeneralSettings,
 } from "@/features/settings/sections";
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function SystemSettings() {
   const [activeSection, setActiveSection] = useState("helpdesk-overview");
@@ -75,24 +77,38 @@ export default function SystemSettings() {
     return <HelpdeskSettings subsection="helpdesk-overview" />;
   };
 
+  const sectionKey = normalizeSection(activeSection);
+
   return (
-    <Layout>
-      <div className="flex min-h-[calc(100vh-4rem)]">
-        <SettingsSidebar
-          activeSection={normalizeSection(activeSection)}
-          onSectionChange={(section) => {
-            setActiveSection(normalizeSection(section));
-            if (!section.startsWith("helpdesk")) {
-              setHelpdeskDepartmentId(undefined);
-            }
-          }}
-        />
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-auto">
-          <div className="max-w-5xl mx-auto">
-            {renderSection()}
-          </div>
-        </main>
-      </div>
-    </Layout>
+    <SettingsProvider>
+      <Layout>
+        <div className="flex min-h-[calc(100vh-4rem)]">
+          <SettingsSidebar
+            activeSection={sectionKey}
+            onSectionChange={(section) => {
+              setActiveSection(normalizeSection(section));
+              if (!section.startsWith("helpdesk")) {
+                setHelpdeskDepartmentId(undefined);
+              }
+            }}
+          />
+          <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-auto bg-gradient-to-br from-background to-muted/20">
+            <div className="max-w-6xl mx-auto">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={sectionKey}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  {renderSection()}
+                </motion.div>
+              </AnimatePresence>
+            </div>
+          </main>
+        </div>
+      </Layout>
+    </SettingsProvider>
   );
 }
