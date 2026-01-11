@@ -5,7 +5,7 @@ import {
   Search, 
   FileText, 
   BookOpen, 
-  MoreVertical, 
+  MoreHorizontal, 
   Clock, 
   ChevronRight,
   Sparkles,
@@ -13,7 +13,10 @@ import {
   LayoutGrid,
   List,
   Filter,
-  Upload
+  Upload,
+  History,
+  Trash2,
+  AlertTriangle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -164,7 +167,6 @@ export default function Documents() {
     createPageMutation.mutate({ title: newName, type });
   };
 
-  const [movingItemId, setMovingItemId] = useState<string | null>(null);
 
   const moveItemMutation = useMutation({
     mutationFn: async ({ id, parentId }: { id: string, parentId: string | null }) => {
@@ -174,7 +176,6 @@ export default function Documents() {
     onSuccess: () => {
       toast({ title: "Item Moved", description: "Successfully moved the item." });
       queryClient.invalidateQueries({ queryKey: ["/api/pages"] });
-      setMovingItemId(null);
     }
   });
 
@@ -211,7 +212,6 @@ export default function Documents() {
     ...standalonePages.map(p => ({ ...p, itemType: p.type as 'page' | 'folder' }))
   ];
 
-  const folders = allPages.filter(p => p.type === 'folder');
 
   return (
     <Layout>
@@ -392,38 +392,6 @@ export default function Documents() {
           </DialogContent>
         </Dialog>
 
-        <Dialog open={!!movingItemId} onOpenChange={(open) => !open && setMovingItemId(null)}>
-          <DialogContent className="sm:max-w-[425px] rounded-[24px] border-border/50 shadow-2xl">
-            <DialogHeader>
-              <DialogTitle className="text-2xl font-bold tracking-tight">Move Item</DialogTitle>
-              <DialogDescription>Select a destination folder</DialogDescription>
-            </DialogHeader>
-            <div className="py-6 space-y-2 max-h-[300px] overflow-y-auto">
-              <Button
-                variant="ghost"
-                className="w-full justify-start rounded-xl font-bold h-12"
-                onClick={() => movingItemId && handleMoveItem(movingItemId, null)}
-              >
-                <Folder className="w-4 h-4 mr-2 text-muted-foreground" />
-                Root Directory
-              </Button>
-              {folders
-                .filter(f => f.id !== movingItemId)
-                .map(folder => (
-                  <Button
-                    key={folder.id}
-                    variant="ghost"
-                    className="w-full justify-start rounded-xl font-bold h-12"
-                    onClick={() => movingItemId && handleMoveItem(movingItemId, folder.id)}
-                  >
-                    <Folder className="w-4 h-4 mr-2 text-blue-500" />
-                    {folder.title}
-                  </Button>
-                ))}
-            </div>
-          </DialogContent>
-        </Dialog>
-
         {/* Document Grid/List */}
         <div 
           className={cn(
@@ -448,7 +416,6 @@ export default function Documents() {
                 item={item} 
                 view={view} 
                 onFolderClick={setCurrentFolderId} 
-                onMoveClick={item.itemType !== 'book' ? setMovingItemId : undefined}
                 onSelect={setSelectedItem}
                 isSelected={selectedItem?.id === item.id}
                 onDragStart={onDragStart}
@@ -487,7 +454,6 @@ function DocCard({
   item, 
   view, 
   onFolderClick, 
-  onMoveClick,
   onSelect,
   isSelected,
   onDragStart,
@@ -500,7 +466,6 @@ function DocCard({
   item: any, 
   view: 'grid' | 'list', 
   onFolderClick?: (id: string) => void, 
-  onMoveClick?: (id: string) => void,
   onSelect?: (item: any) => void,
   isSelected?: boolean,
   onDragStart: (id: string) => void,
@@ -511,13 +476,73 @@ function DocCard({
   isDropTarget: boolean
 }) {
   const [, navigate] = useLocation();
+  const { toast } = useToast();
   const clickTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [deleteCountdown, setDeleteCountdown] = useState(5);
+  const [canConfirmDelete, setCanConfirmDelete] = useState(false);
+  
   const isBook = item.itemType === 'book';
   const isFolder = item.itemType === 'folder';
   const Icon = isBook ? BookOpen : isFolder ? Folder : FileText;
   const colorClass = isBook ? 'text-emerald-500 bg-emerald-500/10' : 
                      isFolder ? 'text-blue-500 bg-blue-500/10' : 
                      'text-indigo-500 bg-indigo-500/10';
+
+  useEffect(() => {
+    if (isDeleteDialogOpen) {
+      setDeleteCountdown(5);
+      setCanConfirmDelete(false);
+      const timer = setInterval(() => {
+        setDeleteCountdown(prev => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            setCanConfirmDelete(true);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [isDeleteDialogOpen]);
+
+  const deleteBookMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("DELETE", `/api/books/${item.id}`);
+    },
+    onSuccess: () => {
+      toast({ title: "Deleted", description: "WikiBook has been deleted." });
+      queryClient.invalidateQueries({ queryKey: ["/api/books"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/pages"] });
+      setIsDeleteDialogOpen(false);
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to delete.", variant: "destructive" });
+    }
+  });
+
+  const deletePageMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("DELETE", `/api/pages/${item.id}`);
+    },
+    onSuccess: () => {
+      toast({ title: "Deleted", description: "Document has been deleted." });
+      queryClient.invalidateQueries({ queryKey: ["/api/pages"] });
+      setIsDeleteDialogOpen(false);
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to delete.", variant: "destructive" });
+    }
+  });
+
+  const handleDelete = () => {
+    if (isBook) {
+      deleteBookMutation.mutate();
+    } else {
+      deletePageMutation.mutate();
+    }
+  };
 
   const openItem = () => {
     if (isFolder && onFolderClick) {
@@ -550,22 +575,60 @@ function DocCard({
     openItem();
   };
 
-  const handleOpenClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    openItem();
-  };
-
-  const actionButtons = (
-    <div className="flex gap-2">
-      {onMoveClick && (
-        <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); onMoveClick(item.id); }} className="h-8 rounded-lg text-muted-foreground font-bold hover:bg-secondary">
-          Move
+  const dropdownMenu = (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
+          <MoreHorizontal className="w-4 h-4" />
         </Button>
-      )}
-      <Button variant="ghost" size="sm" onClick={handleOpenClick} className="h-8 rounded-lg text-primary font-bold hover:bg-primary/10">
-        Open
-      </Button>
-    </div>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-48">
+        <DropdownMenuItem className="cursor-pointer">
+          <History className="w-4 h-4 mr-2" />
+          Version History
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem 
+          className="cursor-pointer text-destructive focus:text-destructive"
+          onClick={(e) => { e.stopPropagation(); setIsDeleteDialogOpen(true); }}
+        >
+          <Trash2 className="w-4 h-4 mr-2" />
+          Delete
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+
+  const deleteDialog = (
+    <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-destructive">
+            <AlertTriangle className="w-5 h-5" />
+            Delete {isBook ? 'WikiBook' : isFolder ? 'Folder' : 'Document'}
+          </DialogTitle>
+          <DialogDescription className="pt-2">
+            Are you sure you want to delete <span className="font-semibold">"{item.title}"</span>? 
+            {isBook && " This will also delete all pages within this book."}
+            {isFolder && " This will also delete all items within this folder."}
+            <br /><br />
+            This action cannot be undone.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter className="flex gap-2 sm:gap-0">
+          <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
+            Cancel
+          </Button>
+          <Button 
+            variant="destructive" 
+            onClick={handleDelete}
+            disabled={!canConfirmDelete || deleteBookMutation.isPending || deletePageMutation.isPending}
+          >
+            {canConfirmDelete ? 'Delete Forever' : `Wait ${deleteCountdown}s...`}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 
   const containerClasses = cn(
@@ -594,56 +657,52 @@ function DocCard({
 
   if (view === 'list') {
     return (
-      <Card {...cardProps}>
-        <CardContent className="p-4 flex items-center gap-6">
-          <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center shrink-0", colorClass)}>
-            <Icon className="w-6 h-6" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <h3 className="font-bold text-foreground truncate group-hover:text-primary transition-colors">{item.title || item.name}</h3>
-          </div>
-          <div className="flex items-center gap-4">
-            <Badge variant="outline" className={cn("hidden sm:inline-flex font-bold text-[10px] uppercase tracking-wider", colorClass)}>
-              {item.itemType}
-            </Badge>
-            {actionButtons}
-          </div>
-        </CardContent>
-      </Card>
+      <>
+        <Card {...cardProps}>
+          <CardContent className="p-4 flex items-center gap-6">
+            <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center shrink-0", colorClass)}>
+              <Icon className="w-6 h-6" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="font-bold text-foreground truncate group-hover:text-primary transition-colors">{item.title || item.name}</h3>
+            </div>
+            <div className="flex items-center gap-4">
+              <Badge variant="outline" className={cn("hidden sm:inline-flex font-bold text-[10px] uppercase tracking-wider", colorClass)}>
+                {item.itemType}
+              </Badge>
+              {dropdownMenu}
+            </div>
+          </CardContent>
+        </Card>
+        {deleteDialog}
+      </>
     );
   }
 
   return (
-    <Card {...cardProps}>
-      <CardContent className="p-6 flex flex-col h-full">
-        <div className="flex items-start justify-between mb-6">
-          <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm", colorClass)}>
-            <Icon className="w-7 h-7" />
+    <>
+      <Card {...cardProps}>
+        <CardContent className="p-6 flex flex-col h-full">
+          <div className="flex items-start justify-between mb-6">
+            <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm", colorClass)}>
+              <Icon className="w-7 h-7" />
+            </div>
+            {dropdownMenu}
           </div>
-          {onMoveClick && (
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="opacity-0 group-hover:opacity-100 transition-opacity rounded-xl"
-              onClick={(e) => { e.stopPropagation(); onMoveClick(item.id); }}
-            >
-              <MoreVertical className="w-4 h-4" />
-            </Button>
-          )}
-        </div>
-        
-        <div className="space-y-2 flex-1">
-          <h3 className="text-lg font-bold text-foreground group-hover:text-primary transition-colors leading-tight">{item.title || item.name}</h3>
-          <p className="text-xs text-muted-foreground font-medium line-clamp-2">{item.description || (isFolder ? "Folder" : "Document")}</p>
-        </div>
+          
+          <div className="space-y-2 flex-1">
+            <h3 className="text-lg font-bold text-foreground group-hover:text-primary transition-colors leading-tight">{item.title || item.name}</h3>
+            <p className="text-xs text-muted-foreground font-medium line-clamp-2">{item.description || (isFolder ? "Folder" : "Document")}</p>
+          </div>
 
-        <div className="mt-8 pt-4 border-t border-border/30 flex items-center justify-between">
-          <Badge variant="outline" className={cn("font-bold text-[10px] uppercase tracking-wider", colorClass)}>
-            {item.itemType}
-          </Badge>
-          {actionButtons}
-        </div>
-      </CardContent>
-    </Card>
+          <div className="mt-8 pt-4 border-t border-border/30">
+            <Badge variant="outline" className={cn("font-bold text-[10px] uppercase tracking-wider", colorClass)}>
+              {item.itemType}
+            </Badge>
+          </div>
+        </CardContent>
+      </Card>
+      {deleteDialog}
+    </>
   );
 }
