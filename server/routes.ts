@@ -1299,6 +1299,59 @@ export async function registerRoutes(
     }
   });
 
+  // AI Chat endpoints
+  app.get("/api/ai/status", async (req, res) => {
+    try {
+      const { isAIConfigured } = await import("./ai-chat");
+      const status = await isAIConfigured();
+      res.json(status);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/ai/writing-assist", async (req, res) => {
+    try {
+      const { isAIConfigured, generateWritingAssistance } = await import("./ai-chat");
+      
+      const status = await isAIConfigured();
+      if (!status.configured) {
+        return res.status(400).json({ error: status.reason || "AI is not configured" });
+      }
+      
+      const { prompt, context, action } = req.body;
+      if (!prompt) {
+        return res.status(400).json({ error: "Prompt is required" });
+      }
+      
+      const result = await generateWritingAssistance(prompt, context, action);
+      res.json({ result });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/ai/chat", async (req, res) => {
+    try {
+      const { isAIConfigured, generateAIResponse } = await import("./ai-chat");
+      
+      const status = await isAIConfigured();
+      if (!status.configured) {
+        return res.status(400).json({ error: status.reason || "AI is not configured" });
+      }
+      
+      const { messages } = req.body;
+      if (!messages || !Array.isArray(messages)) {
+        return res.status(400).json({ error: "Messages array is required" });
+      }
+      
+      const result = await generateAIResponse(messages);
+      res.json({ result });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Webhooks
   app.get("/api/helpdesks/:helpdeskId/webhooks", async (req, res) => {
     const webhooks = await storage.getWebhooks(req.params.helpdeskId);

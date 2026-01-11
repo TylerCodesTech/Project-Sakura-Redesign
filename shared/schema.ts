@@ -476,6 +476,7 @@ export const PERMISSION_CATEGORIES = {
   SETTINGS: "settings",
   DEPARTMENTS: "departments",
   REPORTS: "reports",
+  AI: "ai",
 } as const;
 
 // All available permissions in the system
@@ -537,6 +538,11 @@ export const AVAILABLE_PERMISSIONS = {
   "reports.data.users": { category: "reports", description: "Access user data in reports" },
   "reports.data.sla": { category: "reports", description: "Access SLA data in reports" },
   "reports.data.audit": { category: "reports", description: "Access audit log data in reports" },
+  
+  // AI permissions
+  "ai.assistant.use": { category: "ai", description: "Use AI writing assistant in documents" },
+  "ai.chat.use": { category: "ai", description: "Use AI chat features" },
+  "ai.settings.manage": { category: "ai", description: "Manage AI configuration settings" },
 } as const;
 
 export type PermissionKey = keyof typeof AVAILABLE_PERMISSIONS;
