@@ -54,6 +54,7 @@ export const books = pgTable("books", {
   title: text("title").notNull(),
   description: text("description"),
   authorId: varchar("author_id").notNull(),
+  parentId: varchar("parent_id"),
 });
 
 export const pages = pgTable("pages", {

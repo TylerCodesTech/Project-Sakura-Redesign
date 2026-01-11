@@ -204,7 +204,7 @@ export function DetailsSidebar({ item, onClose, isOpen, canDelete = true, canMov
                       <History className="w-4 h-4" />
                       Version History
                     </DropdownMenuItem>
-                    {canMove && !isBook && (
+                    {canMove && (
                       <>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem 
