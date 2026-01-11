@@ -18,25 +18,46 @@ import {
   Users,
   Building2,
   Bell,
-  ChevronRight as ChevronRightIcon
+  ChevronRight as ChevronRightIcon,
+  Ticket,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useState, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { type Department, type News, type Stat, type Comment } from "@shared/schema";
+import { type Department, type News, type Stat, type Comment, type Helpdesk } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuth } from "@/hooks/use-auth";
 import { useSystemSettings } from "@/contexts/SystemSettingsContext";
+import { toast } from "sonner";
 
 function getTimeGreeting(): string {
   const hour = new Date().getHours();
@@ -48,12 +69,51 @@ function getTimeGreeting(): string {
 export default function Dashboard() {
   const [time, setTime] = useState(new Date());
   const [message, setMessage] = useState("");
+  const [isCreateTicketOpen, setIsCreateTicketOpen] = useState(false);
+  const [ticketTitle, setTicketTitle] = useState("");
+  const [ticketDescription, setTicketDescription] = useState("");
+  const [ticketHelpdeskId, setTicketHelpdeskId] = useState("");
+  const [ticketPriority, setTicketPriority] = useState("medium");
   const scrollRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
   const { settings } = useSystemSettings();
 
   const { data: departments = [], isLoading: isLoadingDepts } = useQuery<Department[]>({
     queryKey: ["/api/departments"],
+  });
+
+  const { data: helpdesks = [] } = useQuery<Helpdesk[]>({
+    queryKey: ["/api/helpdesks"],
+  });
+
+  const createTicketMutation = useMutation({
+    mutationFn: async (data: { 
+      helpdeskId: string; 
+      title: string; 
+      description: string; 
+      priority: string;
+      departmentId: string;
+    }) => {
+      const res = await apiRequest("POST", "/api/tickets", {
+        ...data,
+        ticketType: "request",
+        source: "web",
+        createdBy: user?.id,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      toast.success("Ticket created successfully");
+      setIsCreateTicketOpen(false);
+      setTicketTitle("");
+      setTicketDescription("");
+      setTicketHelpdeskId("");
+      setTicketPriority("medium");
+      queryClient.invalidateQueries({ queryKey: ["/api/tickets"] });
+    },
+    onError: () => {
+      toast.error("Failed to create ticket");
+    },
   });
 
   const { data: news = [], isLoading: isLoadingNews } = useQuery<News[]>({
@@ -211,7 +271,7 @@ export default function Dashboard() {
                 backendStats.map((stat) => (
                   <Card key={stat.id} className="border border-border/50 shadow-sm rounded-3xl bg-white/60 dark:bg-card/60 backdrop-blur-md hover:shadow-md transition-shadow group">
                     <CardContent className="p-4">
-                      <p className="text-xs text-muted-foreground font-medium">{stat.label}</p>
+                      <p className="text-xs text-muted-foreground font-medium capitalize">{stat.key.replace(/_/g, " ")}</p>
                       <p className="text-3xl font-black text-primary mt-1 group-hover:scale-105 transition-transform origin-left">
                         {stat.value}
                       </p>
@@ -283,12 +343,125 @@ export default function Dashboard() {
                 </div>
               </CardHeader>
               <CardContent className="p-4 space-y-2">
-                <Button variant="outline" className="w-full justify-start gap-3 h-12 rounded-2xl border-border/50 hover:bg-primary/5 hover:text-primary hover:border-primary/30 transition-all font-medium">
-                  <div className="p-1.5 bg-rose-500/10 rounded-lg">
-                    <Plus className="w-4 h-4 text-rose-500" />
-                  </div>
-                  Create Ticket
-                </Button>
+                <Dialog open={isCreateTicketOpen} onOpenChange={setIsCreateTicketOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" className="w-full justify-start gap-3 h-12 rounded-2xl border-border/50 hover:bg-primary/5 hover:text-primary hover:border-primary/30 transition-all font-medium">
+                      <div className="p-1.5 bg-rose-500/10 rounded-lg">
+                        <Ticket className="w-4 h-4 text-rose-500" />
+                      </div>
+                      Create Ticket
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[500px]">
+                    <DialogHeader>
+                      <DialogTitle className="flex items-center gap-2">
+                        <Ticket className="w-5 h-5 text-primary" />
+                        Create New Ticket
+                      </DialogTitle>
+                      <DialogDescription>
+                        Submit a new support ticket. Choose the appropriate helpdesk for your request.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                      <div className="space-y-2">
+                        <Label>Helpdesk <span className="text-destructive">*</span></Label>
+                        <Select value={ticketHelpdeskId} onValueChange={setTicketHelpdeskId}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a helpdesk..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {helpdesks.filter(h => h.enabled === "true").map((helpdesk) => {
+                              const dept = departments.find(d => d.id === helpdesk.departmentId);
+                              return (
+                                <SelectItem key={helpdesk.id} value={helpdesk.id}>
+                                  <div className="flex items-center gap-2">
+                                    {dept && (
+                                      <div 
+                                        className="w-2 h-2 rounded-full" 
+                                        style={{ backgroundColor: dept.color }}
+                                      />
+                                    )}
+                                    {helpdesk.name}
+                                  </div>
+                                </SelectItem>
+                              );
+                            })}
+                            {helpdesks.filter(h => h.enabled === "true").length === 0 && (
+                              <div className="px-2 py-4 text-sm text-muted-foreground text-center">
+                                No helpdesks available. Contact your administrator.
+                              </div>
+                            )}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Title <span className="text-destructive">*</span></Label>
+                        <Input 
+                          placeholder="Brief description of your issue"
+                          value={ticketTitle}
+                          onChange={(e) => setTicketTitle(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Description</Label>
+                        <Textarea 
+                          placeholder="Provide more details about your request..."
+                          className="min-h-[100px]"
+                          value={ticketDescription}
+                          onChange={(e) => setTicketDescription(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Priority</Label>
+                        <Select value={ticketPriority} onValueChange={setTicketPriority}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="low">Low</SelectItem>
+                            <SelectItem value="medium">Medium</SelectItem>
+                            <SelectItem value="high">High</SelectItem>
+                            <SelectItem value="urgent">Urgent</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button 
+                        variant="outline" 
+                        onClick={() => setIsCreateTicketOpen(false)}
+                      >
+                        Cancel
+                      </Button>
+                      <Button 
+                        onClick={() => {
+                          const helpdesk = helpdesks.find(h => h.id === ticketHelpdeskId);
+                          if (!ticketHelpdeskId || !ticketTitle.trim()) {
+                            toast.error("Please fill in all required fields");
+                            return;
+                          }
+                          createTicketMutation.mutate({
+                            helpdeskId: ticketHelpdeskId,
+                            title: ticketTitle,
+                            description: ticketDescription,
+                            priority: ticketPriority,
+                            departmentId: helpdesk?.departmentId || "",
+                          });
+                        }}
+                        disabled={createTicketMutation.isPending}
+                      >
+                        {createTicketMutation.isPending ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Creating...
+                          </>
+                        ) : (
+                          "Create Ticket"
+                        )}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
                 <Button variant="outline" className="w-full justify-start gap-3 h-12 rounded-2xl border-border/50 hover:bg-primary/5 hover:text-primary hover:border-primary/30 transition-all font-medium">
                   <div className="p-1.5 bg-blue-500/10 rounded-lg">
                     <PenLine className="w-4 h-4 text-blue-500" />

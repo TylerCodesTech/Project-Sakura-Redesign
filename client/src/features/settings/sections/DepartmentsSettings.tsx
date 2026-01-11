@@ -87,14 +87,18 @@ export function DepartmentsSettings({ subsection, onNavigateToHelpdesk }: Depart
 
   const deleteDeptMutation = useMutation({
     mutationFn: async (id: string) => {
-      await apiRequest("DELETE", `/api/departments/${id}`);
+      const res = await apiRequest("DELETE", `/api/departments/${id}`);
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to delete department");
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/departments"] });
       toast.success("Department deleted successfully");
     },
-    onError: () => {
-      toast.error("Failed to delete department");
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to delete department");
     },
   });
 

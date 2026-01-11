@@ -165,7 +165,19 @@ export async function registerRoutes(
   });
 
   app.delete("/api/departments/:id", async (req, res) => {
-    await storage.deleteDepartment(req.params.id);
+    const departmentId = req.params.id;
+    
+    const users = await storage.getUsers();
+    const usersInDepartment = users.filter(u => u.department === departmentId);
+    
+    if (usersInDepartment.length > 0) {
+      return res.status(400).json({ 
+        error: `Cannot delete department. There are ${usersInDepartment.length} user(s) assigned to this department. Please reassign them first.`,
+        userCount: usersInDepartment.length
+      });
+    }
+    
+    await storage.deleteDepartment(departmentId);
     res.sendStatus(204);
   });
 
