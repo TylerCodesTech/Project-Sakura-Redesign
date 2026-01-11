@@ -35,6 +35,8 @@ Preferred communication style: Simple, everyday language.
 - **Custom Links System**: Department-based and company-wide custom links with favicon auto-fetch and visual indicators.
 - **Helpdesk Settings**: Per-department configuration for helpdesks, including subdepartment management, a ticket form UI designer with advanced field configuration, SLA states and policies, and escalation rules.
 - **Multi-Form Ticket Categories**: Support for multiple form categories per helpdesk (e.g., Hardware, Software, Network, Access). When multiple categories exist, users see a category selection screen with icons; when only one exists, it launches directly. Form fields support width settings (full, half, third) and internal-only visibility for staff fields.
+- **Ticket Creation Wizard**: Step-by-step wizard flow for creating tickets with progress indicator. Users select helpdesk first, then choose issue type (if multiple categories), then fill custom form fields.
+- **Drag-and-Drop Form Builder**: Admin form designer with side palette showing all available field types. Click to add or drag to reorder fields. Supports field duplication, editing, and deletion.
 - **Ticket Sidebar Panel**: Quick view and inline editing of ticket details, comments, and status.
 - **Reports System**: A comprehensive report builder accessible at `/reports` with department-specific configuration. Supports various report types (Audit, User Access, Ticket SLA, etc.), drag-and-drop interface, live preview, scheduling, and sharing capabilities.
 
