@@ -39,7 +39,8 @@ Preferred communication style: Simple, everyday language.
 - **Drag-and-Drop Form Builder**: Admin form designer with side palette showing all available field types. Click to add or drag to reorder fields. Supports field duplication, editing, and deletion.
 - **Ticket Sidebar Panel**: Quick view and inline editing of ticket details, comments, and status.
 - **Reports System**: A comprehensive report builder accessible at `/reports` with department-specific configuration. Supports various report types (Audit, User Access, Ticket SLA, etc.), drag-and-drop interface, live preview, scheduling, and sharing capabilities.
-- **AI-Powered Document Matching**: Uses pgvector extension with OpenAI's text-embedding-3-small model (1536 dimensions) to generate embeddings for pages, page versions, and tickets. Automatically suggests related knowledge base articles when viewing tickets. Includes HNSW indexes for fast cosine similarity search and admin endpoints for reindexing.
+- **AI-Powered Document Matching**: Uses pgvector extension for vector embeddings with configurable providers (OpenAI, Ollama, Google). Generates embeddings for pages, page versions, and tickets to automatically suggest related knowledge base articles when viewing tickets. Includes HNSW indexes for fast cosine similarity search and admin endpoints for reindexing.
+- **Multi-Provider AI Configuration**: The AI Configuration settings page allows administrators to select embedding and chat model providers. Supported providers include OpenAI (text-embedding-3-small/large), Ollama (nomic-embed-text, mxbai-embed-large, etc.), and Google AI (text-embedding-004). Configuration is stored in system settings and used by the embedding service at runtime.
 
 ## External Dependencies
 
