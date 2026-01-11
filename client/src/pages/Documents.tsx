@@ -518,15 +518,7 @@ function DocCard({
                      isFolder ? 'text-blue-500 bg-blue-500/10' : 
                      'text-indigo-500 bg-indigo-500/10';
 
-  const handleClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    if (onSelect) {
-      onSelect(item);
-    }
-  };
-
-  const handleDoubleClick = (e: React.MouseEvent) => {
-    e.preventDefault();
+  const openItem = () => {
     if (isFolder && onFolderClick) {
       onFolderClick(item.id);
     } else if (isBook) {
@@ -536,8 +528,22 @@ function DocCard({
     }
   };
 
-  const href = isBook ? `/documents/book/${item.id}` : 
-               isFolder ? `#` : `/documents/edit/${item.id}`;
+  const handleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (onSelect) {
+      onSelect(item);
+    }
+  };
+
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    openItem();
+  };
+
+  const handleOpenClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    openItem();
+  };
 
   const actionButtons = (
     <div className="flex gap-2">
@@ -546,17 +552,9 @@ function DocCard({
           Move
         </Button>
       )}
-      {isFolder ? (
-        <Button variant="ghost" size="sm" onClick={handleClick} className="h-8 rounded-lg text-primary font-bold hover:bg-primary/10">
-          Open
-        </Button>
-      ) : (
-        <Link href={href}>
-          <Button variant="ghost" size="sm" className="h-8 rounded-lg text-primary font-bold hover:bg-primary/10">
-            Open
-          </Button>
-        </Link>
-      )}
+      <Button variant="ghost" size="sm" onClick={handleOpenClick} className="h-8 rounded-lg text-primary font-bold hover:bg-primary/10">
+        Open
+      </Button>
     </div>
   );
 
