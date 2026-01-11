@@ -70,6 +70,8 @@ import Highlight from '@tiptap/extension-highlight';
 import TiptapLink from '@tiptap/extension-link';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
+import { FontSize } from '@/lib/tiptap-extensions';
+import { LinkPreview } from '@/components/editor/LinkPreview';
 import {
   Tooltip,
   TooltipContent,
@@ -120,6 +122,7 @@ export default function BookView() {
       Underline,
       TextStyle,
       FontFamily,
+      FontSize,
       Color,
       Highlight.configure({
         multicolor: true,
@@ -349,7 +352,7 @@ export default function BookView() {
             </Select>
             
             {/* Font Size (Word-style) */}
-            <Select onValueChange={(value) => editor?.chain().focus().setMark('textStyle', { fontSize: value }).run()}>
+            <Select onValueChange={(value) => editor?.chain().focus().setFontSize(value).run()}>
               <SelectTrigger className="w-[70px] h-8 rounded-lg border-transparent bg-transparent hover:bg-secondary/40 font-bold text-xs">
                 <SelectValue placeholder="11" />
               </SelectTrigger>
@@ -665,10 +668,11 @@ export default function BookView() {
                     </div>
 
                     <div className={cn(
-                      "prose prose-sakura max-w-none mt-12 text-foreground/80 leading-loose",
+                      "prose prose-sakura max-w-none mt-12 text-foreground/80 leading-loose relative",
                       isEditing && "bg-white/50 dark:bg-card/50 p-6 rounded-2xl border border-border/50 shadow-inner"
                     )}>
                       <EditorContent editor={editor} />
+                      {editor && <LinkPreview editor={editor} />}
                     </div>
                   </div>
                 ) : (

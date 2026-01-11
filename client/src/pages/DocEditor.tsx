@@ -66,6 +66,8 @@ import Highlight from '@tiptap/extension-highlight';
 import TiptapLink from '@tiptap/extension-link';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
+import { FontSize } from '@/lib/tiptap-extensions';
+import { LinkPreview } from '@/components/editor/LinkPreview';
 import { Input } from "@/components/ui/input";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -203,6 +205,7 @@ export default function DocEditor() {
       Underline,
       TextStyle,
       FontFamily,
+      FontSize,
       Color,
       Highlight.configure({
         multicolor: true,
@@ -365,7 +368,7 @@ export default function DocEditor() {
           </Select>
           
           {/* Font Size */}
-          <Select onValueChange={(value) => editor.chain().focus().setMark('textStyle', { fontSize: value }).run()}>
+          <Select onValueChange={(value) => editor.chain().focus().setFontSize(value).run()}>
             <SelectTrigger className="w-[70px] h-8 rounded-lg border-transparent bg-transparent hover:bg-secondary/40 font-bold text-xs">
               <SelectValue placeholder="11" />
             </SelectTrigger>
@@ -554,11 +557,12 @@ export default function DocEditor() {
           <div className="flex-1 flex flex-col min-w-0">
             <div className="flex-1 bg-white/40 dark:bg-card/40 rounded-3xl border border-border/50 overflow-hidden backdrop-blur-sm relative">
               <ScrollArea className="h-full">
-                <div className="max-w-3xl mx-auto py-16 px-8">
+                <div className="max-w-3xl mx-auto py-16 px-8 relative">
                   <EditorContent 
                     editor={editor} 
                     className={cn("wiki-editor-content", isLocked && "cursor-not-allowed")}
                   />
+                  {editor && <LinkPreview editor={editor} />}
                 </div>
               </ScrollArea>
               {isLocked && (
