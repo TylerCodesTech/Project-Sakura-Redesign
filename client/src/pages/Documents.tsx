@@ -40,7 +40,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Link, useLocation } from "wouter";
 import type { Book, Page } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
-import { useState, Fragment, useEffect } from "react";
+import { useState, Fragment, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { DetailsSidebar } from "@/components/documents/DetailsSidebar";
 
@@ -511,6 +511,7 @@ function DocCard({
   isDropTarget: boolean
 }) {
   const [, navigate] = useLocation();
+  const clickTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isBook = item.itemType === 'book';
   const isFolder = item.itemType === 'folder';
   const Icon = isBook ? BookOpen : isFolder ? Folder : FileText;
@@ -530,13 +531,22 @@ function DocCard({
 
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();
-    if (onSelect) {
-      onSelect(item);
+    if (clickTimeoutRef.current) {
+      clearTimeout(clickTimeoutRef.current);
     }
+    clickTimeoutRef.current = setTimeout(() => {
+      if (onSelect) {
+        onSelect(item);
+      }
+    }, 250);
   };
 
   const handleDoubleClick = (e: React.MouseEvent) => {
     e.preventDefault();
+    if (clickTimeoutRef.current) {
+      clearTimeout(clickTimeoutRef.current);
+      clickTimeoutRef.current = null;
+    }
     openItem();
   };
 
