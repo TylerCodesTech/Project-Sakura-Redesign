@@ -3,7 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Loader2 } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
+import { Redirect } from "wouter";
 
 // 1. Artistic Branch Component (SVG)
 const SakuraBranch = () => (
@@ -73,6 +75,22 @@ const SakuraPetal = ({ style }: { style: React.CSSProperties }) => (
 
 const LoginPage = () => {
   const [petals, setPetals] = useState<{ id: number; style: React.CSSProperties }[]>([]);
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const { user, loginMutation, setupStatus } = useAuth();
+
+  if (setupStatus?.needsSetup) {
+    return <Redirect to="/setup" />;
+  }
+
+  if (user) {
+    return <Redirect to="/" />;
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    loginMutation.mutate({ username, password });
+  };
 
   useEffect(() => {
     const createPetal = () => {
@@ -145,16 +163,19 @@ const LoginPage = () => {
         </CardHeader>
 
         <CardContent>
-          <form className="space-y-5" onSubmit={(e) => e.preventDefault()}>
+          <form className="space-y-5" onSubmit={handleSubmit}>
             <div className="space-y-1.5">
-              <Label htmlFor="email" className="text-xs font-medium uppercase tracking-wider text-slate-500">
-                Email Address
+              <Label htmlFor="username" className="text-xs font-medium uppercase tracking-wider text-slate-500">
+                Username
               </Label>
               <Input 
-                id="email" 
-                type="email" 
-                placeholder="name@company.com" 
+                id="username" 
+                type="text" 
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Enter your username" 
                 className="bg-white/50 border-slate-200 focus-visible:ring-rose-400 focus-visible:border-rose-400 h-10 transition-all"
+                required
               />
             </div>
 
@@ -163,39 +184,31 @@ const LoginPage = () => {
                 <Label htmlFor="password" className="text-xs font-medium uppercase tracking-wider text-slate-500">
                     Password
                 </Label>
-                <a href="#" className="text-xs text-rose-500 hover:text-rose-600 font-medium">Forgot?</a>
               </div>
               <Input 
                 id="password" 
-                type="password" 
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 className="bg-white/50 border-slate-200 focus-visible:ring-rose-400 focus-visible:border-rose-400 h-10 transition-all"
+                required
               />
             </div>
 
             <Button 
+              type="submit"
+              disabled={loginMutation.isPending}
               className="w-full bg-slate-900 hover:bg-slate-800 text-white font-medium h-11 shadow-md transition-all mt-2 group"
             >
-              Sign In
-              <ArrowRight className="w-4 h-4 ml-2 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300" />
+              {loginMutation.isPending ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <>
+                  Sign In
+                  <ArrowRight className="w-4 h-4 ml-2 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300" />
+                </>
+              )}
             </Button>
-
-            <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t border-slate-200" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-white/80 px-2 text-slate-400">Or continue with</span>
-                </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-                <Button variant="outline" className="h-10 border-slate-200 hover:bg-white hover:text-rose-600">
-                    Google
-                </Button>
-                <Button variant="outline" className="h-10 border-slate-200 hover:bg-white hover:text-rose-600">
-                    SSO
-                </Button>
-            </div>
           </form>
         </CardContent>
       </Card>
