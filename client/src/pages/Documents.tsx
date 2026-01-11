@@ -42,6 +42,7 @@ import type { Book, Page } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { useState, Fragment, useEffect } from "react";
 import { cn } from "@/lib/utils";
+import { DetailsSidebar } from "@/components/documents/DetailsSidebar";
 
 export default function Documents() {
   const { toast } = useToast();
@@ -55,6 +56,7 @@ export default function Documents() {
   const [searchQuery, setSearchQuery] = useState("");
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
+  const [selectedItem, setSelectedItem] = useState<any>(null);
 
   const { data: books = [], isLoading: isLoadingBooks } = useQuery<Book[]>({
     queryKey: ["/api/books"],
@@ -447,6 +449,8 @@ export default function Documents() {
                 view={view} 
                 onFolderClick={setCurrentFolderId} 
                 onMoveClick={item.itemType !== 'book' ? setMovingItemId : undefined}
+                onSelect={setSelectedItem}
+                isSelected={selectedItem?.id === item.id}
                 onDragStart={onDragStart}
                 onDragOver={onDragOver}
                 onDrop={onDrop}
@@ -462,6 +466,19 @@ export default function Documents() {
           )}
         </div>
       </div>
+
+      <DetailsSidebar 
+        item={selectedItem} 
+        isOpen={!!selectedItem} 
+        onClose={() => setSelectedItem(null)} 
+      />
+      
+      {selectedItem && (
+        <div 
+          className="fixed inset-0 z-40" 
+          onClick={() => setSelectedItem(null)}
+        />
+      )}
     </Layout>
   );
 }
@@ -471,6 +488,8 @@ function DocCard({
   view, 
   onFolderClick, 
   onMoveClick,
+  onSelect,
+  isSelected,
   onDragStart,
   onDragOver,
   onDrop,
@@ -482,6 +501,8 @@ function DocCard({
   view: 'grid' | 'list', 
   onFolderClick?: (id: string) => void, 
   onMoveClick?: (id: string) => void,
+  onSelect?: (item: any) => void,
+  isSelected?: boolean,
   onDragStart: (id: string) => void,
   onDragOver: (e: React.DragEvent, id: string | null) => void,
   onDrop: (e: React.DragEvent, parentId: string | null) => void,
@@ -498,9 +519,9 @@ function DocCard({
                      'text-indigo-500 bg-indigo-500/10';
 
   const handleClick = (e: React.MouseEvent) => {
-    if (isFolder && onFolderClick) {
-      e.preventDefault();
-      onFolderClick(item.id);
+    e.preventDefault();
+    if (onSelect) {
+      onSelect(item);
     }
   };
 
@@ -540,11 +561,12 @@ function DocCard({
   );
 
   const containerClasses = cn(
-    "group border transition-all overflow-hidden cursor-grab active:cursor-grabbing",
+    "group border transition-all overflow-hidden cursor-pointer",
     view === 'list' ? "rounded-2xl" : "rounded-3xl h-full",
     isDragged && "opacity-40 grayscale blur-[1px]",
     isFolder && isDropTarget && "ring-2 ring-primary border-primary bg-primary/5 scale-[1.02] shadow-xl",
-    !isDropTarget && "border-border/50 hover:border-primary/30",
+    isSelected && "ring-2 ring-primary border-primary bg-primary/5",
+    !isDropTarget && !isSelected && "border-border/50 hover:border-primary/30",
     "bg-white/60 dark:bg-card/60 backdrop-blur-md"
   );
 
@@ -558,7 +580,7 @@ function DocCard({
     onDrop: isFolder ? (e: React.DragEvent) => onDrop(e, item.id) : undefined,
     onDragEnd: onDragEnd,
     className: containerClasses,
-    onClick: isFolder ? handleClick : undefined,
+    onClick: handleClick,
     onDoubleClick: handleDoubleClick
   };
 
