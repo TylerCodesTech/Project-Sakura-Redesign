@@ -16,7 +16,8 @@ import {
   Upload,
   History,
   Trash2,
-  AlertTriangle
+  AlertTriangle,
+  FolderOpen
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,6 +47,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useState, Fragment, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { DetailsSidebar } from "@/components/documents/DetailsSidebar";
+import { MoveDialog } from "@/components/documents/MoveDialog";
 
 export default function Documents() {
   const { toast } = useToast();
@@ -461,7 +463,9 @@ function DocCard({
   onDrop,
   onDragEnd,
   isDragged,
-  isDropTarget
+  isDropTarget,
+  canMove = true,
+  canDelete = true
 }: { 
   item: any, 
   view: 'grid' | 'list', 
@@ -473,12 +477,15 @@ function DocCard({
   onDrop: (e: React.DragEvent, parentId: string | null) => void,
   onDragEnd: () => void,
   isDragged: boolean,
-  isDropTarget: boolean
+  isDropTarget: boolean,
+  canMove?: boolean,
+  canDelete?: boolean
 }) {
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const clickTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isMoveDialogOpen, setIsMoveDialogOpen] = useState(false);
   const [deleteCountdown, setDeleteCountdown] = useState(5);
   const [canConfirmDelete, setCanConfirmDelete] = useState(false);
   
@@ -587,14 +594,30 @@ function DocCard({
           <History className="w-4 h-4 mr-2" />
           Version History
         </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem 
-          className="cursor-pointer text-destructive focus:text-destructive"
-          onClick={(e) => { e.stopPropagation(); setIsDeleteDialogOpen(true); }}
-        >
-          <Trash2 className="w-4 h-4 mr-2" />
-          Delete
-        </DropdownMenuItem>
+        {canMove && !isBook && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem 
+              className="cursor-pointer"
+              onClick={(e) => { e.stopPropagation(); setIsMoveDialogOpen(true); }}
+            >
+              <FolderOpen className="w-4 h-4 mr-2" />
+              Move to...
+            </DropdownMenuItem>
+          </>
+        )}
+        {canDelete && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem 
+              className="cursor-pointer text-destructive focus:text-destructive"
+              onClick={(e) => { e.stopPropagation(); setIsDeleteDialogOpen(true); }}
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete
+            </DropdownMenuItem>
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -675,6 +698,16 @@ function DocCard({
           </CardContent>
         </Card>
         {deleteDialog}
+        {!isBook && (
+          <MoveDialog
+            isOpen={isMoveDialogOpen}
+            onClose={() => setIsMoveDialogOpen(false)}
+            itemId={item.id}
+            itemTitle={item.title}
+            itemType={item.itemType}
+            currentParentId={item.parentId || null}
+          />
+        )}
       </>
     );
   }
@@ -703,6 +736,16 @@ function DocCard({
         </CardContent>
       </Card>
       {deleteDialog}
+      {!isBook && (
+        <MoveDialog
+          isOpen={isMoveDialogOpen}
+          onClose={() => setIsMoveDialogOpen(false)}
+          itemId={item.id}
+          itemTitle={item.title}
+          itemType={item.itemType}
+          currentParentId={item.parentId || null}
+        />
+      )}
     </>
   );
 }
