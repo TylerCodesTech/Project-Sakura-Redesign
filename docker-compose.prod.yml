@@ -2,59 +2,64 @@ version: '3.8'
 
 services:
   # ===================
-  # Development App
+  # Production App
   # ===================
   app:
     build:
       context: .
       dockerfile: Dockerfile
-      target: development
-    container_name: sakura-app
+      target: production
+    container_name: sakura-app-prod
     ports:
       - "5000:5000"
     environment:
-      - NODE_ENV=development
-      - DATABASE_URL=postgresql://sakura:sakura_password@db:5432/sakura_db
-      - SESSION_SECRET=${SESSION_SECRET:-dev-session-secret-change-me}
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://sakura:${DB_PASSWORD}@db:5432/sakura_db
+      - SESSION_SECRET=${SESSION_SECRET}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - GOOGLE_AI_API_KEY=${GOOGLE_AI_API_KEY:-}
     depends_on:
       db:
         condition: service_healthy
-    volumes:
-      - .:/app
-      - /app/node_modules
     networks:
       - sakura-network
-    restart: unless-stopped
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 1G
 
   # ===================
   # PostgreSQL Database with pgvector
   # ===================
   db:
     image: pgvector/pgvector:pg16
-    container_name: sakura-db
+    container_name: sakura-db-prod
     environment:
       - POSTGRES_USER=sakura
-      - POSTGRES_PASSWORD=sakura_password
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
       - POSTGRES_DB=sakura_db
-    ports:
-      - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data_prod:/var/lib/postgresql/data
       - ./docker/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
     networks:
       - sakura-network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U sakura -d sakura_db"]
-      interval: 5s
+      interval: 10s
       timeout: 5s
       retries: 5
-    restart: unless-stopped
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
 
 networks:
   sakura-network:
     driver: bridge
 
 volumes:
-  postgres_data:
+  postgres_data_prod:
