@@ -23,13 +23,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { SettingsHeader, SettingsCard } from "../components";
 import { cn } from "@/lib/utils";
-
-const mockUsers = [
-  { id: 1, name: "Sarah Chen", email: "sarah.c@sakura.ai", role: "Administrator", dept: "Product", status: "Active" },
-  { id: 2, name: "Alex Kumar", email: "alex.k@sakura.ai", role: "Support Agent", dept: "IT Support", status: "Active" },
-  { id: 3, name: "James Wilson", email: "j.wilson@sakura.ai", role: "Support Agent", dept: "Customer Success", status: "Away" },
-  { id: 4, name: "Elena Rodriguez", email: "elena.r@sakura.ai", role: "Viewer", dept: "Marketing", status: "Inactive" },
-];
+import { useQuery } from "@tanstack/react-query";
+import { type User } from "@shared/schema";
 
 interface UsersSettingsProps {
   subsection?: string;
@@ -40,10 +35,14 @@ export function UsersSettings({ subsection }: UsersSettingsProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [isCreateUserModalOpen, setIsCreateUserModalOpen] = useState(false);
 
-  const filteredUsers = mockUsers.filter(
+  const { data: users = [], isLoading } = useQuery<User[]>({
+    queryKey: ["/api/users"],
+  });
+
+  const filteredUsers = users.filter(
     (user) =>
-      user.name.toLowerCase().includes(userSearch.toLowerCase()) ||
-      user.email.toLowerCase().includes(userSearch.toLowerCase())
+      user.username.toLowerCase().includes(userSearch.toLowerCase()) ||
+      (user.department && user.department.toLowerCase().includes(userSearch.toLowerCase()))
   );
 
   return (
@@ -68,12 +67,8 @@ export function UsersSettings({ subsection }: UsersSettingsProps) {
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                  <Label>Full Name</Label>
-                  <Input placeholder="Jane Doe" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Email Address</Label>
-                  <Input type="email" placeholder="jane@company.com" />
+                  <Label>Username</Label>
+                  <Input placeholder="jdoe" />
                 </div>
                 <div className="space-y-2">
                   <Label>Temporary Password</Label>
@@ -105,11 +100,12 @@ export function UsersSettings({ subsection }: UsersSettingsProps) {
                 </div>
                 <div className="space-y-2">
                   <Label>Department</Label>
-                  <Select defaultValue="product">
+                  <Select defaultValue="general">
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="general">General</SelectItem>
                       <SelectItem value="product">Product</SelectItem>
                       <SelectItem value="it">IT Support</SelectItem>
                       <SelectItem value="cs">Customer Success</SelectItem>
@@ -148,61 +144,61 @@ export function UsersSettings({ subsection }: UsersSettingsProps) {
         }
       >
         <div className="space-y-2">
-          {filteredUsers.map((user) => (
-            <div
-              key={user.id}
-              className="flex items-center justify-between p-3 sm:p-4 rounded-xl bg-secondary/10 border border-transparent hover:border-border/50 transition-colors"
-            >
-              <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-                <Avatar className="h-10 w-10">
-                  <AvatarImage src={`/api/placeholder/40/40`} />
-                  <AvatarFallback className="bg-primary/10 text-primary font-medium text-sm">
-                    {user.name.split(" ").map((n) => n[0]).join("")}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-medium text-sm truncate">{user.name}</span>
-                    <Badge
-                      variant="outline"
-                      className={cn(
-                        "text-[10px]",
-                        user.status === "Active" && "border-green-500/50 text-green-600",
-                        user.status === "Away" && "border-yellow-500/50 text-yellow-600",
-                        user.status === "Inactive" && "border-muted-foreground/50 text-muted-foreground"
-                      )}
-                    >
-                      {user.status}
-                    </Badge>
-                  </div>
-                  <p className="text-xs text-muted-foreground truncate">{user.email}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 sm:gap-4 shrink-0">
-                <div className="hidden sm:block text-right">
-                  <p className="text-xs font-medium">{user.role}</p>
-                  <p className="text-[10px] text-muted-foreground">{user.dept}</p>
-                </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <MoreVertical className="w-4 h-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem>View Profile</DropdownMenuItem>
-                    <DropdownMenuItem>Edit User</DropdownMenuItem>
-                    <DropdownMenuItem>Reset Password</DropdownMenuItem>
-                    <DropdownMenuItem className="text-destructive">Deactivate</DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-6 h-6 animate-spin text-primary/50" />
             </div>
-          ))}
-          {filteredUsers.length === 0 && (
+          ) : filteredUsers.length === 0 ? (
             <div className="py-8 text-center text-muted-foreground">
-              No users found matching "{userSearch}"
+              {userSearch ? `No users found matching "${userSearch}"` : "No users in the system yet."}
             </div>
+          ) : (
+            filteredUsers.map((user) => (
+              <div
+                key={user.id}
+                className="flex items-center justify-between p-3 sm:p-4 rounded-xl bg-secondary/10 border border-transparent hover:border-border/50 transition-colors"
+              >
+                <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                  <Avatar className="h-10 w-10">
+                    <AvatarImage src="" />
+                    <AvatarFallback className="bg-primary/10 text-primary font-medium text-sm">
+                      {user.username.substring(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-medium text-sm truncate">{user.username}</span>
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] border-green-500/50 text-green-600"
+                      >
+                        Active
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground truncate">{user.department || "General"}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+                  <div className="hidden sm:block text-right">
+                    <p className="text-xs font-medium">Team Member</p>
+                    <p className="text-[10px] text-muted-foreground">{user.department || "General"}</p>
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <MoreVertical className="w-4 h-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem>View Profile</DropdownMenuItem>
+                      <DropdownMenuItem>Edit User</DropdownMenuItem>
+                      <DropdownMenuItem>Reset Password</DropdownMenuItem>
+                      <DropdownMenuItem className="text-destructive">Deactivate</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
+            ))
           )}
         </div>
       </SettingsCard>

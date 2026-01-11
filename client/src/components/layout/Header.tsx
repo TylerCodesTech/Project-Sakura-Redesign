@@ -1,7 +1,8 @@
 import { Search, Bell, HelpCircle, X, Sparkles, User, Settings, LogOut, Moon, Sun, Monitor, Mail, MessageSquare, Globe, Loader2, Book, FileText, Building2, History, Archive } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { currentUser, navItems } from "@/lib/mockData";
+import { navItems } from "@/lib/mockData";
 import { Input } from "@/components/ui/input";
+import { useAuth } from "@/hooks/use-auth";
 import { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
@@ -53,6 +54,7 @@ export function Header() {
   const [isLauncherOpen, setIsLauncherOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const { settings, isLoading } = useSystemSettings();
+  const { user, logoutMutation } = useAuth();
   const [userTheme, setUserTheme] = useState<'light' | 'dark' | 'system' | null>(null);
   const [resourceSearch, setResourceSearch] = useState("");
   const [globalSearch, setGlobalSearch] = useState("");
@@ -87,8 +89,8 @@ export function Header() {
   );
 
   const { data: notifications = [] } = useQuery<Notification[]>({
-    queryKey: ["/api/notifications", currentUser.id],
-    enabled: !!currentUser.id,
+    queryKey: ["/api/notifications", user?.id],
+    enabled: !!user?.id,
   });
 
   useEffect(() => {
@@ -106,7 +108,7 @@ export function Header() {
       await apiRequest("PATCH", `/api/notifications/${id}/read`, {});
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications", currentUser.id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications", user?.id] });
     },
   });
 
@@ -455,20 +457,20 @@ export function Header() {
           <DropdownMenuTrigger asChild>
             <button className="flex items-center gap-3 pl-2 group outline-none cursor-pointer">
               <div className="text-right hidden sm:block">
-                <p className="text-sm font-medium leading-none transition-colors group-hover:text-primary">{currentUser.name}</p>
-                <p className="text-xs text-muted-foreground mt-1">{currentUser.role}</p>
+                <p className="text-sm font-medium leading-none transition-colors group-hover:text-primary">{user?.username || "User"}</p>
+                <p className="text-xs text-muted-foreground mt-1">{user?.department || "Member"}</p>
               </div>
               <Avatar className="h-9 w-9 border border-border shadow-sm group-hover:border-primary/30 transition-colors">
-                <AvatarImage src={currentUser.avatar} />
-                <AvatarFallback>SC</AvatarFallback>
+                <AvatarImage src="" />
+                <AvatarFallback>{(user?.username || "U").substring(0, 2).toUpperCase()}</AvatarFallback>
               </Avatar>
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-56 p-2 rounded-xl" align="end" sideOffset={12}>
             <DropdownMenuLabel className="font-normal p-2">
               <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium leading-none">{currentUser.name}</p>
-                <p className="text-xs leading-none text-muted-foreground">{currentUser.email}</p>
+                <p className="text-sm font-medium leading-none">{user?.username || "User"}</p>
+                <p className="text-xs leading-none text-muted-foreground">{user?.department || "Member"}</p>
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator className="mx-[-8px] my-2" />
@@ -490,28 +492,28 @@ export function Header() {
                 <div className="grid gap-6 py-4">
                   <div className="flex items-center gap-6">
                     <Avatar className="h-20 w-20 border-2 border-primary/20">
-                      <AvatarImage src={currentUser.avatar} />
-                      <AvatarFallback className="text-xl">SC</AvatarFallback>
+                      <AvatarImage src="" />
+                      <AvatarFallback className="text-xl">{(user?.username || "U").substring(0, 2).toUpperCase()}</AvatarFallback>
                     </Avatar>
                     <Button variant="outline" size="sm">Change Photo</Button>
                   </div>
                   
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="name">Full Name</Label>
-                      <Input id="name" defaultValue={currentUser.name} />
+                      <Label htmlFor="name">Username</Label>
+                      <Input id="name" defaultValue={user?.username || ""} />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="email">Email</Label>
-                      <Input id="email" defaultValue={currentUser.email} readOnly className="bg-secondary/50" />
+                      <Label htmlFor="email">ID</Label>
+                      <Input id="email" defaultValue={user?.id || ""} readOnly className="bg-secondary/50" />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="role">Role</Label>
-                      <Input id="role" defaultValue={currentUser.role} />
+                      <Input id="role" defaultValue="Team Member" readOnly className="bg-secondary/50" />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="dept">Department</Label>
-                      <Input id="dept" defaultValue="Product Engineering" />
+                      <Input id="dept" defaultValue={user?.department || "General"} />
                     </div>
                   </div>
 
@@ -588,8 +590,7 @@ export function Header() {
             <DropdownMenuItem 
               className="rounded-lg gap-2 cursor-pointer text-destructive focus:text-destructive"
               onClick={() => {
-                // In a real app, we'd call a logout API here
-                window.location.href = "/login";
+                logoutMutation.mutate();
               }}
             >
               <LogOut className="w-4 h-4" />
