@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, boolean, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, boolean, integer, vector, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -75,7 +75,11 @@ export const pages = pgTable("pages", {
   status: text("status").notNull().default("draft"), // draft, in_review, published
   reviewerId: varchar("reviewer_id"),
   authorId: varchar("author_id").notNull(),
-});
+  embedding: vector("embedding", { dimensions: 1536 }), // OpenAI text-embedding-3-small
+  embeddingUpdatedAt: text("embedding_updated_at"),
+}, (table) => [
+  index("pages_embedding_idx").using("hnsw", table.embedding.op("vector_cosine_ops")),
+]);
 
 export const documentActivity = pgTable("document_activity", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -328,7 +332,11 @@ export const tickets = pgTable("tickets", {
   source: text("source").notNull().default("web"),
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
-});
+  embedding: vector("embedding", { dimensions: 1536 }), // OpenAI text-embedding-3-small
+  embeddingUpdatedAt: text("embedding_updated_at"),
+}, (table) => [
+  index("tickets_embedding_idx").using("hnsw", table.embedding.op("vector_cosine_ops")),
+]);
 
 // Ticket comments/replies
 export const ticketComments = pgTable("ticket_comments", {
@@ -606,7 +614,11 @@ export const pageVersions = pgTable("page_versions", {
   changeDescription: text("change_description"),
   isArchived: text("is_archived").notNull().default("false"),
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
-});
+  embedding: vector("embedding", { dimensions: 1536 }), // OpenAI text-embedding-3-small
+  embeddingUpdatedAt: text("embedding_updated_at"),
+}, (table) => [
+  index("page_versions_embedding_idx").using("hnsw", table.embedding.op("vector_cosine_ops")),
+]);
 
 // Book versions - stores historical snapshots of books
 export const bookVersions = pgTable("book_versions", {
