@@ -1,198 +1,54 @@
 # Project Sakura
 
 ## Overview
-
-Project Sakura is a unified AI-powered workplace platform that combines helpdesk ticketing, document management, and collaboration features. The application provides a modern, polished interface for managing support tickets, creating and organizing documentation (books and pages), and includes AI-assisted features throughout the workflow.
+Project Sakura is an AI-powered unified workplace platform designed to streamline helpdesk ticketing, document management, and team collaboration. It offers a modern user interface and incorporates AI assistance across its functionalities. The platform aims to enhance workplace efficiency by providing integrated solutions for support, documentation, and communication.
 
 ## User Preferences
-
 Preferred communication style: Simple, everyday language.
 
 ## System Architecture
 
-### Frontend Architecture
+### Frontend
 - **Framework**: React 18 with TypeScript
-- **Routing**: Wouter (lightweight React router)
-- **State Management**: TanStack React Query for server state and caching
-- **Styling**: Tailwind CSS v4 with CSS variables for theming
-- **UI Components**: shadcn/ui component library (New York style) with Radix UI primitives
-- **Rich Text Editing**: TipTap editor with extensions for text formatting, alignment, and placeholders
-- **Build Tool**: Vite with custom plugins for Replit integration
+- **Routing**: Wouter
+- **State Management**: TanStack React Query
+- **Styling**: Tailwind CSS v4 with CSS variables, shadcn/ui component library (New York style)
+- **Rich Text Editor**: TipTap
+- **Build Tool**: Vite
 
-### Backend Architecture
+### Backend
 - **Runtime**: Node.js with Express
-- **Language**: TypeScript with ES modules
-- **API Design**: RESTful endpoints under `/api` prefix
-- **Development**: Hot module replacement via Vite middleware in development mode
-
-### Authentication System
-- **Session Management**: Express-session with PostgreSQL session store (connect-pg-simple)
-- **Password Security**: Scrypt-based hashing with random salt
-- **Strategy**: Passport.js with local strategy
-- **Session Cookie**: HTTP-only, secure in production, 24-hour expiry
-
-**Key Components:**
-- `server/auth.ts` - Passport configuration, session setup, auth routes
-- `client/src/hooks/use-auth.tsx` - React context and hooks for auth state
-- `client/src/lib/protected-route.tsx` - Route guard component
-
-**API Endpoints:**
-- `GET /api/setup-status` - Check if first-time setup is needed
-- `POST /api/setup` - Complete first-time setup (creates super admin, role, department)
-- `POST /api/login` - User login with username/password
-- `POST /api/logout` - End session
-- `POST /api/register` - Create new user account
-- `GET /api/user` - Get current authenticated user
-
-**First-Time Setup Wizard:**
-When no users exist, the application redirects to `/setup` with a 4-step wizard:
-1. **Create Admin** - Username and password for super admin
-2. **Company Info** - Company name and brand color
-3. **AI Settings** - Optional embedding model configuration
-4. **First Department** - Create initial department
-
-The setup automatically creates a "Super Admin" role with full permissions and assigns it to the first user.
+- **Language**: TypeScript
+- **API Design**: RESTful endpoints
+- **Authentication**: Express-session with PostgreSQL store, Passport.js (local strategy), Scrypt-based hashing. Includes a first-time setup wizard for initial configuration.
 
 ### Data Layer
 - **ORM**: Drizzle ORM with PostgreSQL dialect
-- **Schema Location**: `shared/schema.ts` contains all database table definitions
-- **Validation**: Zod schemas generated from Drizzle schemas using drizzle-zod
-- **Storage Abstraction**: Interface-based storage pattern (`IStorage`) allowing easy swap between in-memory and database implementations
+- **Schema Management**: Shared schema (`shared/schema.ts`) for type safety across frontend and backend.
+- **Storage**: Drizzle ORM for PostgreSQL with an in-memory fallback for development.
+- **Data Models**: Comprehensive models for Users, Books, Pages, Helpdesks, SLA management, Departments, Roles, Permissions, and Audit Logs.
 
-### Data Models
-- **Users**: Basic user authentication with username/password
-- **Books**: Document collections with title, description, and author reference
-- **Pages**: Flexible content pages that can be standalone or belong to books, with support for hierarchical organization (parent/child relationships) and ordering
-- **Page Versions**: Complete version history for pages with version numbers, content snapshots, and change descriptions
-- **Book Versions**: Complete version history for books with version numbers, metadata snapshots, and change descriptions
-- **Version Audit Logs**: Comprehensive logging of all version-related actions (created, modified, reverted, deleted, archived, restored)
-- **Helpdesks**: Per-department helpdesk configuration with settings for ticket management
-- **SLA States**: Custom ticket states with colors, SLA tracking, and ordering
-- **SLA Policies**: Response and resolution time targets per priority level
-- **Escalation Rules**: Automatic ticket escalation based on time, priority, or state conditions
-- **Webhooks**: External integrations for ticket event notifications
-- **Ticket Form Fields**: Custom fields for ticket creation forms (text, dropdown, checkbox, etc.)
-- **Inbound Email Config**: Email-to-ticket configuration per helpdesk
-- **Department Hierarchy**: Parent-child relationships between departments for complex organizations
-- **Roles**: Custom roles with name, description, color, and priority level; includes system-protected Super Admin role
-- **Permissions**: Granular permission catalog with 36+ permissions across 6 categories (helpdesk, documentation, users, settings, departments, reports)
-- **Role Permissions**: Many-to-many relationship between roles and permissions with optional scope (department-level permissions)
-- **User Roles**: User-to-role assignments with assigned-by tracking
-- **Audit Logs**: Comprehensive logging of all security-related changes including role/permission modifications
-
-### Version History System
-The application includes a comprehensive version history system for both Pages and Books:
-
-**Features:**
-- **Version Timeline**: Git-style sidebar widget showing all document versions with commit-like entries
-- **Version Comparison**: Side-by-side comparison tool for viewing differences between versions (text, images, embedded media)
-- **Revert Functionality**: Auto-saves current state before reverting to preserve history
-- **Archive/Restore**: Archive old versions to reduce clutter, restore when needed
-- **Version Search**: Global search includes legacy versions with visual indicators like "[Legacy Version – v2.3]" or "[Archived – Last Updated: DD/MM/YYYY]"
-
-**Version Retention Settings (System Settings):**
-- `versionRetentionPolicy`: "all", "limit_by_count", "limit_by_time", or "auto_archive"
-- `versionMaxCount`: Maximum versions to keep (default: 50)
-- `versionMaxAgeDays`: Maximum age in days before archiving (default: 365)
-- `autoArchiveEnabled`: Enable automatic archiving of old versions
-
-**API Endpoints:**
-- `GET /api/pages/:id/versions` - Get all versions for a page
-- `POST /api/pages/:id/versions` - Create a new version
-- `POST /api/pages/:id/revert/:versionNumber` - Revert to a specific version
-- `POST /api/pages/:id/versions/:versionId/archive` - Archive a version
-- `POST /api/pages/:id/versions/:versionId/restore` - Restore an archived version
-- `GET /api/pages/:id/compare/:v1/:v2` - Compare two versions
-- `GET /api/versions/search?q=query` - Search across all versions
-- Similar endpoints available for books under `/api/books/:id/versions`
-
-### Key Design Decisions
-
-1. **Shared Schema Pattern**: Database schema and types are defined in `shared/` directory, making them accessible to both frontend and backend, ensuring type safety across the stack.
-
-2. **In-Memory Storage Fallback**: The `MemStorage` class provides a working implementation without database setup, useful for development and testing.
-
-3. **Component-First UI**: Heavy use of pre-built shadcn/ui components ensures consistent design language and accessibility compliance.
-
-4. **Monorepo Structure**: Single repository with clear separation - `client/` for frontend, `server/` for backend, `shared/` for common code.
-
-5. **Modular Settings Architecture**: The system settings are organized in `client/src/features/settings/` with:
-   - **Responsive Sidebar Navigation**: Collapsible sections with animated transitions, desktop sidebar + mobile sheet pattern
-   - **Breadcrumb Navigation**: Full path display (Home > Category > Page) for spatial awareness
-   - **Settings Context Provider**: Centralized state management in `context/SettingsContext.tsx` for department selection and navigation
-   - **Reusable Components**: SettingsSidebar, SettingsHeader, SettingsCard, SettingsSection, SettingsRow, DepartmentSelector
-   - **Independent Section Modules**: Each settings section (AI, Users, Roles, Departments, Helpdesk, Documentation, Links, General) is a self-contained component
-   - **Department-Specific Configuration**: Dropdown selector for context switching with visual indicators and dynamic filtering
-   - **Visual Refinements**: Elevated card layouts, smooth Framer Motion transitions, hover states, and modern aesthetics
-   - **Navigation System**: Centralized in `navigation.ts` with types in `types.ts` for easy extensibility
-
-6. **Documentation Settings Section** (`client/src/features/settings/sections/DocumentationSettings.tsx`):
-   - **Department-Specific Settings**: Each department has its own documentation configuration
-   - **Version History Settings**: Comprehensive controls for version retention, auto-archiving, and search behavior
-   - **Access Control**: Role-based access configuration for documentation per department
-   - **Sub-sections**: Overview, Version History, Access Control (removed unused Categories section)
-   - **Real-time Save**: Version history settings save directly to system_settings via API
-
-7. **Custom Links System** (`client/src/features/settings/sections/LinksSettings.tsx`):
-   - **Department-Based Links**: Links can be company-wide or assigned to specific departments
-   - **Company-Wide Toggle**: Switch to make links visible to all team members
-   - **Grid Layout UI**: Unified 4-across grid display matching app launcher style
-   - **Tab Filtering**: Filter by "All Links", "Company-Wide", or by department
-   - **Favicon Auto-Fetch**: Automatically fetches favicons from link URLs
-   - **Department Color Badges**: Visual indicators showing which department a link belongs to
-   - **Schema Fields**: `departmentId` (null = company-wide), `isCompanyWide` ("true"/"false")
-
-8. **Reports System** (`client/src/features/settings/sections/ReportsSettings.tsx` and `client/src/features/reports/`):
-   - **Standalone Report Builder**: Accessible at `/reports` route from the app launcher with violet icon color
-   - **Department-Specific Reporting**: Each department has independent report configuration and permissions
-   - **Report Types**: Audit, User Access, Ticket SLA, Monthly Closures, and Custom reports
-   - **Report Builder**: Drag-and-drop interface with field selection, filtering, sorting, grouping, and visualization options
-   - **Live Preview**: Real-time data preview tab showing first 25 records from selected data source with auto-refresh
-   - **Data Sources**: tickets, users, audit_logs, sla_states, sla_policies, departments, roles, pages, books
-   - **Scheduling**: Automated report generation with daily, weekly, monthly frequencies
-   - **Sharing**: Share reports with users, roles, or departments with view/edit permissions
-   - **Audit Logging**: All report actions (create, edit, delete, generate, share, schedule) are logged
-   - **Settings Sub-sections**: Overview, Report Builder, Scheduled Reports, Sharing & Access
-   - **Report Definition Schema**: Uses `configuration` (JSON), `isTemplate`, `isPublic` fields
-
-### Reports Database Schema
-- **report_definitions**: Store report configuration templates
-- **report_fields**: Define available fields per data source with type, filterability, sortability, aggregations
-- **saved_reports**: Generated report instances with result data
-- **report_schedules**: Automated scheduling configuration
-- **report_shares**: Sharing permissions per report
-- **report_audit_logs**: Activity logging for compliance
-- **department_report_settings**: Per-department report configuration
-
-### Reports API Endpoints
-- `GET/POST /api/reports/definitions` - Manage report templates
-- `GET/POST /api/reports/saved` - Access generated reports
-- `GET/POST /api/reports/schedules` - Manage schedules
-- `GET/POST /api/reports/:reportId/shares` - Manage sharing
-- `GET /api/reports/audit-logs` - View report activity
-- `GET/POST /api/departments/:id/report-settings` - Department-specific settings
-- `GET/POST /api/reports/fields` - Available fields metadata
+### Core Features and Design Decisions
+- **Version History System**: Git-style versioning for Pages and Books, including timeline, comparison, revert, archive/restore, and search functionalities. Configurable retention policies.
+- **Modular Settings Architecture**: Organized settings sections (AI, Users, Roles, Departments, Helpdesk, Documentation, Links, General) with responsive navigation, breadcrumbs, and a settings context provider.
+- **Documentation Settings**: Department-specific configuration for documentation, including version history controls and access management.
+- **Custom Links System**: Department-based and company-wide custom links with favicon auto-fetch and visual indicators.
+- **Helpdesk Settings**: Per-department configuration for helpdesks, including subdepartment management, a ticket form UI designer, SLA states and policies, and escalation rules.
+- **Ticket Sidebar Panel**: Quick view and inline editing of ticket details, comments, and status.
+- **Reports System**: A comprehensive report builder accessible at `/reports` with department-specific configuration. Supports various report types (Audit, User Access, Ticket SLA, etc.), drag-and-drop interface, live preview, scheduling, and sharing capabilities.
 
 ## External Dependencies
 
 ### Database
-- **PostgreSQL**: Primary database, configured via `DATABASE_URL` environment variable
-- **Drizzle Kit**: Database migration and schema push tooling (`db:push` script)
-
-### Third-Party Services
-- No external API integrations are currently configured, though the dependency list includes:
-  - OpenAI SDK (available but not implemented)
-  - Google Generative AI SDK (available but not implemented)
-  - Stripe SDK (available but not implemented)
-  - Nodemailer (available but not implemented)
+- **PostgreSQL**: Primary database.
+- **Drizzle Kit**: For database migrations.
 
 ### Key Frontend Libraries
-- TanStack React Query for data fetching
-- TipTap for rich text editing
-- Lucide React for icons
-- Class Variance Authority for component variants
+- **TanStack React Query**: For data fetching and caching.
+- **TipTap**: For rich text editing.
+- **Lucide React**: For icons.
+- **Class Variance Authority**: For UI component variants.
 
 ### Development Tools
-- Vite with React plugin
-- TypeScript with strict mode
-- Replit-specific plugins for error overlay and dev tooling
+- **Vite**: Build tool.
+- **TypeScript**: Language.
