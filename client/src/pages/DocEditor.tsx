@@ -74,6 +74,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Page, Book, Comment, User } from "@shared/schema";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { useAuth } from "@/hooks/use-auth";
 
 export function DocStatus({ status, reviewerId, saveStatus }: { status: string, reviewerId?: string | null, saveStatus: 'saved' | 'saving' | 'error' | 'unsaved' }) {
   const isLocked = status === "in_review";
@@ -130,17 +131,33 @@ export default function DocEditor() {
   const { id } = useParams();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const { user } = useAuth();
   const [isAiPanelOpen, setIsAiPanelOpen] = useState(false);
   const [isCommentsOpen, setIsCommentsOpen] = useState(false);
   const [linkTitle, setLinkTitle] = useState("");
   const [isLinkPopoverOpen, setIsLinkPopoverOpen] = useState(false);
   const [newComment, setNewComment] = useState("");
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [isAiProcessing, setIsAiProcessing] = useState(false);
 
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error' | 'unsaved'>('saved');
   const [lastSavedContent, setLastSavedContent] = useState<string>('');
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const versionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastVersionContentRef = useRef<string>('');
+
+  const { data: aiStatus } = useQuery<{ configured: boolean; provider: string | null }>({
+    queryKey: ["/api/ai/status"],
+    staleTime: 60000,
+  });
+
+  const { data: userPermissions = [] } = useQuery<string[]>({
+    queryKey: [`/api/users/${user?.id}/permissions`],
+    enabled: !!user?.id,
+    staleTime: 60000,
+  });
+
+  const canUseAiAssistant = aiStatus?.configured && userPermissions.includes("ai.assistant.use");
 
   const { data: page, isLoading: isLoadingPage } = useQuery<Page>({
     queryKey: [`/api/pages/${id}`],
@@ -402,17 +419,19 @@ export default function DocEditor() {
                 <MessageSquare className="w-4 h-4" />
               </Button>
             )}
-            <Button 
-              variant="outline" 
-              className={cn(
-                "rounded-xl border-border/50 gap-2 font-bold transition-all",
-                isAiPanelOpen ? "bg-primary/10 border-primary/20 text-primary" : ""
-              )}
-              onClick={() => setIsAiPanelOpen(!isAiPanelOpen)}
-            >
-              <Sparkles className="w-4 h-4" />
-              AI Assistant
-            </Button>
+            {canUseAiAssistant && (
+              <Button 
+                variant="outline" 
+                className={cn(
+                  "rounded-xl border-border/50 gap-2 font-bold transition-all",
+                  isAiPanelOpen ? "bg-primary/10 border-primary/20 text-primary" : ""
+                )}
+                onClick={() => setIsAiPanelOpen(!isAiPanelOpen)}
+              >
+                <Sparkles className="w-4 h-4" />
+                AI Assistant
+              </Button>
+            )}
             {!isLocked && page?.status === "draft" && (
               <Button 
                 className="rounded-xl bg-primary hover:bg-primary/90 text-white font-bold gap-2 shadow-lg shadow-primary/20"
@@ -755,13 +774,18 @@ export default function DocEditor() {
           )}
 
           {/* AI Assistant Sidebar */}
-          {isAiPanelOpen && (
+          {canUseAiAssistant && isAiPanelOpen && (
             <div className="w-80 shrink-0 flex flex-col gap-4 animate-in slide-in-from-right duration-300">
               <Card className="flex-1 flex flex-col border border-border/50 shadow-2xl rounded-3xl overflow-hidden bg-background/50 backdrop-blur-xl">
                 <div className="p-4 border-b border-border/50 bg-primary/5 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Sparkles className="w-4 h-4 text-primary" />
                     <span className="text-sm font-bold text-primary">AI Writing Agent</span>
+                    {aiStatus?.provider && (
+                      <Badge variant="outline" className="text-[9px] py-0 px-1.5">
+                        {aiStatus.provider}
+                      </Badge>
+                    )}
                   </div>
                   <Button variant="ghost" size="icon" className="h-6 w-6 rounded-md" onClick={() => setIsAiPanelOpen(false)}>
                     <ChevronDown className="w-4 h-4" />
@@ -771,7 +795,54 @@ export default function DocEditor() {
                 <ScrollArea className="flex-1 p-4">
                   <div className="space-y-4">
                     <div className="bg-secondary/30 p-3 rounded-2xl text-xs leading-relaxed border border-border/50">
-                      Hello! I can help you generate content, fix grammar, or even build entire sections based on your data. What should we do next?
+                      Hello! I can help you generate content, fix grammar, or improve your writing. Select text in the editor and describe what you'd like me to do, or ask me to write something new.
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        { action: "improve", label: "Improve Writing" },
+                        { action: "expand", label: "Expand" },
+                        { action: "summarize", label: "Summarize" },
+                        { action: "fix_grammar", label: "Fix Grammar" },
+                        { action: "make_professional", label: "Professional" },
+                        { action: "simplify", label: "Simplify" },
+                      ].map(({ action, label }) => (
+                        <Button
+                          key={action}
+                          variant="outline"
+                          size="sm"
+                          className="rounded-xl text-xs h-8"
+                          disabled={isAiProcessing || !editor?.state.selection.content().size}
+                          onClick={async () => {
+                            const selectedText = editor?.state.doc.textBetween(
+                              editor.state.selection.from,
+                              editor.state.selection.to,
+                              " "
+                            );
+                            if (!selectedText) {
+                              toast({ title: "No text selected", description: "Please select some text first." });
+                              return;
+                            }
+                            setIsAiProcessing(true);
+                            try {
+                              const res = await apiRequest("POST", "/api/ai/writing-assist", {
+                                prompt: selectedText,
+                                action,
+                              });
+                              const data = await res.json();
+                              if (data.result) {
+                                editor?.chain().focus().insertContent(data.result).run();
+                                toast({ title: "AI Applied", description: "Content has been updated." });
+                              }
+                            } catch (error: any) {
+                              toast({ title: "AI Error", description: error.message, variant: "destructive" });
+                            } finally {
+                              setIsAiProcessing(false);
+                            }
+                          }}
+                        >
+                          {label}
+                        </Button>
+                      ))}
                     </div>
                   </div>
                 </ScrollArea>
@@ -779,11 +850,43 @@ export default function DocEditor() {
                 <div className="p-4 border-t border-border/50 bg-secondary/10">
                   <div className="relative group">
                     <textarea 
-                      placeholder="Ask the agent to write..." 
+                      placeholder="Ask the AI to write something..."
+                      value={aiPrompt}
+                      onChange={(e) => setAiPrompt(e.target.value)}
                       className="w-full bg-background border-border/50 rounded-2xl p-3 pt-4 text-xs min-h-[100px] focus:ring-1 focus:ring-primary/20 outline-none resize-none transition-all shadow-sm"
                     />
-                    <Button size="icon" className="absolute right-2 bottom-2 rounded-xl h-8 w-8 bg-primary shadow-lg shadow-primary/20">
-                      <Sparkles className="w-4 h-4 text-white" />
+                    <Button 
+                      size="icon" 
+                      className="absolute right-2 bottom-2 rounded-xl h-8 w-8 bg-primary shadow-lg shadow-primary/20"
+                      disabled={isAiProcessing || !aiPrompt.trim()}
+                      onClick={async () => {
+                        if (!aiPrompt.trim()) return;
+                        setIsAiProcessing(true);
+                        try {
+                          const res = await apiRequest("POST", "/api/ai/chat", {
+                            messages: [
+                              { role: "system", content: "You are a helpful writing assistant. Generate well-formatted content based on the user's request. Output only the content, no explanations." },
+                              { role: "user", content: aiPrompt }
+                            ]
+                          });
+                          const data = await res.json();
+                          if (data.result) {
+                            editor?.chain().focus().insertContent(data.result).run();
+                            setAiPrompt("");
+                            toast({ title: "Content Generated", description: "AI-generated content has been inserted." });
+                          }
+                        } catch (error: any) {
+                          toast({ title: "AI Error", description: error.message, variant: "destructive" });
+                        } finally {
+                          setIsAiProcessing(false);
+                        }
+                      }}
+                    >
+                      {isAiProcessing ? (
+                        <Clock className="w-4 h-4 text-white animate-spin" />
+                      ) : (
+                        <Sparkles className="w-4 h-4 text-white" />
+                      )}
                     </Button>
                   </div>
                 </div>
