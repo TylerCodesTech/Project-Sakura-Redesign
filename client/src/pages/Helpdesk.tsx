@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -128,9 +128,25 @@ export default function Helpdesk() {
     return state && state.isFinal !== "true";
   }).length;
 
+  const clickTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   const handleTicketClick = (ticketId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    setSelectedTicketId(ticketId);
+    if (clickTimeoutRef.current) {
+      clearTimeout(clickTimeoutRef.current);
+    }
+    clickTimeoutRef.current = setTimeout(() => {
+      setSelectedTicketId(ticketId);
+    }, 250);
+  };
+
+  const handleTicketDoubleClick = (ticketId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (clickTimeoutRef.current) {
+      clearTimeout(clickTimeoutRef.current);
+      clickTimeoutRef.current = null;
+    }
+    handleOpenFull(ticketId);
   };
 
   const handleOpenFull = (ticketId: string) => {
@@ -256,6 +272,7 @@ export default function Helpdesk() {
                           key={ticket.id} 
                           className="hover:bg-secondary/10 cursor-pointer group border-b border-border/50"
                           onClick={(e) => handleTicketClick(ticket.id, e)}
+                          onDoubleClick={(e) => handleTicketDoubleClick(ticket.id, e)}
                         >
                           <TableCell className="font-mono text-xs text-muted-foreground pl-6">
                             #{ticket.id.substring(0, 8)}
@@ -356,6 +373,7 @@ export default function Helpdesk() {
                       key={ticket.id} 
                       className="hover:border-primary/50 transition-all cursor-pointer group shadow-sm"
                       onClick={(e) => handleTicketClick(ticket.id, e)}
+                      onDoubleClick={(e) => handleTicketDoubleClick(ticket.id, e)}
                     >
                       <CardHeader className="pb-3">
                         <div className="flex justify-between items-start mb-2">
@@ -459,6 +477,7 @@ export default function Helpdesk() {
                                 key={ticket.id} 
                                 className="shadow-sm hover:border-primary/40 transition-all cursor-pointer"
                                 onClick={(e) => handleTicketClick(ticket.id, e)}
+                                onDoubleClick={(e) => handleTicketDoubleClick(ticket.id, e)}
                               >
                                 <CardHeader className="p-3 pb-2">
                                   <div className="flex justify-between items-start mb-1.5">
