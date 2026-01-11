@@ -357,10 +357,24 @@ export const helpdeskWebhooks = pgTable("helpdesk_webhooks", {
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
+// Ticket form categories - multiple forms per helpdesk (e.g., Hardware, Software, Network)
+export const ticketFormCategories = pgTable("ticket_form_categories", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  helpdeskId: varchar("helpdesk_id").notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  icon: text("icon").notNull().default("layers"),
+  color: text("color").notNull().default("#3b82f6"),
+  order: integer("order").notNull().default(0),
+  enabled: text("enabled").notNull().default("true"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
 // Custom ticket form fields per helpdesk
 export const ticketFormFields = pgTable("ticket_form_fields", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   helpdeskId: varchar("helpdesk_id").notNull(),
+  formCategoryId: varchar("form_category_id"),
   name: text("name").notNull(),
   label: text("label").notNull(),
   fieldType: text("field_type").notNull().default("text"),
@@ -379,6 +393,8 @@ export const ticketFormFields = pgTable("ticket_form_fields", {
   minValue: text("min_value"),
   maxValue: text("max_value"),
   validationPattern: text("validation_pattern"),
+  width: text("width").notNull().default("full"),
+  internalOnly: text("internal_only").notNull().default("false"),
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
@@ -395,6 +411,7 @@ export const insertEmailThreadSchema = createInsertSchema(emailThreads).omit({ i
 export const insertTicketSchema = createInsertSchema(tickets).omit({ id: true });
 export const insertTicketCommentSchema = createInsertSchema(ticketComments).omit({ id: true });
 export const insertHelpdeskWebhookSchema = createInsertSchema(helpdeskWebhooks).omit({ id: true });
+export const insertTicketFormCategorySchema = createInsertSchema(ticketFormCategories).omit({ id: true });
 export const insertTicketFormFieldSchema = createInsertSchema(ticketFormFields).omit({ id: true });
 
 // Types
@@ -422,6 +439,8 @@ export type TicketComment = typeof ticketComments.$inferSelect;
 export type InsertTicketComment = z.infer<typeof insertTicketCommentSchema>;
 export type HelpdeskWebhook = typeof helpdeskWebhooks.$inferSelect;
 export type InsertHelpdeskWebhook = z.infer<typeof insertHelpdeskWebhookSchema>;
+export type TicketFormCategory = typeof ticketFormCategories.$inferSelect;
+export type InsertTicketFormCategory = z.infer<typeof insertTicketFormCategorySchema>;
 export type TicketFormField = typeof ticketFormFields.$inferSelect;
 export type InsertTicketFormField = z.infer<typeof insertTicketFormFieldSchema>;
 
