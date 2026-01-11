@@ -36,6 +36,12 @@ import {
   Copy,
   Layers,
   EyeOff,
+  Lock,
+  Monitor,
+  Laptop,
+  Network,
+  Key,
+  HelpCircle,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -183,6 +189,17 @@ function SortableFieldItem({ field, onEdit, onDelete, onDuplicate }: SortableFie
             <Badge variant="secondary" className="text-[10px]">
               {fieldType?.label || field.fieldType}
             </Badge>
+            {field.width && field.width !== "full" && (
+              <Badge variant="outline" className="text-[10px]">
+                {field.width === "half" ? "½" : "⅓"} Width
+              </Badge>
+            )}
+            {field.internalOnly === "true" && (
+              <Badge variant="outline" className="text-[10px] border-purple-500/50 text-purple-600">
+                <Lock className="w-3 h-3 mr-1" />
+                Staff Only
+              </Badge>
+            )}
             {field.placeholder && (
               <span className="truncate max-w-[200px]">{field.placeholder}</span>
             )}
@@ -947,6 +964,8 @@ export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSe
                   maxValue: formData.get("maxValue") as string || null,
                   conditionalField: formData.get("conditionalField") as string || null,
                   conditionalValue: formData.get("conditionalValue") as string || null,
+                  width: formData.get("width") as string || "full",
+                  internalOnly: formData.get("internalOnly") === "on" ? "true" : "false",
                 };
                 
                 if (editingField) {
@@ -1010,6 +1029,27 @@ export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSe
                       defaultValue={editingField?.defaultValue || ""}
                     />
                   </div>
+                  <div className="space-y-2">
+                    <Label>Help Text</Label>
+                    <Input 
+                      name="helpText" 
+                      placeholder="Additional help or instructions for this field"
+                      defaultValue={editingField?.helpText || ""}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Field Width</Label>
+                    <Select name="width" defaultValue={editingField?.width || "full"}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="full">Full Width</SelectItem>
+                        <SelectItem value="half">Half Width</SelectItem>
+                        <SelectItem value="third">Third Width</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <div className="flex items-center justify-between">
                     <div>
                       <Label>Required Field</Label>
@@ -1018,6 +1058,16 @@ export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSe
                     <Switch 
                       name="required" 
                       defaultChecked={editingField?.required === "true"} 
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label>Internal Only</Label>
+                      <p className="text-xs text-muted-foreground">Only visible to staff, not end users</p>
+                    </div>
+                    <Switch 
+                      name="internalOnly" 
+                      defaultChecked={editingField?.internalOnly === "true"} 
                     />
                   </div>
                 </div>
@@ -1129,39 +1179,75 @@ export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSe
                 </Select>
               </div>
             </div>
-            {formFields.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).map((field) => (
-              <div key={field.id} className="space-y-2">
-                <Label>
-                  {field.label}
-                  {field.required === "true" && <span className="text-destructive"> *</span>}
-                </Label>
-                {field.fieldType === "text" && (
-                  <Input placeholder={field.placeholder || ""} disabled />
-                )}
-                {field.fieldType === "textarea" && (
-                  <Textarea placeholder={field.placeholder || ""} disabled />
-                )}
-                {field.fieldType === "number" && (
-                  <Input type="number" placeholder={field.placeholder || ""} disabled />
-                )}
-                {field.fieldType === "select" && (
-                  <Select disabled>
-                    <SelectTrigger>
-                      <SelectValue placeholder={field.placeholder || "Select..."} />
-                    </SelectTrigger>
-                  </Select>
-                )}
-                {field.fieldType === "checkbox" && (
-                  <div className="flex items-center gap-2">
-                    <Switch disabled />
-                    <span className="text-sm text-muted-foreground">{field.placeholder}</span>
+            <div className="grid grid-cols-6 gap-4">
+              {formFields.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).map((field) => {
+                const widthClass = field.width === "third" ? "col-span-2" : field.width === "half" ? "col-span-3" : "col-span-6";
+                return (
+                  <div key={field.id} className={cn("space-y-2", widthClass)}>
+                    <Label className="flex items-center gap-2">
+                      {field.label}
+                      {field.required === "true" && <span className="text-destructive">*</span>}
+                      {field.internalOnly === "true" && (
+                        <Badge variant="outline" className="text-[10px] border-purple-500/50 text-purple-600">
+                          <Lock className="w-3 h-3 mr-1" />
+                          Staff Only
+                        </Badge>
+                      )}
+                    </Label>
+                    {field.helpText && (
+                      <p className="text-xs text-muted-foreground">{field.helpText}</p>
+                    )}
+                    {field.fieldType === "text" && (
+                      <Input placeholder={field.placeholder || ""} disabled />
+                    )}
+                    {field.fieldType === "textarea" && (
+                      <Textarea placeholder={field.placeholder || ""} disabled />
+                    )}
+                    {field.fieldType === "number" && (
+                      <Input type="number" placeholder={field.placeholder || ""} disabled />
+                    )}
+                    {field.fieldType === "email" && (
+                      <Input type="email" placeholder={field.placeholder || ""} disabled />
+                    )}
+                    {field.fieldType === "phone" && (
+                      <Input type="tel" placeholder={field.placeholder || ""} disabled />
+                    )}
+                    {field.fieldType === "url" && (
+                      <Input type="url" placeholder={field.placeholder || ""} disabled />
+                    )}
+                    {field.fieldType === "select" && (
+                      <Select disabled>
+                        <SelectTrigger>
+                          <SelectValue placeholder={field.placeholder || "Select..."} />
+                        </SelectTrigger>
+                      </Select>
+                    )}
+                    {field.fieldType === "multiselect" && (
+                      <Select disabled>
+                        <SelectTrigger>
+                          <SelectValue placeholder={field.placeholder || "Select multiple..."} />
+                        </SelectTrigger>
+                      </Select>
+                    )}
+                    {field.fieldType === "checkbox" && (
+                      <div className="flex items-center gap-2">
+                        <Switch disabled />
+                        <span className="text-sm text-muted-foreground">{field.placeholder}</span>
+                      </div>
+                    )}
+                    {field.fieldType === "date" && (
+                      <Input type="date" disabled />
+                    )}
+                    {field.fieldType === "file" && (
+                      <div className="border-2 border-dashed rounded-lg p-4 text-center text-sm text-muted-foreground">
+                        <FileUp className="w-6 h-6 mx-auto mb-2 opacity-50" />
+                        Drop files here or click to upload
+                      </div>
+                    )}
                   </div>
-                )}
-                {field.fieldType === "date" && (
-                  <Input type="date" disabled />
-                )}
-              </div>
-            ))}
+                );
+              })}
+            </div>
           </div>
         </div>
       </SettingsCard>
