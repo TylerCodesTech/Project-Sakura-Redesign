@@ -489,6 +489,7 @@ function DocCard({
   isDragged: boolean,
   isDropTarget: boolean
 }) {
+  const [, navigate] = useLocation();
   const isBook = item.itemType === 'book';
   const isFolder = item.itemType === 'folder';
   const Icon = isBook ? BookOpen : isFolder ? Folder : FileText;
@@ -500,6 +501,17 @@ function DocCard({
     if (isFolder && onFolderClick) {
       e.preventDefault();
       onFolderClick(item.id);
+    }
+  };
+
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (isFolder && onFolderClick) {
+      onFolderClick(item.id);
+    } else if (isBook) {
+      navigate(`/documents/book/${item.id}`);
+    } else {
+      navigate(`/documents/edit/${item.id}`);
     }
   };
 
@@ -546,7 +558,8 @@ function DocCard({
     onDrop: isFolder ? (e: React.DragEvent) => onDrop(e, item.id) : undefined,
     onDragEnd: onDragEnd,
     className: containerClasses,
-    onClick: isFolder ? handleClick : undefined
+    onClick: isFolder ? handleClick : undefined,
+    onDoubleClick: handleDoubleClick
   };
 
   if (view === 'list') {
