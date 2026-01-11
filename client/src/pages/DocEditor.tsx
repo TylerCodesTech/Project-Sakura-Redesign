@@ -51,7 +51,7 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { Link, useParams, useLocation } from "wouter";
 import { useEditor, EditorContent } from '@tiptap/react';
@@ -75,7 +75,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { Page, Book, Comment, User } from "@shared/schema";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
-export function DocStatus({ status, reviewerId, saveStatus }: { status: string, reviewerId?: string | null, saveStatus: 'saved' | 'saving' | 'error' }) {
+export function DocStatus({ status, reviewerId, saveStatus }: { status: string, reviewerId?: string | null, saveStatus: 'saved' | 'saving' | 'error' | 'unsaved' }) {
   const isLocked = status === "in_review";
   return (
     <div className="flex flex-col">
@@ -93,10 +93,30 @@ export function DocStatus({ status, reviewerId, saveStatus }: { status: string, 
         ) : (
           <Badge variant="outline" className="text-[10px] py-0 border-indigo-500/20 text-indigo-600 bg-indigo-500/5 uppercase font-black tracking-widest">Draft</Badge>
         )}
-        <div className="flex items-center ml-1">
-          {saveStatus === 'saving' && <Clock className="w-3 h-3 animate-spin text-muted-foreground" />}
-          {saveStatus === 'saved' && <CheckCircle className="w-3 h-3 text-emerald-500" />}
-          {saveStatus === 'error' && <span className="text-[10px] text-destructive font-bold">Error saving</span>}
+        <div className="flex items-center gap-1.5 ml-1">
+          {saveStatus === 'saving' && (
+            <Badge variant="outline" className="text-[10px] py-0.5 px-2 gap-1 bg-blue-500/5 border-blue-500/20 text-blue-600 animate-pulse">
+              <Clock className="w-3 h-3 animate-spin" />
+              Saving...
+            </Badge>
+          )}
+          {saveStatus === 'saved' && (
+            <Badge variant="outline" className="text-[10px] py-0.5 px-2 gap-1 bg-emerald-500/5 border-emerald-500/20 text-emerald-600">
+              <CheckCircle className="w-3 h-3" />
+              Saved
+            </Badge>
+          )}
+          {saveStatus === 'unsaved' && (
+            <Badge variant="outline" className="text-[10px] py-0.5 px-2 gap-1 bg-amber-500/5 border-amber-500/20 text-amber-600">
+              <Clock className="w-3 h-3" />
+              Unsaved changes
+            </Badge>
+          )}
+          {saveStatus === 'error' && (
+            <Badge variant="outline" className="text-[10px] py-0.5 px-2 gap-1 bg-red-500/5 border-red-500/20 text-red-600">
+              Error saving
+            </Badge>
+          )}
         </div>
       </div>
       {isLocked && reviewerId && (
@@ -116,7 +136,11 @@ export default function DocEditor() {
   const [isLinkPopoverOpen, setIsLinkPopoverOpen] = useState(false);
   const [newComment, setNewComment] = useState("");
 
-  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
+  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error' | 'unsaved'>('saved');
+  const [lastSavedContent, setLastSavedContent] = useState<string>('');
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const versionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastVersionContentRef = useRef<string>('');
 
   const { data: page, isLoading: isLoadingPage } = useQuery<Page>({
     queryKey: [`/api/pages/${id}`],
@@ -138,13 +162,32 @@ export default function DocEditor() {
     mutationFn: async (content: string) => {
       setSaveStatus('saving');
       await apiRequest("PATCH", `/api/pages/${id}`, { content });
+      return content;
     },
-    onSuccess: () => {
+    onSuccess: (savedContent) => {
       setSaveStatus('saved');
+      setLastSavedContent(savedContent);
       queryClient.invalidateQueries({ queryKey: [`/api/pages/${id}`] });
     },
     onError: () => {
       setSaveStatus('error');
+    }
+  });
+
+  const createVersionMutation = useMutation({
+    mutationFn: async ({ content, changeDescription }: { content: string, changeDescription: string }) => {
+      await apiRequest("POST", `/api/pages/${id}/versions`, { 
+        title: page?.title,
+        content,
+        status: page?.status,
+        changeDescription,
+        createdBy: "current-user-id"
+      });
+      return content;
+    },
+    onSuccess: (content) => {
+      lastVersionContentRef.current = content;
+      queryClient.invalidateQueries({ queryKey: [`/api/pages/${id}/versions`] });
     }
   });
 
@@ -235,19 +278,66 @@ export default function DocEditor() {
     },
   });
 
-  // Auto-save logic
+  // Initialize last saved content when page loads
   useEffect(() => {
-    if (!editor || isLocked || page?.status === "published") return;
+    if (page?.content) {
+      setLastSavedContent(page.content);
+      lastVersionContentRef.current = page.content;
+    }
+  }, [page?.id]);
 
-    const timer = setTimeout(() => {
-      const currentContent = editor.getHTML();
-      if (currentContent !== page?.content) {
+  // Handle auto-save with proper debouncing via TipTap onUpdate
+  const handleEditorUpdate = useCallback(() => {
+    if (!editor || isLocked || page?.status === "published") return;
+    
+    const currentContent = editor.getHTML();
+    
+    // Mark as unsaved if content differs
+    if (currentContent !== lastSavedContent) {
+      setSaveStatus('unsaved');
+    }
+    
+    // Clear existing auto-save timer
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+    }
+    
+    // Set new auto-save timer (2 second debounce)
+    autoSaveTimerRef.current = setTimeout(() => {
+      if (currentContent !== lastSavedContent) {
         updatePageMutation.mutate(currentContent);
       }
-    }, 2000); // 2 second debounce
+    }, 2000);
+    
+    // Clear existing version timer
+    if (versionTimerRef.current) {
+      clearTimeout(versionTimerRef.current);
+    }
+    
+    // Create version after 30 seconds of no changes (if content differs from last version)
+    versionTimerRef.current = setTimeout(() => {
+      if (currentContent !== lastVersionContentRef.current && currentContent.length > 10) {
+        createVersionMutation.mutate({ 
+          content: currentContent, 
+          changeDescription: "Auto-saved version" 
+        });
+      }
+    }, 30000);
+  }, [editor, isLocked, page?.status, lastSavedContent, updatePageMutation, createVersionMutation]);
 
-    return () => clearTimeout(timer);
-  }, [editor?.getHTML(), isLocked, page?.status]);
+  // Subscribe to editor updates
+  useEffect(() => {
+    if (!editor) return;
+    
+    editor.on('update', handleEditorUpdate);
+    
+    return () => {
+      editor.off('update', handleEditorUpdate);
+      // Cleanup timers
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+      if (versionTimerRef.current) clearTimeout(versionTimerRef.current);
+    };
+  }, [editor, handleEditorUpdate]);
 
   useEffect(() => {
     if (page?.content && editor && !editor.isFocused) {
