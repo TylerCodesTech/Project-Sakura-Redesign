@@ -12,7 +12,8 @@ import {
   CalendarPlus,
   History,
   Trash2,
-  AlertTriangle
+  AlertTriangle,
+  FolderOpen
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -39,6 +40,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { format } from "date-fns";
+import { MoveDialog } from "./MoveDialog";
 
 type SidebarItem = {
   id: string;
@@ -50,6 +52,7 @@ type SidebarItem = {
   authorId?: string;
   updatedAt?: string | Date;
   createdAt?: string | Date;
+  parentId?: string | null;
 };
 
 interface DetailsSidebarProps {
@@ -57,12 +60,14 @@ interface DetailsSidebarProps {
   onClose: () => void;
   isOpen: boolean;
   canDelete?: boolean;
+  canMove?: boolean;
 }
 
-export function DetailsSidebar({ item, onClose, isOpen, canDelete = true }: DetailsSidebarProps) {
+export function DetailsSidebar({ item, onClose, isOpen, canDelete = true, canMove = true }: DetailsSidebarProps) {
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isMoveDialogOpen, setIsMoveDialogOpen] = useState(false);
   const [deleteCountdown, setDeleteCountdown] = useState(5);
   const [canConfirmDelete, setCanConfirmDelete] = useState(false);
 
@@ -199,6 +204,18 @@ export function DetailsSidebar({ item, onClose, isOpen, canDelete = true }: Deta
                       <History className="w-4 h-4" />
                       Version History
                     </DropdownMenuItem>
+                    {canMove && !isBook && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem 
+                          className="gap-2 rounded-lg cursor-pointer"
+                          onClick={() => setIsMoveDialogOpen(true)}
+                        >
+                          <FolderOpen className="w-4 h-4" />
+                          Move to...
+                        </DropdownMenuItem>
+                      </>
+                    )}
                     {canDelete && (
                       <>
                         <DropdownMenuSeparator />
@@ -390,6 +407,17 @@ export function DetailsSidebar({ item, onClose, isOpen, canDelete = true }: Deta
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {!isBook && item && (
+        <MoveDialog
+          isOpen={isMoveDialogOpen}
+          onClose={() => setIsMoveDialogOpen(false)}
+          itemId={item.id}
+          itemTitle={item.title}
+          itemType={item.itemType}
+          currentParentId={item.parentId || null}
+        />
+      )}
     </>
   );
 }
