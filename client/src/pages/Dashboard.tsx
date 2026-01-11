@@ -21,51 +21,26 @@ import {
   ChevronRight as ChevronRightIcon,
   Ticket,
   Loader2,
-  Monitor,
-  Laptop,
-  Network,
-  Key,
-  HelpCircle,
-  Settings,
-  Mail,
-  ArrowLeft,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useState, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { type Department, type News, type Stat, type Comment, type Helpdesk, type TicketFormCategory } from "@shared/schema";
+import { type Department, type News, type Stat, type Comment, type Helpdesk } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuth } from "@/hooks/use-auth";
 import { useSystemSettings } from "@/contexts/SystemSettingsContext";
 import { toast } from "sonner";
+import { TicketCreationWizard } from "@/components/tickets/TicketCreationWizard";
 
 function getTimeGreeting(): string {
   const hour = new Date().getHours();
@@ -78,12 +53,6 @@ export default function Dashboard() {
   const [time, setTime] = useState(new Date());
   const [message, setMessage] = useState("");
   const [isCreateTicketOpen, setIsCreateTicketOpen] = useState(false);
-  const [ticketTitle, setTicketTitle] = useState("");
-  const [ticketDescription, setTicketDescription] = useState("");
-  const [ticketHelpdeskId, setTicketHelpdeskId] = useState("");
-  const [ticketPriority, setTicketPriority] = useState("medium");
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
-  const [showCategorySelection, setShowCategorySelection] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
   const { settings } = useSystemSettings();
@@ -96,45 +65,6 @@ export default function Dashboard() {
     queryKey: ["/api/helpdesks"],
   });
 
-  const { data: formCategories = [] } = useQuery<TicketFormCategory[]>({
-    queryKey: ["/api/helpdesks", ticketHelpdeskId, "form-categories"],
-    queryFn: async () => {
-      if (!ticketHelpdeskId) return [];
-      const res = await fetch(`/api/helpdesks/${ticketHelpdeskId}/form-categories`);
-      return res.json();
-    },
-    enabled: !!ticketHelpdeskId,
-  });
-
-  const createTicketMutation = useMutation({
-    mutationFn: async (data: { 
-      helpdeskId: string; 
-      title: string; 
-      description: string; 
-      priority: string;
-      departmentId: string;
-    }) => {
-      const res = await apiRequest("POST", "/api/tickets", {
-        ...data,
-        ticketType: "request",
-        source: "web",
-        createdBy: user?.id,
-      });
-      return res.json();
-    },
-    onSuccess: () => {
-      toast.success("Ticket created successfully");
-      setIsCreateTicketOpen(false);
-      setTicketTitle("");
-      setTicketDescription("");
-      setTicketHelpdeskId("");
-      setTicketPriority("medium");
-      queryClient.invalidateQueries({ queryKey: ["/api/tickets"] });
-    },
-    onError: () => {
-      toast.error("Failed to create ticket");
-    },
-  });
 
   const { data: news = [], isLoading: isLoadingNews } = useQuery<News[]>({
     queryKey: ["/api/news"],
@@ -363,236 +293,20 @@ export default function Dashboard() {
                 </div>
               </CardHeader>
               <CardContent className="p-4 space-y-2">
-                <Dialog open={isCreateTicketOpen} onOpenChange={setIsCreateTicketOpen}>
-                  <DialogTrigger asChild>
-                    <Button variant="outline" className="w-full justify-start gap-3 h-12 rounded-2xl border-border/50 hover:bg-primary/5 hover:text-primary hover:border-primary/30 transition-all font-medium">
-                      <div className="p-1.5 bg-rose-500/10 rounded-lg">
-                        <Ticket className="w-4 h-4 text-rose-500" />
-                      </div>
-                      Create Ticket
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="sm:max-w-[600px]">
-                    <DialogHeader>
-                      <DialogTitle className="flex items-center gap-2">
-                        {showCategorySelection && selectedCategoryId && (
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-6 w-6 mr-1"
-                            onClick={() => {
-                              setSelectedCategoryId(null);
-                              setShowCategorySelection(true);
-                            }}
-                          >
-                            <ArrowLeft className="w-4 h-4" />
-                          </Button>
-                        )}
-                        <Ticket className="w-5 h-5 text-primary" />
-                        {showCategorySelection && !selectedCategoryId 
-                          ? "Select Issue Type" 
-                          : "Create New Ticket"}
-                      </DialogTitle>
-                      <DialogDescription>
-                        {showCategorySelection && !selectedCategoryId
-                          ? "What type of issue are you experiencing?"
-                          : "Submit a new support ticket. Choose the appropriate helpdesk for your request."}
-                      </DialogDescription>
-                    </DialogHeader>
-                    
-                    {showCategorySelection && !selectedCategoryId && formCategories.length > 0 ? (
-                      <div className="py-4">
-                        <div className="grid grid-cols-2 gap-4">
-                          {formCategories.filter(c => c.enabled !== "false").sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).map((category) => {
-                            const CATEGORY_ICONS: Record<string, any> = {
-                              Monitor, Laptop, Network, Key, HelpCircle, Settings, Mail, Ticket
-                            };
-                            const IconComponent = CATEGORY_ICONS[category.icon || "HelpCircle"] || HelpCircle;
-                            return (
-                              <button
-                                key={category.id}
-                                onClick={() => {
-                                  setSelectedCategoryId(category.id);
-                                }}
-                                className="group p-6 rounded-xl border-2 border-border/50 hover:border-primary/50 bg-card hover:bg-primary/5 transition-all text-left"
-                              >
-                                <div className="flex flex-col items-center text-center gap-3">
-                                  <div 
-                                    className="w-14 h-14 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110"
-                                    style={{ backgroundColor: `${category.color || "#3b82f6"}20` }}
-                                  >
-                                    <IconComponent className="w-7 h-7" style={{ color: category.color || "#3b82f6" }} />
-                                  </div>
-                                  <div>
-                                    <h3 className="font-semibold text-sm">{category.name}</h3>
-                                    {category.description && (
-                                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{category.description}</p>
-                                    )}
-                                  </div>
-                                </div>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ) : (
-                      <>
-                        <div className="space-y-4 py-4">
-                          <div className="space-y-2">
-                            <Label>Helpdesk <span className="text-destructive">*</span></Label>
-                            <Select 
-                              value={ticketHelpdeskId} 
-                              onValueChange={(value) => {
-                                setTicketHelpdeskId(value);
-                                setSelectedCategoryId(null);
-                              }}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select a helpdesk..." />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {helpdesks.filter(h => h.enabled === "true").map((helpdesk) => {
-                                  const dept = departments.find(d => d.id === helpdesk.departmentId);
-                                  return (
-                                    <SelectItem key={helpdesk.id} value={helpdesk.id}>
-                                      <div className="flex items-center gap-2">
-                                        {dept && (
-                                          <div 
-                                            className="w-2 h-2 rounded-full" 
-                                            style={{ backgroundColor: dept.color }}
-                                          />
-                                        )}
-                                        {helpdesk.name}
-                                      </div>
-                                    </SelectItem>
-                                  );
-                                })}
-                                {helpdesks.filter(h => h.enabled === "true").length === 0 && (
-                                  <div className="px-2 py-4 text-sm text-muted-foreground text-center">
-                                    No helpdesks available. Contact your administrator.
-                                  </div>
-                                )}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          
-                          {ticketHelpdeskId && formCategories.length > 1 && !selectedCategoryId && (
-                            <Button 
-                              variant="outline" 
-                              className="w-full"
-                              onClick={() => setShowCategorySelection(true)}
-                            >
-                              <HelpCircle className="w-4 h-4 mr-2" />
-                              Select Issue Type
-                            </Button>
-                          )}
-                          
-                          {selectedCategoryId && (
-                            <div className="flex items-center gap-2 p-3 rounded-lg bg-primary/5 border border-primary/20">
-                              {(() => {
-                                const category = formCategories.find(c => c.id === selectedCategoryId);
-                                if (!category) return null;
-                                const CATEGORY_ICONS: Record<string, any> = {
-                                  Monitor, Laptop, Network, Key, HelpCircle, Settings, Mail, Ticket
-                                };
-                                const IconComponent = CATEGORY_ICONS[category.icon || "HelpCircle"] || HelpCircle;
-                                return (
-                                  <>
-                                    <div 
-                                      className="w-8 h-8 rounded-lg flex items-center justify-center"
-                                      style={{ backgroundColor: `${category.color || "#3b82f6"}20` }}
-                                    >
-                                      <IconComponent className="w-4 h-4" style={{ color: category.color || "#3b82f6" }} />
-                                    </div>
-                                    <span className="text-sm font-medium">{category.name}</span>
-                                    <Button 
-                                      variant="ghost" 
-                                      size="sm" 
-                                      className="ml-auto h-6 text-xs"
-                                      onClick={() => setShowCategorySelection(true)}
-                                    >
-                                      Change
-                                    </Button>
-                                  </>
-                                );
-                              })()}
-                            </div>
-                          )}
-                          
-                          <div className="space-y-2">
-                            <Label>Title <span className="text-destructive">*</span></Label>
-                            <Input 
-                              placeholder="Brief description of your issue"
-                              value={ticketTitle}
-                              onChange={(e) => setTicketTitle(e.target.value)}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Description</Label>
-                            <Textarea 
-                              placeholder="Provide more details about your request..."
-                              className="min-h-[100px]"
-                              value={ticketDescription}
-                              onChange={(e) => setTicketDescription(e.target.value)}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Priority</Label>
-                            <Select value={ticketPriority} onValueChange={setTicketPriority}>
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="low">Low</SelectItem>
-                                <SelectItem value="medium">Medium</SelectItem>
-                                <SelectItem value="high">High</SelectItem>
-                                <SelectItem value="urgent">Urgent</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                        <DialogFooter>
-                          <Button 
-                            variant="outline" 
-                            onClick={() => {
-                              setIsCreateTicketOpen(false);
-                              setSelectedCategoryId(null);
-                              setShowCategorySelection(false);
-                            }}
-                          >
-                            Cancel
-                          </Button>
-                          <Button 
-                            onClick={() => {
-                              const helpdesk = helpdesks.find(h => h.id === ticketHelpdeskId);
-                              if (!ticketHelpdeskId || !ticketTitle.trim()) {
-                                toast.error("Please fill in all required fields");
-                                return;
-                              }
-                              createTicketMutation.mutate({
-                                helpdeskId: ticketHelpdeskId,
-                                title: ticketTitle,
-                                description: ticketDescription,
-                                priority: ticketPriority,
-                                departmentId: helpdesk?.departmentId || "",
-                              });
-                            }}
-                            disabled={createTicketMutation.isPending}
-                          >
-                            {createTicketMutation.isPending ? (
-                              <>
-                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                Creating...
-                              </>
-                            ) : (
-                              "Create Ticket"
-                            )}
-                          </Button>
-                        </DialogFooter>
-                      </>
-                    )}
-                  </DialogContent>
-                </Dialog>
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start gap-3 h-12 rounded-2xl border-border/50 hover:bg-primary/5 hover:text-primary hover:border-primary/30 transition-all font-medium"
+                  onClick={() => setIsCreateTicketOpen(true)}
+                >
+                  <div className="p-1.5 bg-rose-500/10 rounded-lg">
+                    <Ticket className="w-4 h-4 text-rose-500" />
+                  </div>
+                  Create Ticket
+                </Button>
+                <TicketCreationWizard 
+                  open={isCreateTicketOpen} 
+                  onOpenChange={setIsCreateTicketOpen} 
+                />
                 <Button variant="outline" className="w-full justify-start gap-3 h-12 rounded-2xl border-border/50 hover:bg-primary/5 hover:text-primary hover:border-primary/30 transition-all font-medium">
                   <div className="p-1.5 bg-blue-500/10 rounded-lg">
                     <PenLine className="w-4 h-4 text-blue-500" />
