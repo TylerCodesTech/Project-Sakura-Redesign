@@ -24,7 +24,11 @@ import {
   Send,
   MessageSquare,
   CheckCircle,
-  Clock
+  Clock,
+  Highlighter,
+  Palette,
+  CheckSquare,
+  ExternalLink
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -57,6 +61,12 @@ import TextAlign from '@tiptap/extension-text-align';
 import { TextStyle } from '@tiptap/extension-text-style';
 import FontFamily from '@tiptap/extension-font-family';
 import Placeholder from '@tiptap/extension-placeholder';
+import { Color } from '@tiptap/extension-color';
+import Highlight from '@tiptap/extension-highlight';
+import TiptapLink from '@tiptap/extension-link';
+import TaskList from '@tiptap/extension-task-list';
+import TaskItem from '@tiptap/extension-task-item';
+import { Input } from "@/components/ui/input";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -181,10 +191,32 @@ export default function DocEditor() {
     extensions: [
       StarterKit.configure({
         underline: false,
+        bulletList: {
+          keepMarks: true,
+          keepAttributes: true,
+        },
+        orderedList: {
+          keepMarks: true,
+          keepAttributes: true,
+        },
       }),
       Underline,
       TextStyle,
       FontFamily,
+      Color,
+      Highlight.configure({
+        multicolor: true,
+      }),
+      TiptapLink.configure({
+        openOnClick: false,
+        HTMLAttributes: {
+          class: 'text-primary underline cursor-pointer hover:text-primary/80',
+        },
+      }),
+      TaskList,
+      TaskItem.configure({
+        nested: true,
+      }),
       TextAlign.configure({
         types: ['heading', 'paragraph'],
       }),
@@ -303,10 +335,11 @@ export default function DocEditor() {
 
         {/* Toolbar - Hide or disable when locked */}
         <div className={cn(
-          "flex items-center gap-1 bg-secondary/20 p-1.5 rounded-2xl border border-border/40 mb-6 backdrop-blur-sm overflow-x-auto scrollbar-hide",
+          "flex items-center gap-1 bg-secondary/20 p-1.5 rounded-2xl border border-border/40 mb-6 backdrop-blur-sm overflow-x-auto scrollbar-hide flex-wrap",
           isLocked && "opacity-50 pointer-events-none"
         )}>
-          <div className="flex items-center gap-1 px-1">
+          {/* Undo/Redo */}
+          <div className="flex items-center gap-0.5 px-1">
             <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={() => editor.chain().focus().undo().run()} disabled={!editor.can().undo()}>
               <Undo2 className="w-4 h-4" />
             </Button>
@@ -315,28 +348,205 @@ export default function DocEditor() {
             </Button>
           </div>
           <Separator orientation="vertical" className="h-6 mx-1 opacity-50" />
+          
+          {/* Font Family */}
           <Select onValueChange={(value) => editor.chain().focus().setFontFamily(value).run()}>
             <SelectTrigger className="w-[130px] h-8 rounded-lg border-transparent bg-transparent hover:bg-secondary/40 transition-all font-bold text-xs">
-              <SelectValue placeholder="Font Family" />
+              <SelectValue placeholder="Font" />
             </SelectTrigger>
             <SelectContent className="rounded-xl border-border/50">
-              <SelectItem value="Inter">Inter</SelectItem>
-              <SelectItem value="serif">Merriweather</SelectItem>
-              <SelectItem value="monospace">JetBrains Mono</SelectItem>
+              <SelectItem value="Arial, sans-serif">Arial</SelectItem>
+              <SelectItem value="Times New Roman, serif">Times New Roman</SelectItem>
+              <SelectItem value="Comic Sans MS, Comic Sans, cursive">Comic Sans</SelectItem>
+              <SelectItem value="Inter, sans-serif">Inter</SelectItem>
+              <SelectItem value="Georgia, serif">Georgia</SelectItem>
+              <SelectItem value="Courier New, monospace">Courier New</SelectItem>
+            </SelectContent>
+          </Select>
+          
+          {/* Font Size */}
+          <Select onValueChange={(value) => editor.chain().focus().setMark('textStyle', { fontSize: value }).run()}>
+            <SelectTrigger className="w-[70px] h-8 rounded-lg border-transparent bg-transparent hover:bg-secondary/40 font-bold text-xs">
+              <SelectValue placeholder="11" />
+            </SelectTrigger>
+            <SelectContent className="rounded-xl">
+              <SelectItem value="8pt">8</SelectItem>
+              <SelectItem value="9pt">9</SelectItem>
+              <SelectItem value="10pt">10</SelectItem>
+              <SelectItem value="11pt">11</SelectItem>
+              <SelectItem value="12pt">12</SelectItem>
+              <SelectItem value="14pt">14</SelectItem>
+              <SelectItem value="16pt">16</SelectItem>
+              <SelectItem value="18pt">18</SelectItem>
+              <SelectItem value="20pt">20</SelectItem>
+              <SelectItem value="24pt">24</SelectItem>
+              <SelectItem value="28pt">28</SelectItem>
+              <SelectItem value="36pt">36</SelectItem>
+              <SelectItem value="48pt">48</SelectItem>
+              <SelectItem value="72pt">72</SelectItem>
             </SelectContent>
           </Select>
           <Separator orientation="vertical" className="h-6 mx-1 opacity-50" />
+          
+          {/* Basic Formatting */}
           <div className="flex items-center gap-0.5">
-            <Button variant={editor.isActive('bold') ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8 rounded-lg transition-all" onClick={() => editor.chain().focus().toggleBold().run()}>
+            <Button variant={editor.isActive('bold') ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8 rounded-lg" onClick={() => editor.chain().focus().toggleBold().run()}>
               <BoldIcon className="w-4 h-4" />
             </Button>
-            <Button variant={editor.isActive('italic') ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8 rounded-lg transition-all" onClick={() => editor.chain().focus().toggleItalic().run()}>
+            <Button variant={editor.isActive('italic') ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8 rounded-lg" onClick={() => editor.chain().focus().toggleItalic().run()}>
               <ItalicIcon className="w-4 h-4" />
             </Button>
-            <Button variant={editor.isActive('underline') ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8 rounded-lg transition-all" onClick={() => editor.chain().focus().toggleUnderline().run()}>
+            <Button variant={editor.isActive('underline') ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8 rounded-lg" onClick={() => editor.chain().focus().toggleUnderline().run()}>
               <UnderlineIcon className="w-4 h-4" />
             </Button>
           </div>
+          <Separator orientation="vertical" className="h-6 mx-1 opacity-50" />
+          
+          {/* Text Color */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg">
+                <Palette className="w-4 h-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-48 p-3 rounded-xl">
+              <div className="space-y-2">
+                <h4 className="font-bold text-xs">Text Color</h4>
+                <div className="grid grid-cols-6 gap-1">
+                  {['#000000', '#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899', '#6b7280', '#dc2626', '#ea580c', '#ca8a04', '#16a34a', '#2563eb', '#7c3aed', '#db2777'].map((color) => (
+                    <button
+                      key={color}
+                      className="w-6 h-6 rounded-md border border-border/50 hover:scale-110 transition-transform"
+                      style={{ backgroundColor: color }}
+                      onClick={() => editor.chain().focus().setColor(color).run()}
+                    />
+                  ))}
+                </div>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="w-full text-xs mt-2"
+                  onClick={() => editor.chain().focus().unsetColor().run()}
+                >
+                  Remove Color
+                </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
+          
+          {/* Highlight Color */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant={editor.isActive('highlight') ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8 rounded-lg">
+                <Highlighter className="w-4 h-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-48 p-3 rounded-xl">
+              <div className="space-y-2">
+                <h4 className="font-bold text-xs">Highlight Color</h4>
+                <div className="grid grid-cols-6 gap-1">
+                  {['#fef08a', '#bbf7d0', '#bfdbfe', '#ddd6fe', '#fbcfe8', '#fed7aa', '#fecaca', '#d9f99d', '#a5f3fc', '#c4b5fd', '#f9a8d4', '#fde68a'].map((color) => (
+                    <button
+                      key={color}
+                      className="w-6 h-6 rounded-md border border-border/50 hover:scale-110 transition-transform"
+                      style={{ backgroundColor: color }}
+                      onClick={() => editor.chain().focus().toggleHighlight({ color }).run()}
+                    />
+                  ))}
+                </div>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="w-full text-xs mt-2"
+                  onClick={() => editor.chain().focus().unsetHighlight().run()}
+                >
+                  Remove Highlight
+                </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
+          <Separator orientation="vertical" className="h-6 mx-1 opacity-50" />
+          
+          {/* Lists */}
+          <div className="flex items-center gap-0.5">
+            <Button variant={editor.isActive('bulletList') ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8 rounded-lg" onClick={() => editor.chain().focus().toggleBulletList().run()}>
+              <ListIcon className="w-4 h-4" />
+            </Button>
+            <Button variant={editor.isActive('orderedList') ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8 rounded-lg" onClick={() => editor.chain().focus().toggleOrderedList().run()}>
+              <ListOrdered className="w-4 h-4" />
+            </Button>
+            <Button variant={editor.isActive('taskList') ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8 rounded-lg" onClick={() => editor.chain().focus().toggleTaskList().run()}>
+              <CheckSquare className="w-4 h-4" />
+            </Button>
+          </div>
+          <Separator orientation="vertical" className="h-6 mx-1 opacity-50" />
+          
+          {/* Text Alignment */}
+          <div className="flex items-center gap-0.5">
+            <Button variant={editor.isActive({ textAlign: 'left' }) ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8 rounded-lg" onClick={() => editor.chain().focus().setTextAlign('left').run()}>
+              <AlignLeft className="w-4 h-4" />
+            </Button>
+            <Button variant={editor.isActive({ textAlign: 'center' }) ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8 rounded-lg" onClick={() => editor.chain().focus().setTextAlign('center').run()}>
+              <AlignCenter className="w-4 h-4" />
+            </Button>
+            <Button variant={editor.isActive({ textAlign: 'right' }) ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8 rounded-lg" onClick={() => editor.chain().focus().setTextAlign('right').run()}>
+              <AlignRight className="w-4 h-4" />
+            </Button>
+          </div>
+          <Separator orientation="vertical" className="h-6 mx-1 opacity-50" />
+          
+          {/* Link */}
+          <Popover open={isLinkPopoverOpen} onOpenChange={setIsLinkPopoverOpen}>
+            <PopoverTrigger asChild>
+              <Button variant={editor.isActive('link') ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8 rounded-lg">
+                <LinkIcon className="w-4 h-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-72 p-3 rounded-xl">
+              <div className="space-y-3">
+                <h4 className="font-bold text-xs">Insert Link</h4>
+                <div className="space-y-2">
+                  <Input 
+                    className="h-8 text-xs rounded-lg"
+                    placeholder="Enter URL or page title..."
+                    value={linkTitle}
+                    onChange={(e) => setLinkTitle(e.target.value)}
+                  />
+                  <div className="flex gap-2">
+                    <Button 
+                      size="sm" 
+                      className="flex-1 h-8 text-xs rounded-lg gap-1"
+                      onClick={() => {
+                        if (linkTitle.startsWith('http')) {
+                          editor.chain().focus().setLink({ href: linkTitle }).run();
+                        } else {
+                          insertWikiLink();
+                        }
+                        setLinkTitle('');
+                        setIsLinkPopoverOpen(false);
+                      }}
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      Add Link
+                    </Button>
+                    {editor.isActive('link') && (
+                      <Button 
+                        variant="outline"
+                        size="sm" 
+                        className="h-8 text-xs rounded-lg"
+                        onClick={() => {
+                          editor.chain().focus().unsetLink().run();
+                          setIsLinkPopoverOpen(false);
+                        }}
+                      >
+                        Remove
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
 
         <div className="flex gap-6 h-full overflow-hidden">
