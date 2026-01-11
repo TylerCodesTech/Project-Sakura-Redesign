@@ -40,6 +40,7 @@ export interface IStorage {
   getBooks(): Promise<Book[]>;
   getBook(id: string): Promise<Book | undefined>;
   createBook(book: InsertBook): Promise<Book>;
+  deleteBook(id: string): Promise<void>;
   
   getPages(bookId: string): Promise<Page[]>;
   getPage(id: string): Promise<Page | undefined>;
@@ -47,6 +48,7 @@ export interface IStorage {
   getStandalonePages(): Promise<Page[]>;
   createPage(page: InsertPage): Promise<Page>;
   updatePage(id: string, page: Partial<InsertPage>): Promise<Page>;
+  deletePage(id: string): Promise<void>;
 
   getComments(pageId: string): Promise<Comment[]>;
   createComment(comment: InsertComment): Promise<Comment>;
@@ -349,6 +351,15 @@ export class MemStorage implements IStorage {
     return book;
   }
 
+  async deleteBook(id: string): Promise<void> {
+    for (const [pageId, page] of this.pages) {
+      if (page.bookId === id) {
+        this.pages.delete(pageId);
+      }
+    }
+    this.books.delete(id);
+  }
+
   async getPages(bookId?: string): Promise<Page[]> {
     if (bookId) {
       return Array.from(this.pages.values()).filter(p => p.bookId === bookId);
@@ -392,6 +403,15 @@ export class MemStorage implements IStorage {
     const updated = { ...existing, ...update };
     this.pages.set(id, updated);
     return updated;
+  }
+
+  async deletePage(id: string): Promise<void> {
+    for (const [commentId, comment] of this.comments) {
+      if (comment.pageId === id) {
+        this.comments.delete(commentId);
+      }
+    }
+    this.pages.delete(id);
   }
 
   async getComments(pageId: string): Promise<Comment[]> {

@@ -56,6 +56,11 @@ export class DatabaseStorage implements IStorage {
     return book;
   }
 
+  async deleteBook(id: string): Promise<void> {
+    await db.delete(pages).where(eq(pages.bookId, id));
+    await db.delete(books).where(eq(books.id, id));
+  }
+
   async getPages(bookId: string): Promise<Page[]> {
     return db.select().from(pages).where(eq(pages.bookId, bookId));
   }
@@ -84,6 +89,11 @@ export class DatabaseStorage implements IStorage {
     const [page] = await db.update(pages).set(update).where(eq(pages.id, id)).returning();
     if (!page) throw new Error("Page not found");
     return page;
+  }
+
+  async deletePage(id: string): Promise<void> {
+    await db.delete(comments).where(eq(comments.pageId, id));
+    await db.delete(pages).where(eq(pages.id, id));
   }
 
   async getComments(pageId: string): Promise<Comment[]> {

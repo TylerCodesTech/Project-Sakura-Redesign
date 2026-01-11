@@ -198,9 +198,24 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/books/:bookId", async (req, res) => {
+    const book = await storage.getBook(req.params.bookId);
+    if (!book) return res.status(404).send("Book not found");
+    res.json(book);
+  });
+
   app.get("/api/books/:bookId/pages", async (req, res) => {
     const pages = await storage.getPages(req.params.bookId);
     res.json(pages);
+  });
+
+  app.delete("/api/books/:bookId", async (req, res) => {
+    try {
+      await storage.deleteBook(req.params.bookId);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
   });
 
   app.get("/api/pages", async (req, res) => {
@@ -247,6 +262,15 @@ export async function registerRoutes(
     const page = await storage.getPage(req.params.id);
     if (!page) return res.status(404).send("Page not found");
     res.json(page);
+  });
+
+  app.delete("/api/pages/:id", async (req, res) => {
+    try {
+      await storage.deletePage(req.params.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
   });
 
   app.patch("/api/pages/:id", async (req, res) => {
