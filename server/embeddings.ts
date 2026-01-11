@@ -1,20 +1,93 @@
 import OpenAI from "openai";
 import { db } from "./db";
-import { pages, pageVersions, tickets } from "@shared/schema";
-import { eq, sql, desc, and, isNotNull } from "drizzle-orm";
+import { pages, pageVersions, tickets, systemSettings } from "@shared/schema";
+import { eq, and, isNotNull } from "drizzle-orm";
 import { cosineDistance } from "drizzle-orm";
 
-// the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+interface AIConfig {
+  embeddingProvider: string;
+  embeddingModel: string;
+  embeddingDimensions: number;
+  ollamaBaseUrl: string;
+}
 
-const EMBEDDING_MODEL = "text-embedding-3-small";
-const EMBEDDING_DIMENSIONS = 1536;
+async function getAIConfig(): Promise<AIConfig> {
+  const settings = await db.select().from(systemSettings);
+  const settingsMap = new Map(settings.map(s => [s.key, s.value]));
+  
+  return {
+    embeddingProvider: settingsMap.get("aiEmbeddingProvider") || "openai",
+    embeddingModel: settingsMap.get("aiEmbeddingModel") || "text-embedding-3-small",
+    embeddingDimensions: parseInt(settingsMap.get("aiEmbeddingDimensions") || "1536"),
+    ollamaBaseUrl: settingsMap.get("aiOllamaBaseUrl") || "http://localhost:11434",
+  };
+}
 
-export async function generateEmbedding(text: string): Promise<number[]> {
+async function generateOpenAIEmbedding(text: string, model: string): Promise<number[]> {
   if (!process.env.OPENAI_API_KEY) {
     throw new Error("OPENAI_API_KEY is not configured");
   }
+  
+  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const response = await openai.embeddings.create({
+    model: model,
+    input: text,
+  });
+  
+  return response.data[0].embedding;
+}
 
+async function generateOllamaEmbedding(text: string, model: string, baseUrl: string): Promise<number[]> {
+  const response = await fetch(`${baseUrl}/api/embeddings`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: model,
+      prompt: text,
+    }),
+  });
+  
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Ollama embedding failed: ${error}`);
+  }
+  
+  const data = await response.json();
+  return data.embedding;
+}
+
+async function generateGoogleEmbedding(text: string, model: string): Promise<number[]> {
+  const apiKey = process.env.GOOGLE_API_KEY;
+  if (!apiKey) {
+    throw new Error("GOOGLE_API_KEY is not configured");
+  }
+  
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1/models/${model}:embedContent?key=${apiKey}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: `models/${model}`,
+        content: {
+          parts: [{ text: text }]
+        }
+      }),
+    }
+  );
+  
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Google embedding failed: ${error}`);
+  }
+  
+  const data = await response.json();
+  return data.embedding.values;
+}
+
+export async function generateEmbedding(text: string): Promise<number[]> {
+  const config = await getAIConfig();
+  
   const cleanText = text.replace(/<[^>]*>/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
@@ -24,12 +97,16 @@ export async function generateEmbedding(text: string): Promise<number[]> {
     throw new Error("No text content to embed");
   }
 
-  const response = await openai.embeddings.create({
-    model: EMBEDDING_MODEL,
-    input: cleanText,
-  });
-
-  return response.data[0].embedding;
+  switch (config.embeddingProvider) {
+    case "openai":
+      return generateOpenAIEmbedding(cleanText, config.embeddingModel);
+    case "ollama":
+      return generateOllamaEmbedding(cleanText, config.embeddingModel, config.ollamaBaseUrl);
+    case "google":
+      return generateGoogleEmbedding(cleanText, config.embeddingModel);
+    default:
+      throw new Error(`Unknown embedding provider: ${config.embeddingProvider}`);
+  }
 }
 
 export async function updatePageEmbedding(pageId: string): Promise<void> {
