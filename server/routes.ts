@@ -1252,6 +1252,53 @@ export async function registerRoutes(
     res.json(comment);
   });
 
+  // Related documents for tickets (vector similarity search)
+  app.get("/api/tickets/:ticketId/related-documents", async (req, res) => {
+    try {
+      const { findRelatedDocumentsForTicket } = await import("./embeddings");
+      const documents = await findRelatedDocumentsForTicket(req.params.ticketId);
+      res.json(documents);
+    } catch (error: any) {
+      console.error("Error finding related documents:", error);
+      if (error.message?.includes("OPENAI_API_KEY")) {
+        res.json([]);
+      } else {
+        res.status(500).json({ error: error.message });
+      }
+    }
+  });
+
+  // Embedding management endpoints
+  app.post("/api/embeddings/reindex-pages", async (req, res) => {
+    try {
+      const { reindexAllPages } = await import("./embeddings");
+      const result = await reindexAllPages();
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/embeddings/reindex-tickets", async (req, res) => {
+    try {
+      const { reindexAllTickets } = await import("./embeddings");
+      const result = await reindexAllTickets();
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/pages/:pageId/update-embedding", async (req, res) => {
+    try {
+      const { updatePageEmbedding } = await import("./embeddings");
+      await updatePageEmbedding(req.params.pageId);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Webhooks
   app.get("/api/helpdesks/:helpdeskId/webhooks", async (req, res) => {
     const webhooks = await storage.getWebhooks(req.params.helpdeskId);
