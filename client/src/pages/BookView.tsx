@@ -35,7 +35,9 @@ import {
   Highlighter,
   Palette,
   CheckSquare,
-  ExternalLink
+  ExternalLink,
+  Clock,
+  CheckCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,7 +56,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { Link as RouterLink, useParams } from "wouter";
 import type { Page, Book } from "@shared/schema";
@@ -84,6 +86,36 @@ import {
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
 
+function SaveStatusBadge({ saveStatus }: { saveStatus: 'saved' | 'saving' | 'error' | 'unsaved' }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      {saveStatus === 'saving' && (
+        <Badge variant="outline" className="text-[10px] py-0.5 px-2 gap-1 bg-blue-500/5 border-blue-500/20 text-blue-600 animate-pulse">
+          <Clock className="w-3 h-3 animate-spin" />
+          Saving...
+        </Badge>
+      )}
+      {saveStatus === 'saved' && (
+        <Badge variant="outline" className="text-[10px] py-0.5 px-2 gap-1 bg-emerald-500/5 border-emerald-500/20 text-emerald-600">
+          <CheckCircle className="w-3 h-3" />
+          Saved
+        </Badge>
+      )}
+      {saveStatus === 'unsaved' && (
+        <Badge variant="outline" className="text-[10px] py-0.5 px-2 gap-1 bg-amber-500/5 border-amber-500/20 text-amber-600">
+          <Clock className="w-3 h-3" />
+          Unsaved changes
+        </Badge>
+      )}
+      {saveStatus === 'error' && (
+        <Badge variant="outline" className="text-[10px] py-0.5 px-2 gap-1 bg-red-500/5 border-red-500/20 text-red-600">
+          Error saving
+        </Badge>
+      )}
+    </div>
+  );
+}
+
 export default function BookView() {
   const { id } = useParams();
   const { toast } = useToast();
@@ -95,6 +127,11 @@ export default function BookView() {
   const [isEditing, setIsEditing] = useState(false);
   const [linkTitle, setLinkTitle] = useState("");
   const [isLinkPopoverOpen, setIsLinkPopoverOpen] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error' | 'unsaved'>('saved');
+  const [lastSavedContent, setLastSavedContent] = useState<string>('');
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const versionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastVersionContentRef = useRef<string>('');
 
   const { data: book } = useQuery<Book>({
     queryKey: [`/api/books/${id}`],
@@ -168,14 +205,99 @@ export default function BookView() {
 
   const updatePageMutation = useMutation({
     mutationFn: async (content: string) => {
-      await apiRequest("PATCH", `/api/pages/${activePage.id}`, { content });
+      setSaveStatus('saving');
+      await apiRequest("PATCH", `/api/pages/${activePage?.id}`, { content });
+      return content;
     },
-    onSuccess: () => {
-      toast({ title: "Saved", description: "Page content updated successfully" });
+    onSuccess: (savedContent) => {
+      setSaveStatus('saved');
+      setLastSavedContent(savedContent);
       queryClient.invalidateQueries({ queryKey: [`/api/books/${id}/pages`] });
-      setIsEditing(false);
+    },
+    onError: () => {
+      setSaveStatus('error');
     }
   });
+
+  const createVersionMutation = useMutation({
+    mutationFn: async ({ content, changeDescription }: { content: string, changeDescription: string }) => {
+      if (!activePage) return content;
+      await apiRequest("POST", `/api/pages/${activePage.id}/versions`, { 
+        title: activePage.title,
+        content,
+        status: activePage.status,
+        changeDescription,
+        createdBy: "current-user-id"
+      });
+      return content;
+    },
+    onSuccess: (content) => {
+      lastVersionContentRef.current = content;
+      queryClient.invalidateQueries({ queryKey: [`/api/pages/${activePage?.id}/versions`] });
+    }
+  });
+
+  // Initialize last saved content when page loads
+  useEffect(() => {
+    if (activePage?.content) {
+      setLastSavedContent(activePage.content);
+      lastVersionContentRef.current = activePage.content;
+      setSaveStatus('saved');
+    }
+  }, [activePage?.id]);
+
+  // Handle auto-save with proper debouncing via TipTap onUpdate
+  const handleEditorUpdate = useCallback(() => {
+    if (!editor || !isEditing || !activePage) return;
+    
+    const currentContent = editor.getHTML();
+    
+    // Mark as unsaved if content differs
+    if (currentContent !== lastSavedContent) {
+      setSaveStatus('unsaved');
+    }
+    
+    // Clear existing auto-save timer
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current);
+    }
+    
+    // Set new auto-save timer (2 second debounce)
+    autoSaveTimerRef.current = setTimeout(() => {
+      if (currentContent !== lastSavedContent) {
+        updatePageMutation.mutate(currentContent);
+      }
+    }, 2000);
+    
+    // Clear existing version timer
+    if (versionTimerRef.current) {
+      clearTimeout(versionTimerRef.current);
+    }
+    
+    // Create version after 30 seconds of no changes (if content differs from last version)
+    versionTimerRef.current = setTimeout(() => {
+      if (currentContent !== lastVersionContentRef.current && currentContent.length > 10) {
+        createVersionMutation.mutate({ 
+          content: currentContent, 
+          changeDescription: "Auto-saved version" 
+        });
+      }
+    }, 30000);
+  }, [editor, isEditing, activePage, lastSavedContent, updatePageMutation, createVersionMutation]);
+
+  // Subscribe to editor updates
+  useEffect(() => {
+    if (!editor) return;
+    
+    editor.on('update', handleEditorUpdate);
+    
+    return () => {
+      editor.off('update', handleEditorUpdate);
+      // Cleanup timers
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+      if (versionTimerRef.current) clearTimeout(versionTimerRef.current);
+    };
+  }, [editor, handleEditorUpdate]);
 
   const createPageMutation = useMutation({
     mutationFn: async (title: string) => {
@@ -262,6 +384,7 @@ export default function BookView() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {isEditing && <SaveStatusBadge saveStatus={saveStatus} />}
             {!isEditing ? (
               <>
                 <Button 
@@ -289,7 +412,10 @@ export default function BookView() {
                   variant="ghost" 
                   size="sm" 
                   className="rounded-xl gap-2 font-bold"
-                  onClick={() => setIsEditing(false)}
+                  onClick={() => {
+                    setIsEditing(false);
+                    setSaveStatus('saved');
+                  }}
                 >
                   Cancel
                 </Button>
