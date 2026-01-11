@@ -103,6 +103,39 @@ export async function registerRoutes(
     })));
   });
 
+  app.get("/api/users/:id", async (req, res) => {
+    const user = await storage.getUser(req.params.id);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    res.json({ ...user, password: undefined });
+  });
+
+  app.patch("/api/users/:id", async (req, res) => {
+    const { username, department } = req.body;
+    const user = await storage.getUser(req.params.id);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    const updated = await storage.updateUser(req.params.id, { username, department });
+    res.json({ ...updated, password: undefined });
+  });
+
+  app.post("/api/users/:id/reset-password", async (req, res) => {
+    const { password } = req.body;
+    if (!password || password.length < 8) {
+      return res.status(400).json({ error: "Password must be at least 8 characters" });
+    }
+    const user = await storage.getUser(req.params.id);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    const { hashPassword } = await import("./auth");
+    const hashedPassword = await hashPassword(password);
+    await storage.updateUser(req.params.id, { password: hashedPassword });
+    res.json({ success: true });
+  });
+
   // Departments
   app.get("/api/departments", async (_req, res) => {
     const departments = await storage.getDepartments();

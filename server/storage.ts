@@ -48,6 +48,7 @@ export interface IStorage {
   getUsersByDepartment(department: string): Promise<User[]>;
   getUsers(): Promise<User[]>;
   createUser(user: InsertUser): Promise<User>;
+  updateUser(id: string, update: Partial<InsertUser>): Promise<User>;
   
   getBooks(): Promise<Book[]>;
   getBook(id: string): Promise<Book | undefined>;
@@ -425,6 +426,14 @@ export class MemStorage implements IStorage {
     const user: User = { ...insertUser, id, department: insertUser.department ?? "General" };
     this.users.set(id, user);
     return user;
+  }
+
+  async updateUser(id: string, update: Partial<InsertUser>): Promise<User> {
+    const user = this.users.get(id);
+    if (!user) throw new Error("User not found");
+    const updated = { ...user, ...update };
+    this.users.set(id, updated);
+    return updated;
   }
 
   async getBooks(): Promise<Book[]> {
