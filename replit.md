@@ -106,14 +106,17 @@ The application includes a comprehensive version history system for both Pages a
    - **Real-time Save**: Version history settings save directly to system_settings via API
 
 7. **Reports System** (`client/src/features/settings/sections/ReportsSettings.tsx` and `client/src/features/reports/`):
+   - **Standalone Report Builder**: Accessible at `/reports` route from the app launcher with violet icon color
    - **Department-Specific Reporting**: Each department has independent report configuration and permissions
    - **Report Types**: Audit, User Access, Ticket SLA, Monthly Closures, and Custom reports
    - **Report Builder**: Drag-and-drop interface with field selection, filtering, sorting, grouping, and visualization options
+   - **Live Preview**: Real-time data preview tab showing first 25 records from selected data source with auto-refresh
    - **Data Sources**: tickets, users, audit_logs, sla_states, sla_policies, departments, roles, pages, books
    - **Scheduling**: Automated report generation with daily, weekly, monthly frequencies
    - **Sharing**: Share reports with users, roles, or departments with view/edit permissions
    - **Audit Logging**: All report actions (create, edit, delete, generate, share, schedule) are logged
    - **Settings Sub-sections**: Overview, Report Builder, Scheduled Reports, Sharing & Access
+   - **Report Definition Schema**: Uses `configuration` (JSON), `isTemplate`, `isPublic` fields
 
 ### Reports Database Schema
 - **report_definitions**: Store report configuration templates

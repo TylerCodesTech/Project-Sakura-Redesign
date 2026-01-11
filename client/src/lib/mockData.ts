@@ -9,7 +9,8 @@ import {
   Bell,
   CheckCircle2,
   Clock,
-  File
+  File,
+  BarChart3
 } from "lucide-react";
 
 export const currentUser = {
@@ -78,6 +79,7 @@ export const navItems = [
   { icon: MessageSquare, label: "Helpdesk", href: "/helpdesk" },
   { icon: FileText, label: "Documents", href: "/documents" },
   { icon: Users, label: "Team Directory", href: "/team" },
+  { icon: BarChart3, label: "Report Builder", href: "/reports" },
   { icon: Settings, label: "System Settings", href: "/settings" },
 ];
 

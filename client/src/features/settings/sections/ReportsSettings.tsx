@@ -69,14 +69,13 @@ interface ReportDefinition {
   name: string;
   description: string | null;
   type: string;
-  dataSource: string;
   departmentId: string | null;
-  isSystem: boolean;
-  isActive: boolean;
   createdBy: string;
+  isTemplate: string;
+  isPublic: string;
+  configuration: string;
   createdAt: string;
   updatedAt: string;
-  config?: string | null;
 }
 
 interface DepartmentReportSettings {
@@ -406,49 +405,53 @@ export function ReportsSettings() {
                   ) : (
                     <ScrollArea className="h-[300px]">
                       <div className="space-y-4">
-                        {reportDefinitions.map((report) => (
-                          <div
-                            key={report.id}
-                            className="flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
-                          >
-                            <div className="flex items-center gap-4">
-                              <div className="p-2 rounded-lg bg-primary/10">
-                                <FileText className="h-5 w-5 text-primary" />
-                              </div>
-                              <div>
-                                <div className="flex items-center gap-2">
-                                  <h4 className="font-medium">{report.name}</h4>
-                                  {report.isSystem && (
-                                    <Badge variant="secondary" className="text-xs">System</Badge>
-                                  )}
-                                  {!report.isActive && (
-                                    <Badge variant="outline" className="text-xs">Inactive</Badge>
-                                  )}
+                        {reportDefinitions.map((report) => {
+                          const config = report.configuration ? JSON.parse(report.configuration) : {};
+                          const isSystemTemplate = report.isTemplate === "true";
+                          return (
+                            <div
+                              key={report.id}
+                              className="flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
+                            >
+                              <div className="flex items-center gap-4">
+                                <div className="p-2 rounded-lg bg-primary/10">
+                                  <FileText className="h-5 w-5 text-primary" />
                                 </div>
-                                <p className="text-sm text-muted-foreground">
-                                  {report.type} • {report.dataSource} • Updated {formatDate(report.updatedAt)}
-                                </p>
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <h4 className="font-medium">{report.name}</h4>
+                                    {isSystemTemplate && (
+                                      <Badge variant="secondary" className="text-xs">Template</Badge>
+                                    )}
+                                    {report.isPublic === "true" && (
+                                      <Badge variant="outline" className="text-xs">Shared</Badge>
+                                    )}
+                                  </div>
+                                  <p className="text-sm text-muted-foreground">
+                                    {report.type} • {config.dataSource || "N/A"} • Updated {formatDate(report.updatedAt)}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Button variant="ghost" size="icon">
+                                  <Play className="h-4 w-4" />
+                                </Button>
+                                <Button variant="ghost" size="icon">
+                                  <Edit2 className="h-4 w-4" />
+                                </Button>
+                                {!isSystemTemplate && (
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon"
+                                    onClick={() => deleteReportMutation.mutate(report.id)}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                )}
                               </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <Button variant="ghost" size="icon">
-                                <Play className="h-4 w-4" />
-                              </Button>
-                              <Button variant="ghost" size="icon">
-                                <Edit2 className="h-4 w-4" />
-                              </Button>
-                              {!report.isSystem && (
-                                <Button 
-                                  variant="ghost" 
-                                  size="icon"
-                                  onClick={() => deleteReportMutation.mutate(report.id)}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              )}
-                            </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </ScrollArea>
                   )}
@@ -469,14 +472,14 @@ export function ReportsSettings() {
                 onSave={(config) => {
                   createReportMutation.mutate({
                     name: config.name,
-                    description: config.description,
-                    type: config.type,
-                    dataSource: config.dataSource,
+                    description: config.description || "",
+                    type: config.type || "custom",
                     departmentId: selectedDepartment?.id || null,
-                    isSystem: false,
-                    isActive: true,
                     createdBy: "current-user-id",
-                    config: JSON.stringify({
+                    isTemplate: "false",
+                    isPublic: "false",
+                    configuration: JSON.stringify({
+                      dataSource: config.dataSource,
                       fields: config.fields,
                       filters: config.filters,
                       groupBy: config.groupBy,

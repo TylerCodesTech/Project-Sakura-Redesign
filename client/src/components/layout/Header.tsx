@@ -286,6 +286,7 @@ export function Header() {
                             case 'Documents': return 'bg-rose-50 text-rose-600';
                             case 'Team Directory': return 'bg-indigo-50 text-indigo-600';
                             case 'Helpdesk': return 'bg-amber-50 text-amber-600';
+                            case 'Report Builder': return 'bg-violet-50 text-violet-600';
                             default: return 'bg-primary/10 text-primary';
                           }
                         };

@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence, Reorder } from "framer-motion";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -39,6 +39,8 @@ import {
   Columns,
   Rows,
   Group,
+  RefreshCw,
+  AlertTriangle,
 } from "lucide-react";
 
 interface ReportField {
@@ -526,6 +528,10 @@ export function ReportBuilder({ initialConfig, onSave }: ReportBuilderProps) {
               <BarChart3 className="h-4 w-4" />
               Visualization
             </TabsTrigger>
+            <TabsTrigger value="preview" className="flex items-center gap-2">
+              <Eye className="h-4 w-4" />
+              Live Preview
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="fields" className="mt-4">
@@ -818,8 +824,154 @@ export function ReportBuilder({ initialConfig, onSave }: ReportBuilderProps) {
               </CardContent>
             </Card>
           </TabsContent>
+
+          <TabsContent value="preview" className="mt-4">
+            <LivePreview config={config} />
+          </TabsContent>
         </Tabs>
       </div>
     </div>
+  );
+}
+
+function LivePreview({ config }: { config: ReportConfig }) {
+  const [isLoading, setIsLoading] = useState(false);
+  const [previewData, setPreviewData] = useState<any[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchPreviewData = async () => {
+    if (config.fields.length === 0) {
+      setError("Please add at least one field to preview data");
+      return;
+    }
+    
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const response = await fetch(`/api/${config.dataSource}`);
+      if (!response.ok) throw new Error("Failed to fetch data");
+      const data = await response.json();
+      
+      const limitedData = Array.isArray(data) ? data.slice(0, 25) : [];
+      setPreviewData(limitedData);
+    } catch (err) {
+      setError("Unable to load preview data. The data source may not be available.");
+      setPreviewData([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPreviewData();
+  }, [config.dataSource, config.fields.length]);
+
+  const visibleFields = config.fields.filter(f => f.visible);
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Eye className="h-4 w-4" />
+              Live Data Preview
+            </CardTitle>
+            <CardDescription>
+              Showing first 25 records from {config.dataSource}
+            </CardDescription>
+          </div>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={fetchPreviewData}
+            disabled={isLoading}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {error ? (
+          <div className="text-center py-8 text-muted-foreground">
+            <AlertTriangle className="h-12 w-12 mx-auto mb-4 opacity-50 text-amber-500" />
+            <p>{error}</p>
+          </div>
+        ) : config.fields.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            <Columns className="h-12 w-12 mx-auto mb-4 opacity-50" />
+            <p>Add fields to see preview</p>
+          </div>
+        ) : isLoading ? (
+          <div className="text-center py-8">
+            <RefreshCw className="h-8 w-8 mx-auto mb-4 animate-spin text-primary" />
+            <p className="text-muted-foreground">Loading preview...</p>
+          </div>
+        ) : previewData.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            <Database className="h-12 w-12 mx-auto mb-4 opacity-50" />
+            <p>No data available</p>
+          </div>
+        ) : (
+          <ScrollArea className="w-full">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-muted/50">
+                    {visibleFields.map((field) => (
+                      <th 
+                        key={field.id} 
+                        className="text-left p-3 font-medium whitespace-nowrap"
+                      >
+                        {field.displayName}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {previewData.map((row, rowIndex) => (
+                    <tr 
+                      key={rowIndex} 
+                      className="border-b hover:bg-muted/30 transition-colors"
+                    >
+                      {visibleFields.map((field) => {
+                        const value = row[field.name];
+                        let displayValue = value;
+                        
+                        if (value === null || value === undefined) {
+                          displayValue = "—";
+                        } else if (field.dataType === "datetime" && value) {
+                          try {
+                            displayValue = new Date(value).toLocaleString();
+                          } catch {
+                            displayValue = value;
+                          }
+                        } else if (field.dataType === "boolean") {
+                          displayValue = value ? "Yes" : "No";
+                        } else if (typeof value === "object") {
+                          displayValue = JSON.stringify(value);
+                        }
+                        
+                        return (
+                          <td 
+                            key={field.id} 
+                            className="p-3 max-w-[200px] truncate"
+                            title={String(displayValue)}
+                          >
+                            {String(displayValue)}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </ScrollArea>
+        )}
+      </CardContent>
+    </Card>
   );
 }
