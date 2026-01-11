@@ -1484,5 +1484,289 @@ export async function registerRoutes(
     res.json(logs);
   });
 
+  // ============================================
+  // REPORTS API
+  // ============================================
+
+  // Report Definitions
+  app.get("/api/reports/definitions", async (req, res) => {
+    const departmentId = req.query.departmentId as string | undefined;
+    const definitions = await storage.getReportDefinitions(departmentId);
+    res.json(definitions);
+  });
+
+  app.get("/api/reports/definitions/:id", async (req, res) => {
+    const definition = await storage.getReportDefinition(req.params.id);
+    if (!definition) {
+      return res.status(404).json({ error: "Report definition not found" });
+    }
+    res.json(definition);
+  });
+
+  app.post("/api/reports/definitions", async (req, res) => {
+    try {
+      const definition = await storage.createReportDefinition(req.body);
+      await storage.createReportAuditLog({
+        userId: "current-user-id",
+        userName: "Current User",
+        actionType: "created",
+        targetType: "definition",
+        targetId: definition.id,
+        targetName: definition.name,
+        departmentId: definition.departmentId ?? undefined,
+        details: JSON.stringify({ type: definition.type }),
+      });
+      res.status(201).json(definition);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.patch("/api/reports/definitions/:id", async (req, res) => {
+    try {
+      const definition = await storage.updateReportDefinition(req.params.id, req.body);
+      await storage.createReportAuditLog({
+        userId: "current-user-id",
+        userName: "Current User",
+        actionType: "edited",
+        targetType: "definition",
+        targetId: definition.id,
+        targetName: definition.name,
+        departmentId: definition.departmentId ?? undefined,
+      });
+      res.json(definition);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/reports/definitions/:id", async (req, res) => {
+    try {
+      const definition = await storage.getReportDefinition(req.params.id);
+      await storage.deleteReportDefinition(req.params.id);
+      if (definition) {
+        await storage.createReportAuditLog({
+          userId: "current-user-id",
+          userName: "Current User",
+          actionType: "deleted",
+          targetType: "definition",
+          targetId: req.params.id,
+          targetName: definition.name,
+          departmentId: definition.departmentId ?? undefined,
+        });
+      }
+      res.sendStatus(204);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // Saved Reports
+  app.get("/api/reports/saved", async (req, res) => {
+    const departmentId = req.query.departmentId as string | undefined;
+    const reports = await storage.getSavedReports(departmentId);
+    res.json(reports);
+  });
+
+  app.get("/api/reports/saved/:id", async (req, res) => {
+    const report = await storage.getSavedReport(req.params.id);
+    if (!report) {
+      return res.status(404).json({ error: "Saved report not found" });
+    }
+    res.json(report);
+  });
+
+  app.post("/api/reports/saved", async (req, res) => {
+    try {
+      const report = await storage.createSavedReport(req.body);
+      await storage.createReportAuditLog({
+        userId: "current-user-id",
+        userName: "Current User",
+        actionType: "generated",
+        targetType: "saved_report",
+        targetId: report.id,
+        targetName: report.name,
+        departmentId: report.departmentId ?? undefined,
+        details: JSON.stringify({ rowCount: report.rowCount }),
+      });
+      res.status(201).json(report);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/reports/saved/:id", async (req, res) => {
+    try {
+      await storage.deleteSavedReport(req.params.id);
+      res.sendStatus(204);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // Report Schedules
+  app.get("/api/reports/schedules", async (req, res) => {
+    const definitionId = req.query.definitionId as string | undefined;
+    const schedules = await storage.getReportSchedules(definitionId);
+    res.json(schedules);
+  });
+
+  app.get("/api/reports/schedules/:id", async (req, res) => {
+    const schedule = await storage.getReportSchedule(req.params.id);
+    if (!schedule) {
+      return res.status(404).json({ error: "Report schedule not found" });
+    }
+    res.json(schedule);
+  });
+
+  app.post("/api/reports/schedules", async (req, res) => {
+    try {
+      const schedule = await storage.createReportSchedule(req.body);
+      await storage.createReportAuditLog({
+        userId: "current-user-id",
+        userName: "Current User",
+        actionType: "scheduled",
+        targetType: "schedule",
+        targetId: schedule.id,
+        targetName: `${schedule.frequency} schedule`,
+        details: JSON.stringify({ frequency: schedule.frequency }),
+      });
+      res.status(201).json(schedule);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.patch("/api/reports/schedules/:id", async (req, res) => {
+    try {
+      const schedule = await storage.updateReportSchedule(req.params.id, req.body);
+      res.json(schedule);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/reports/schedules/:id", async (req, res) => {
+    try {
+      await storage.deleteReportSchedule(req.params.id);
+      res.sendStatus(204);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // Report Shares
+  app.get("/api/reports/:reportId/shares", async (req, res) => {
+    const shares = await storage.getReportShares(req.params.reportId);
+    res.json(shares);
+  });
+
+  app.post("/api/reports/:reportId/shares", async (req, res) => {
+    try {
+      const share = await storage.createReportShare({
+        ...req.body,
+        reportId: req.params.reportId,
+      });
+      await storage.createReportAuditLog({
+        userId: "current-user-id",
+        userName: "Current User",
+        actionType: "shared",
+        targetType: req.body.reportType,
+        targetId: req.params.reportId,
+        details: JSON.stringify({ sharedWith: share.sharedWith, shareType: share.shareType }),
+      });
+      res.status(201).json(share);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/reports/shares/:id", async (req, res) => {
+    try {
+      await storage.deleteReportShare(req.params.id);
+      res.sendStatus(204);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // Report Audit Logs
+  app.get("/api/reports/audit-logs", async (req, res) => {
+    const departmentId = req.query.departmentId as string | undefined;
+    const limit = parseInt(req.query.limit as string) || 100;
+    const logs = await storage.getReportAuditLogs(departmentId, limit);
+    res.json(logs);
+  });
+
+  // Department Report Settings
+  app.get("/api/departments/:departmentId/report-settings", async (req, res) => {
+    const settings = await storage.getDepartmentReportSettings(req.params.departmentId);
+    if (!settings) {
+      return res.json({
+        departmentId: req.params.departmentId,
+        enabled: "true",
+        allowCustomReports: "true",
+        allowScheduledReports: "true",
+        allowExport: "true",
+        defaultExportFormat: "pdf",
+        retentionDays: 90,
+        maxScheduledReports: 10,
+      });
+    }
+    res.json(settings);
+  });
+
+  app.post("/api/departments/:departmentId/report-settings", async (req, res) => {
+    try {
+      const existing = await storage.getDepartmentReportSettings(req.params.departmentId);
+      if (existing) {
+        const settings = await storage.updateDepartmentReportSettings(req.params.departmentId, req.body);
+        res.json(settings);
+      } else {
+        const settings = await storage.createDepartmentReportSettings({
+          ...req.body,
+          departmentId: req.params.departmentId,
+        });
+        res.status(201).json(settings);
+      }
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // Report Fields (metadata for available fields)
+  app.get("/api/reports/fields", async (req, res) => {
+    const dataSource = req.query.dataSource as string | undefined;
+    const fields = await storage.getReportFields(dataSource);
+    res.json(fields);
+  });
+
+  app.post("/api/reports/fields", async (req, res) => {
+    try {
+      const field = await storage.createReportField(req.body);
+      res.status(201).json(field);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.patch("/api/reports/fields/:id", async (req, res) => {
+    try {
+      const field = await storage.updateReportField(req.params.id, req.body);
+      res.json(field);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/reports/fields/:id", async (req, res) => {
+    try {
+      await storage.deleteReportField(req.params.id);
+      res.sendStatus(204);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
   return httpServer;
 }

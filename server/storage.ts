@@ -30,6 +30,13 @@ import {
   type PageVersion, type InsertPageVersion,
   type BookVersion, type InsertBookVersion,
   type VersionAuditLog, type InsertVersionAuditLog,
+  type ReportDefinition, type InsertReportDefinition,
+  type ReportField, type InsertReportField,
+  type SavedReport, type InsertSavedReport,
+  type ReportSchedule, type InsertReportSchedule,
+  type ReportShare, type InsertReportShare,
+  type ReportAuditLog, type InsertReportAuditLog,
+  type DepartmentReportSettings, type InsertDepartmentReportSettings,
   AVAILABLE_PERMISSIONS,
   systemSettingsDefaults
 } from "@shared/schema";
@@ -215,6 +222,46 @@ export interface IStorage {
 
   // Search versions
   searchVersions(query: string): Promise<{pageVersions: PageVersion[], bookVersions: BookVersion[]}>;
+
+  // Report Definitions
+  getReportDefinitions(departmentId?: string): Promise<ReportDefinition[]>;
+  getReportDefinition(id: string): Promise<ReportDefinition | undefined>;
+  createReportDefinition(definition: InsertReportDefinition): Promise<ReportDefinition>;
+  updateReportDefinition(id: string, update: Partial<InsertReportDefinition>): Promise<ReportDefinition>;
+  deleteReportDefinition(id: string): Promise<void>;
+
+  // Saved Reports
+  getSavedReports(departmentId?: string): Promise<SavedReport[]>;
+  getSavedReport(id: string): Promise<SavedReport | undefined>;
+  createSavedReport(report: InsertSavedReport): Promise<SavedReport>;
+  deleteSavedReport(id: string): Promise<void>;
+
+  // Report Schedules
+  getReportSchedules(definitionId?: string): Promise<ReportSchedule[]>;
+  getReportSchedule(id: string): Promise<ReportSchedule | undefined>;
+  createReportSchedule(schedule: InsertReportSchedule): Promise<ReportSchedule>;
+  updateReportSchedule(id: string, update: Partial<InsertReportSchedule>): Promise<ReportSchedule>;
+  deleteReportSchedule(id: string): Promise<void>;
+
+  // Report Shares
+  getReportShares(reportId: string): Promise<ReportShare[]>;
+  createReportShare(share: InsertReportShare): Promise<ReportShare>;
+  deleteReportShare(id: string): Promise<void>;
+
+  // Report Audit Logs
+  getReportAuditLogs(departmentId?: string, limit?: number): Promise<ReportAuditLog[]>;
+  createReportAuditLog(log: InsertReportAuditLog): Promise<ReportAuditLog>;
+
+  // Department Report Settings
+  getDepartmentReportSettings(departmentId: string): Promise<DepartmentReportSettings | undefined>;
+  createDepartmentReportSettings(settings: InsertDepartmentReportSettings): Promise<DepartmentReportSettings>;
+  updateDepartmentReportSettings(departmentId: string, update: Partial<InsertDepartmentReportSettings>): Promise<DepartmentReportSettings>;
+
+  // Report Fields (metadata)
+  getReportFields(dataSource?: string): Promise<ReportField[]>;
+  createReportField(field: InsertReportField): Promise<ReportField>;
+  updateReportField(id: string, update: Partial<InsertReportField>): Promise<ReportField>;
+  deleteReportField(id: string): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
@@ -1456,6 +1503,60 @@ export class MemStorage implements IStorage {
       );
     return { pageVersions: matchingPageVersions, bookVersions: matchingBookVersions };
   }
+
+  // Report Definitions (stub implementations for MemStorage)
+  async getReportDefinitions(_departmentId?: string): Promise<ReportDefinition[]> { return []; }
+  async getReportDefinition(_id: string): Promise<ReportDefinition | undefined> { return undefined; }
+  async createReportDefinition(insert: InsertReportDefinition): Promise<ReportDefinition> {
+    return { id: randomUUID(), ...insert, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as ReportDefinition;
+  }
+  async updateReportDefinition(_id: string, _update: Partial<InsertReportDefinition>): Promise<ReportDefinition> { throw new Error("Not implemented"); }
+  async deleteReportDefinition(_id: string): Promise<void> {}
+
+  // Saved Reports
+  async getSavedReports(_departmentId?: string): Promise<SavedReport[]> { return []; }
+  async getSavedReport(_id: string): Promise<SavedReport | undefined> { return undefined; }
+  async createSavedReport(insert: InsertSavedReport): Promise<SavedReport> {
+    return { id: randomUUID(), ...insert, generatedAt: new Date().toISOString() } as SavedReport;
+  }
+  async deleteSavedReport(_id: string): Promise<void> {}
+
+  // Report Schedules
+  async getReportSchedules(_definitionId?: string): Promise<ReportSchedule[]> { return []; }
+  async getReportSchedule(_id: string): Promise<ReportSchedule | undefined> { return undefined; }
+  async createReportSchedule(insert: InsertReportSchedule): Promise<ReportSchedule> {
+    return { id: randomUUID(), ...insert, createdAt: new Date().toISOString() } as ReportSchedule;
+  }
+  async updateReportSchedule(_id: string, _update: Partial<InsertReportSchedule>): Promise<ReportSchedule> { throw new Error("Not implemented"); }
+  async deleteReportSchedule(_id: string): Promise<void> {}
+
+  // Report Shares
+  async getReportShares(_reportId: string): Promise<ReportShare[]> { return []; }
+  async createReportShare(insert: InsertReportShare): Promise<ReportShare> {
+    return { id: randomUUID(), ...insert, createdAt: new Date().toISOString() } as ReportShare;
+  }
+  async deleteReportShare(_id: string): Promise<void> {}
+
+  // Report Audit Logs
+  async getReportAuditLogs(_departmentId?: string, _limit?: number): Promise<ReportAuditLog[]> { return []; }
+  async createReportAuditLog(insert: InsertReportAuditLog): Promise<ReportAuditLog> {
+    return { id: randomUUID(), ...insert, createdAt: new Date().toISOString() } as ReportAuditLog;
+  }
+
+  // Department Report Settings
+  async getDepartmentReportSettings(_departmentId: string): Promise<DepartmentReportSettings | undefined> { return undefined; }
+  async createDepartmentReportSettings(insert: InsertDepartmentReportSettings): Promise<DepartmentReportSettings> {
+    return { id: randomUUID(), ...insert, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as DepartmentReportSettings;
+  }
+  async updateDepartmentReportSettings(_departmentId: string, _update: Partial<InsertDepartmentReportSettings>): Promise<DepartmentReportSettings> { throw new Error("Not implemented"); }
+
+  // Report Fields
+  async getReportFields(_dataSource?: string): Promise<ReportField[]> { return []; }
+  async createReportField(insert: InsertReportField): Promise<ReportField> {
+    return { id: randomUUID(), ...insert } as ReportField;
+  }
+  async updateReportField(_id: string, _update: Partial<InsertReportField>): Promise<ReportField> { throw new Error("Not implemented"); }
+  async deleteReportField(_id: string): Promise<void> {}
 }
 
 import { DatabaseStorage } from "./dbStorage";

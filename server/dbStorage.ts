@@ -6,6 +6,7 @@ import {
   escalationConditions, inboundEmailConfigs, tickets, ticketComments, helpdeskWebhooks, ticketFormFields,
   roles, rolePermissions, userRoles, auditLogs, documentActivity,
   pageVersions, bookVersions, versionAuditLogs,
+  reportDefinitions, reportFields, savedReports, reportSchedules, reportShares, reportAuditLogs, departmentReportSettings,
   type User, type InsertUser, type Book, type InsertBook, type Page, type InsertPage,
   type Comment, type InsertComment, type Notification, type InsertNotification,
   type ExternalLink, type InsertExternalLink, type Department, type InsertDepartment,
@@ -22,6 +23,13 @@ import {
   type PageVersion, type InsertPageVersion,
   type BookVersion, type InsertBookVersion,
   type VersionAuditLog, type InsertVersionAuditLog,
+  type ReportDefinition, type InsertReportDefinition,
+  type ReportField, type InsertReportField,
+  type SavedReport, type InsertSavedReport,
+  type ReportSchedule, type InsertReportSchedule,
+  type ReportShare, type InsertReportShare,
+  type ReportAuditLog, type InsertReportAuditLog,
+  type DepartmentReportSettings, type InsertDepartmentReportSettings,
   type RoleWithUserCount, type RoleWithPermissions,
   systemSettingsDefaults
 } from "@shared/schema";
@@ -749,5 +757,179 @@ export class DatabaseStorage implements IStorage {
         ilike(bookVersions.description, searchPattern)
       ));
     return { pageVersions: matchingPageVersions, bookVersions: matchingBookVersions };
+  }
+
+  // Report Definitions
+  async getReportDefinitions(departmentId?: string): Promise<ReportDefinition[]> {
+    if (departmentId) {
+      return db.select().from(reportDefinitions)
+        .where(or(
+          eq(reportDefinitions.departmentId, departmentId),
+          sql`${reportDefinitions.departmentId} IS NULL`
+        ))
+        .orderBy(desc(reportDefinitions.createdAt));
+    }
+    return db.select().from(reportDefinitions).orderBy(desc(reportDefinitions.createdAt));
+  }
+
+  async getReportDefinition(id: string): Promise<ReportDefinition | undefined> {
+    const [definition] = await db.select().from(reportDefinitions).where(eq(reportDefinitions.id, id));
+    return definition;
+  }
+
+  async createReportDefinition(insert: InsertReportDefinition): Promise<ReportDefinition> {
+    const [definition] = await db.insert(reportDefinitions).values(insert).returning();
+    return definition;
+  }
+
+  async updateReportDefinition(id: string, update: Partial<InsertReportDefinition>): Promise<ReportDefinition> {
+    const [definition] = await db.update(reportDefinitions)
+      .set({ ...update, updatedAt: new Date().toISOString() })
+      .where(eq(reportDefinitions.id, id))
+      .returning();
+    if (!definition) throw new Error("Report definition not found");
+    return definition;
+  }
+
+  async deleteReportDefinition(id: string): Promise<void> {
+    await db.delete(savedReports).where(eq(savedReports.definitionId, id));
+    await db.delete(reportSchedules).where(eq(reportSchedules.definitionId, id));
+    await db.delete(reportDefinitions).where(eq(reportDefinitions.id, id));
+  }
+
+  // Saved Reports
+  async getSavedReports(departmentId?: string): Promise<SavedReport[]> {
+    if (departmentId) {
+      return db.select().from(savedReports)
+        .where(eq(savedReports.departmentId, departmentId))
+        .orderBy(desc(savedReports.generatedAt));
+    }
+    return db.select().from(savedReports).orderBy(desc(savedReports.generatedAt));
+  }
+
+  async getSavedReport(id: string): Promise<SavedReport | undefined> {
+    const [report] = await db.select().from(savedReports).where(eq(savedReports.id, id));
+    return report;
+  }
+
+  async createSavedReport(insert: InsertSavedReport): Promise<SavedReport> {
+    const [report] = await db.insert(savedReports).values(insert).returning();
+    return report;
+  }
+
+  async deleteSavedReport(id: string): Promise<void> {
+    await db.delete(savedReports).where(eq(savedReports.id, id));
+  }
+
+  // Report Schedules
+  async getReportSchedules(definitionId?: string): Promise<ReportSchedule[]> {
+    if (definitionId) {
+      return db.select().from(reportSchedules)
+        .where(eq(reportSchedules.definitionId, definitionId))
+        .orderBy(desc(reportSchedules.createdAt));
+    }
+    return db.select().from(reportSchedules).orderBy(desc(reportSchedules.createdAt));
+  }
+
+  async getReportSchedule(id: string): Promise<ReportSchedule | undefined> {
+    const [schedule] = await db.select().from(reportSchedules).where(eq(reportSchedules.id, id));
+    return schedule;
+  }
+
+  async createReportSchedule(insert: InsertReportSchedule): Promise<ReportSchedule> {
+    const [schedule] = await db.insert(reportSchedules).values(insert).returning();
+    return schedule;
+  }
+
+  async updateReportSchedule(id: string, update: Partial<InsertReportSchedule>): Promise<ReportSchedule> {
+    const [schedule] = await db.update(reportSchedules)
+      .set(update)
+      .where(eq(reportSchedules.id, id))
+      .returning();
+    if (!schedule) throw new Error("Report schedule not found");
+    return schedule;
+  }
+
+  async deleteReportSchedule(id: string): Promise<void> {
+    await db.delete(reportSchedules).where(eq(reportSchedules.id, id));
+  }
+
+  // Report Shares
+  async getReportShares(reportId: string): Promise<ReportShare[]> {
+    return db.select().from(reportShares).where(eq(reportShares.reportId, reportId));
+  }
+
+  async createReportShare(insert: InsertReportShare): Promise<ReportShare> {
+    const [share] = await db.insert(reportShares).values(insert).returning();
+    return share;
+  }
+
+  async deleteReportShare(id: string): Promise<void> {
+    await db.delete(reportShares).where(eq(reportShares.id, id));
+  }
+
+  // Report Audit Logs
+  async getReportAuditLogs(departmentId?: string, limit = 100): Promise<ReportAuditLog[]> {
+    if (departmentId) {
+      return db.select().from(reportAuditLogs)
+        .where(eq(reportAuditLogs.departmentId, departmentId))
+        .orderBy(desc(reportAuditLogs.createdAt))
+        .limit(limit);
+    }
+    return db.select().from(reportAuditLogs).orderBy(desc(reportAuditLogs.createdAt)).limit(limit);
+  }
+
+  async createReportAuditLog(insert: InsertReportAuditLog): Promise<ReportAuditLog> {
+    const [log] = await db.insert(reportAuditLogs).values(insert).returning();
+    return log;
+  }
+
+  // Department Report Settings
+  async getDepartmentReportSettings(departmentId: string): Promise<DepartmentReportSettings | undefined> {
+    const [settings] = await db.select().from(departmentReportSettings)
+      .where(eq(departmentReportSettings.departmentId, departmentId));
+    return settings;
+  }
+
+  async createDepartmentReportSettings(insert: InsertDepartmentReportSettings): Promise<DepartmentReportSettings> {
+    const [settings] = await db.insert(departmentReportSettings).values(insert).returning();
+    return settings;
+  }
+
+  async updateDepartmentReportSettings(departmentId: string, update: Partial<InsertDepartmentReportSettings>): Promise<DepartmentReportSettings> {
+    const [settings] = await db.update(departmentReportSettings)
+      .set({ ...update, updatedAt: new Date().toISOString() })
+      .where(eq(departmentReportSettings.departmentId, departmentId))
+      .returning();
+    if (!settings) throw new Error("Department report settings not found");
+    return settings;
+  }
+
+  // Report Fields (metadata)
+  async getReportFields(dataSource?: string): Promise<ReportField[]> {
+    if (dataSource) {
+      return db.select().from(reportFields)
+        .where(eq(reportFields.dataSource, dataSource))
+        .orderBy(asc(reportFields.order));
+    }
+    return db.select().from(reportFields).orderBy(asc(reportFields.order));
+  }
+
+  async createReportField(insert: InsertReportField): Promise<ReportField> {
+    const [field] = await db.insert(reportFields).values(insert).returning();
+    return field;
+  }
+
+  async updateReportField(id: string, update: Partial<InsertReportField>): Promise<ReportField> {
+    const [field] = await db.update(reportFields)
+      .set(update)
+      .where(eq(reportFields.id, id))
+      .returning();
+    if (!field) throw new Error("Report field not found");
+    return field;
+  }
+
+  async deleteReportField(id: string): Promise<void> {
+    await db.delete(reportFields).where(eq(reportFields.id, id));
   }
 }
