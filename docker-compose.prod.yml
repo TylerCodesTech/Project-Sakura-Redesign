@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   # ===================
-  # Production App
+  # Production App (Frontend + Backend)
   # ===================
   app:
     build:
@@ -16,10 +16,13 @@ services:
       - NODE_ENV=production
       - DATABASE_URL=postgresql://sakura:${DB_PASSWORD}@db:5432/sakura_db
       - SESSION_SECRET=${SESSION_SECRET}
+      - REDIS_URL=redis://redis:6379
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - GOOGLE_AI_API_KEY=${GOOGLE_AI_API_KEY:-}
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     networks:
       - sakura-network
@@ -57,9 +60,33 @@ services:
           cpus: '1'
           memory: 512M
 
+  # ===================
+  # Redis Cache & Session Store
+  # ===================
+  redis:
+    image: redis:7-alpine
+    container_name: sakura-redis-prod
+    volumes:
+      - redis_data_prod:/data
+    networks:
+      - sakura-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+
 networks:
   sakura-network:
     driver: bridge
 
 volumes:
   postgres_data_prod:
+  redis_data_prod:
