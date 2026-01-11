@@ -63,9 +63,8 @@ export default function Documents() {
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
   const [selectedItem, setSelectedItem] = useState<any>(null);
 
-  const { data: books = [], isLoading: isLoadingBooks } = useQuery<Book[]>({
+  const { data: allBooks = [], isLoading: isLoadingBooks } = useQuery<Book[]>({
     queryKey: ["/api/books"],
-    enabled: currentFolderId === null && !searchQuery,
   });
 
   const { data: allPages = [], isLoading: isLoadingPages } = useQuery<Page[]>({
@@ -76,6 +75,12 @@ export default function Documents() {
     const matchesSearch = searchQuery ? p.title.toLowerCase().includes(searchQuery.toLowerCase()) : true;
     const matchesFolder = searchQuery ? true : p.parentId === currentFolderId;
     return matchesSearch && matchesFolder && !p.bookId;
+  });
+
+  const filteredBooks = allBooks.filter(b => {
+    const matchesSearch = searchQuery ? b.title.toLowerCase().includes(searchQuery.toLowerCase()) : true;
+    const matchesFolder = searchQuery ? true : (b.parentId || null) === currentFolderId;
+    return matchesSearch && matchesFolder;
   });
 
   const standalonePages = filteredPages;
@@ -210,7 +215,7 @@ export default function Documents() {
   };
 
   const allItems = [
-    ...books.map(b => ({ ...b, itemType: 'book' as const })),
+    ...filteredBooks.map(b => ({ ...b, itemType: 'book' as const })),
     ...standalonePages.map(p => ({ ...p, itemType: p.type as 'page' | 'folder' }))
   ];
 
@@ -409,8 +414,8 @@ export default function Documents() {
             Array.from({ length: 3 }).map((_, i) => (
               <Card key={i} className="rounded-3xl border-border/50 animate-pulse bg-secondary/20 h-48" />
             ))
-          ) : (standalonePages.length > 0 || books.length > 0) ? (
-            [...books.map(b => ({ ...b, itemType: 'book' as const })), 
+          ) : (standalonePages.length > 0 || filteredBooks.length > 0) ? (
+            [...filteredBooks.map(b => ({ ...b, itemType: 'book' as const })), 
              ...standalonePages.map(p => ({ ...p, itemType: p.type as 'page' | 'folder' }))]
             .map((item) => (
               <DocCard 
