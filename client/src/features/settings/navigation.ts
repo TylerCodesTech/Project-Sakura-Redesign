@@ -44,10 +44,6 @@ export const settingsNavigation: SettingsNavItem[] = [
     label: "AI Configuration",
     icon: Bot,
     description: "Configure AI models and providers",
-    children: [
-      { id: "ai-models", label: "Models", icon: Database },
-      { id: "ai-providers", label: "Providers", icon: Key },
-    ],
   },
   {
     id: "users",
