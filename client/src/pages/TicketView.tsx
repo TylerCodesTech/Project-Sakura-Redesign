@@ -23,6 +23,9 @@ import {
   Edit3,
   Check,
   X,
+  FileText,
+  BookOpen,
+  ExternalLink,
 } from "lucide-react";
 import { useLocation, useRoute } from "wouter";
 import { Separator } from "@/components/ui/separator";
@@ -44,6 +47,18 @@ import {
 import { cn } from "@/lib/utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { type Ticket, type TicketComment, type SlaState, type User as UserType, type Department, type Helpdesk } from "@shared/schema";
+
+interface RelatedDocument {
+  id: string;
+  title: string;
+  content: string;
+  type: 'page' | 'pageVersion';
+  bookId?: string | null;
+  versionNumber?: number;
+  pageId?: string;
+  similarity: number;
+  status: string;
+}
 import { apiRequest } from "@/lib/queryClient";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
@@ -125,6 +140,16 @@ export default function TicketView() {
 
   const { data: helpdesks = [] } = useQuery<Helpdesk[]>({
     queryKey: ["/api/helpdesks"],
+  });
+
+  const { data: relatedDocuments = [], isLoading: isLoadingRelated } = useQuery<RelatedDocument[]>({
+    queryKey: ["/api/tickets", ticketId, "related-documents"],
+    queryFn: async () => {
+      const res = await fetch(`/api/tickets/${ticketId}/related-documents`);
+      return res.json();
+    },
+    enabled: !!ticketId,
+    staleTime: 1000 * 60 * 5,
   });
 
   const updateTicketMutation = useMutation({
@@ -726,6 +751,61 @@ export default function TicketView() {
                           </p>
                         </div>
                       </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card className="border-border/50 shadow-sm">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                      <BookOpen className="w-4 h-4 text-primary" />
+                      Related Documents
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {isLoadingRelated ? (
+                      <div className="flex items-center justify-center py-4">
+                        <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                      </div>
+                    ) : relatedDocuments.length === 0 ? (
+                      <p className="text-xs text-muted-foreground text-center py-2">
+                        No related documents found
+                      </p>
+                    ) : (
+                      relatedDocuments.map((doc) => (
+                        <div 
+                          key={doc.id}
+                          className="group p-2 rounded-lg border border-border/50 hover:bg-secondary/50 transition-colors cursor-pointer"
+                          onClick={() => {
+                            if (doc.type === 'page') {
+                              setLocation(`/docs/page/${doc.id}`);
+                            } else if (doc.pageId) {
+                              setLocation(`/docs/page/${doc.pageId}`);
+                            }
+                          }}
+                        >
+                          <div className="flex items-start gap-2">
+                            <FileText className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1">
+                                <p className="text-xs font-medium truncate">{doc.title}</p>
+                                <ExternalLink className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                              </div>
+                              <p className="text-[10px] text-muted-foreground line-clamp-2 mt-0.5">
+                                {doc.content.replace(/<[^>]*>/g, '').slice(0, 100)}...
+                              </p>
+                              <div className="flex items-center gap-2 mt-1">
+                                <Badge variant="outline" className="text-[9px] h-4 px-1">
+                                  {Math.round(doc.similarity * 100)}% match
+                                </Badge>
+                                <span className="text-[9px] text-muted-foreground capitalize">
+                                  {doc.type === 'pageVersion' ? 'Version' : 'Page'}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))
                     )}
                   </CardContent>
                 </Card>
