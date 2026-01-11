@@ -19,6 +19,10 @@ import {
   MessagesSquare,
   BookOpen,
   History,
+  BarChart3,
+  FileBarChart,
+  Calendar,
+  Share2,
 } from "lucide-react";
 import { SettingsNavItem } from "./types";
 
@@ -95,6 +99,19 @@ export const settingsNavigation: SettingsNavItem[] = [
       { id: "docs-overview", label: "Overview", icon: BookOpen },
       { id: "docs-versions", label: "Version History", icon: History },
       { id: "docs-access", label: "Access Control", icon: UserCog },
+    ],
+  },
+  {
+    id: "reports",
+    label: "Reports",
+    icon: BarChart3,
+    description: "Configure reports per department",
+    badge: "Pro",
+    children: [
+      { id: "reports-overview", label: "Overview", icon: FileBarChart },
+      { id: "reports-builder", label: "Report Builder", icon: BarChart3 },
+      { id: "reports-scheduled", label: "Scheduled Reports", icon: Calendar },
+      { id: "reports-sharing", label: "Sharing & Access", icon: Share2 },
     ],
   },
   {

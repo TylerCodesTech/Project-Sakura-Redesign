@@ -480,6 +480,16 @@ export const AVAILABLE_PERMISSIONS = {
   "reports.view": { category: "reports", description: "View reports" },
   "reports.export": { category: "reports", description: "Export reports" },
   "reports.create": { category: "reports", description: "Create custom reports" },
+  "reports.edit": { category: "reports", description: "Edit report definitions" },
+  "reports.delete": { category: "reports", description: "Delete reports" },
+  "reports.schedule": { category: "reports", description: "Schedule automated reports" },
+  "reports.share": { category: "reports", description: "Share reports with other users" },
+  "reports.settings.manage": { category: "reports", description: "Manage report settings" },
+  "reports.audit.view": { category: "reports", description: "View report audit logs" },
+  "reports.data.tickets": { category: "reports", description: "Access ticket data in reports" },
+  "reports.data.users": { category: "reports", description: "Access user data in reports" },
+  "reports.data.sla": { category: "reports", description: "Access SLA data in reports" },
+  "reports.data.audit": { category: "reports", description: "Access audit log data in reports" },
 } as const;
 
 export type PermissionKey = keyof typeof AVAILABLE_PERMISSIONS;
@@ -624,3 +634,201 @@ export const versionSettingsDefaults: Record<string, string> = {
   autoArchiveAfterDays: "180",
   showLegacyVersionsInSearch: "true",
 };
+
+// ============================================
+// REPORTING SYSTEM
+// ============================================
+
+// Report types enum
+export const REPORT_TYPES = {
+  AUDIT: "audit",
+  USER_ACCESS: "user_access",
+  TICKET_SLA: "ticket_sla",
+  TICKET_CLOSURES: "ticket_closures",
+  CUSTOM: "custom",
+} as const;
+
+export type ReportType = typeof REPORT_TYPES[keyof typeof REPORT_TYPES];
+
+// Available data sources for reports
+export const REPORT_DATA_SOURCES = {
+  TICKETS: "tickets",
+  USERS: "users",
+  AUDIT_LOGS: "audit_logs",
+  SLA_STATES: "sla_states",
+  SLA_POLICIES: "sla_policies",
+  DEPARTMENTS: "departments",
+  ROLES: "roles",
+  PAGES: "pages",
+  BOOKS: "books",
+} as const;
+
+export type ReportDataSource = typeof REPORT_DATA_SOURCES[keyof typeof REPORT_DATA_SOURCES];
+
+// Report definitions - stores the report templates/configurations
+export const reportDefinitions = pgTable("report_definitions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  type: text("type").notNull(), // audit, user_access, ticket_sla, ticket_closures, custom
+  departmentId: varchar("department_id"), // null = global, otherwise department-specific
+  createdBy: varchar("created_by").notNull(),
+  isTemplate: text("is_template").notNull().default("false"), // System templates vs user-created
+  isPublic: text("is_public").notNull().default("false"), // Shared with all users in department
+  configuration: text("configuration").notNull(), // JSON: fields, filters, sorting, grouping, visualization
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+// Report fields - available fields for each data source
+export const reportFields = pgTable("report_fields", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  dataSource: text("data_source").notNull(), // Which table this field belongs to
+  fieldName: text("field_name").notNull(), // The actual column/field name
+  displayName: text("display_name").notNull(), // User-friendly name
+  fieldType: text("field_type").notNull(), // text, number, date, boolean, select
+  requiredPermission: text("required_permission"), // Permission needed to access this field
+  isFilterable: text("is_filterable").notNull().default("true"),
+  isSortable: text("is_sortable").notNull().default("true"),
+  isGroupable: text("is_groupable").notNull().default("false"),
+  filterOptions: text("filter_options"), // JSON: for select fields, the available options
+  order: integer("order").notNull().default(0),
+});
+
+// Saved reports - generated report instances
+export const savedReports = pgTable("saved_reports", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  definitionId: varchar("definition_id").notNull(),
+  name: text("name").notNull(),
+  generatedBy: varchar("generated_by").notNull(),
+  departmentId: varchar("department_id"),
+  parameters: text("parameters"), // JSON: filters and parameters used when generating
+  resultData: text("result_data"), // JSON: cached report data
+  resultSummary: text("result_summary"), // JSON: summary stats
+  rowCount: integer("row_count").notNull().default(0),
+  generatedAt: text("generated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  expiresAt: text("expires_at"), // When cached data should be refreshed
+});
+
+// Report schedules - automated report generation
+export const reportSchedules = pgTable("report_schedules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  definitionId: varchar("definition_id").notNull(),
+  createdBy: varchar("created_by").notNull(),
+  frequency: text("frequency").notNull(), // daily, weekly, monthly
+  dayOfWeek: integer("day_of_week"), // 0-6 for weekly
+  dayOfMonth: integer("day_of_month"), // 1-31 for monthly
+  timeOfDay: text("time_of_day").notNull().default("09:00"), // HH:MM format
+  timezone: text("timezone").notNull().default("UTC"),
+  recipients: text("recipients").notNull(), // JSON: array of user IDs or emails
+  exportFormat: text("export_format").notNull().default("pdf"), // pdf, csv, excel
+  isActive: text("is_active").notNull().default("true"),
+  lastRunAt: text("last_run_at"),
+  nextRunAt: text("next_run_at"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+// Report sharing - who can access which reports
+export const reportShares = pgTable("report_shares", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  reportId: varchar("report_id").notNull(), // Either definition or saved report
+  reportType: text("report_type").notNull(), // "definition" or "saved"
+  sharedWith: varchar("shared_with").notNull(), // User ID or role ID
+  shareType: text("share_type").notNull(), // "user" or "role"
+  canEdit: text("can_edit").notNull().default("false"),
+  sharedBy: varchar("shared_by").notNull(),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+// Report audit logs - tracks all report activities
+export const reportAuditLogs = pgTable("report_audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  userName: text("user_name"),
+  actionType: text("action_type").notNull(), // created, edited, deleted, generated, exported, scheduled, shared
+  targetType: text("target_type").notNull(), // definition, saved_report, schedule
+  targetId: varchar("target_id").notNull(),
+  targetName: text("target_name"),
+  departmentId: varchar("department_id"),
+  details: text("details"), // JSON: additional context
+  ipAddress: text("ip_address"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+// Department report settings - per-department configuration
+export const departmentReportSettings = pgTable("department_report_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  departmentId: varchar("department_id").notNull().unique(),
+  enabled: text("enabled").notNull().default("true"),
+  allowCustomReports: text("allow_custom_reports").notNull().default("true"),
+  allowScheduledReports: text("allow_scheduled_reports").notNull().default("true"),
+  allowExport: text("allow_export").notNull().default("true"),
+  defaultExportFormat: text("default_export_format").notNull().default("pdf"),
+  retentionDays: integer("retention_days").notNull().default(90), // How long to keep saved reports
+  maxScheduledReports: integer("max_scheduled_reports").notNull().default(10),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+// Insert schemas for reports
+export const insertReportDefinitionSchema = createInsertSchema(reportDefinitions).omit({ id: true });
+export const insertReportFieldSchema = createInsertSchema(reportFields).omit({ id: true });
+export const insertSavedReportSchema = createInsertSchema(savedReports).omit({ id: true });
+export const insertReportScheduleSchema = createInsertSchema(reportSchedules).omit({ id: true });
+export const insertReportShareSchema = createInsertSchema(reportShares).omit({ id: true });
+export const insertReportAuditLogSchema = createInsertSchema(reportAuditLogs).omit({ id: true });
+export const insertDepartmentReportSettingsSchema = createInsertSchema(departmentReportSettings).omit({ id: true });
+
+// Types for reports
+export type ReportDefinition = typeof reportDefinitions.$inferSelect;
+export type InsertReportDefinition = z.infer<typeof insertReportDefinitionSchema>;
+export type ReportField = typeof reportFields.$inferSelect;
+export type InsertReportField = z.infer<typeof insertReportFieldSchema>;
+export type SavedReport = typeof savedReports.$inferSelect;
+export type InsertSavedReport = z.infer<typeof insertSavedReportSchema>;
+export type ReportSchedule = typeof reportSchedules.$inferSelect;
+export type InsertReportSchedule = z.infer<typeof insertReportScheduleSchema>;
+export type ReportShare = typeof reportShares.$inferSelect;
+export type InsertReportShare = z.infer<typeof insertReportShareSchema>;
+export type ReportAuditLog = typeof reportAuditLogs.$inferSelect;
+export type InsertReportAuditLog = z.infer<typeof insertReportAuditLogSchema>;
+export type DepartmentReportSettings = typeof departmentReportSettings.$inferSelect;
+export type InsertDepartmentReportSettings = z.infer<typeof insertDepartmentReportSettingsSchema>;
+
+// Report configuration type for the JSON field
+export interface ReportConfiguration {
+  dataSource: ReportDataSource;
+  fields: Array<{
+    fieldId: string;
+    fieldName: string;
+    displayName: string;
+    visible: boolean;
+    order: number;
+  }>;
+  filters: Array<{
+    fieldName: string;
+    operator: "equals" | "not_equals" | "contains" | "starts_with" | "ends_with" | "greater_than" | "less_than" | "between" | "in" | "is_null" | "is_not_null";
+    value: string | number | boolean | string[];
+    value2?: string | number; // For "between" operator
+  }>;
+  sorting: Array<{
+    fieldName: string;
+    direction: "asc" | "desc";
+  }>;
+  grouping?: {
+    fieldName: string;
+    aggregations: Array<{
+      fieldName: string;
+      function: "count" | "sum" | "avg" | "min" | "max";
+    }>;
+  };
+  visualization: {
+    type: "table" | "bar_chart" | "line_chart" | "pie_chart" | "area_chart";
+    options?: Record<string, unknown>;
+  };
+  dateRange?: {
+    type: "last_7_days" | "last_30_days" | "last_90_days" | "this_month" | "last_month" | "this_year" | "custom";
+    startDate?: string;
+    endDate?: string;
+  };
+}
