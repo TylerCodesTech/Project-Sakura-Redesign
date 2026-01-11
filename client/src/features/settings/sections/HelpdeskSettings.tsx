@@ -250,6 +250,11 @@ export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSe
   const [creatingHelpdesk, setCreatingHelpdesk] = useState(false);
   const [expandedSubdepts, setExpandedSubdepts] = useState<Set<string>>(new Set());
 
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
   const queryClient = useQueryClient();
 
   const { data: departments = [], isLoading: isLoadingDepts } = useQuery<Department[]>({
@@ -1040,10 +1045,7 @@ export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSe
           </div>
         ) : (
           <DndContext
-            sensors={useSensors(
-              useSensor(PointerSensor),
-              useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
-            )}
+            sensors={sensors}
             collisionDetection={closestCenter}
             onDragEnd={(event: DragEndEvent) => {
               const { active, over } = event;
