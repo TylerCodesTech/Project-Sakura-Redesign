@@ -698,16 +698,14 @@ function DocCard({
           </CardContent>
         </Card>
         {deleteDialog}
-        {!isBook && (
-          <MoveDialog
-            isOpen={isMoveDialogOpen}
-            onClose={() => setIsMoveDialogOpen(false)}
-            itemId={item.id}
-            itemTitle={item.title}
-            itemType={item.itemType}
-            currentParentId={item.parentId || null}
-          />
-        )}
+        <MoveDialog
+          isOpen={isMoveDialogOpen}
+          onClose={() => setIsMoveDialogOpen(false)}
+          itemId={item.id}
+          itemTitle={item.title}
+          itemType={item.itemType}
+          currentParentId={item.parentId || null}
+        />
       </>
     );
   }
@@ -736,16 +734,14 @@ function DocCard({
         </CardContent>
       </Card>
       {deleteDialog}
-      {!isBook && (
-        <MoveDialog
-          isOpen={isMoveDialogOpen}
-          onClose={() => setIsMoveDialogOpen(false)}
-          itemId={item.id}
-          itemTitle={item.title}
-          itemType={item.itemType}
-          currentParentId={item.parentId || null}
-        />
-      )}
+      <MoveDialog
+        isOpen={isMoveDialogOpen}
+        onClose={() => setIsMoveDialogOpen(false)}
+        itemId={item.id}
+        itemTitle={item.title}
+        itemType={item.itemType}
+        currentParentId={item.parentId || null}
+      />
     </>
   );
 }

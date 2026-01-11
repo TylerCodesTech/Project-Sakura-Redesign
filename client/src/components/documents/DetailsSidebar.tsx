@@ -408,7 +408,7 @@ export function DetailsSidebar({ item, onClose, isOpen, canDelete = true, canMov
         </DialogContent>
       </Dialog>
 
-      {!isBook && item && (
+      {item && (
         <MoveDialog
           isOpen={isMoveDialogOpen}
           onClose={() => setIsMoveDialogOpen(false)}
