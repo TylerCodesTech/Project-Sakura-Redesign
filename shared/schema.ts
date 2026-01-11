@@ -69,6 +69,16 @@ export const pages = pgTable("pages", {
   authorId: varchar("author_id").notNull(),
 });
 
+export const documentActivity = pgTable("document_activity", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  documentId: varchar("document_id").notNull(),
+  documentType: text("document_type").notNull(), // 'page', 'book', 'folder'
+  action: text("action").notNull(), // 'created', 'updated', 'moved', 'deleted', 'viewed'
+  userId: varchar("user_id").notNull(),
+  details: text("details"), // JSON string for additional details
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
 export const comments = pgTable("comments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   pageId: varchar("page_id").notNull(),
@@ -178,6 +188,9 @@ export type Book = typeof books.$inferSelect;
 export type InsertBook = z.infer<typeof insertBookSchema>;
 export type Page = typeof pages.$inferSelect;
 export type InsertPage = z.infer<typeof insertPageSchema>;
+export type DocumentActivity = typeof documentActivity.$inferSelect;
+export const insertDocumentActivitySchema = createInsertSchema(documentActivity).omit({ id: true });
+export type InsertDocumentActivity = z.infer<typeof insertDocumentActivitySchema>;
 export type Comment = typeof comments.$inferSelect;
 export type InsertComment = z.infer<typeof insertCommentSchema>;
 

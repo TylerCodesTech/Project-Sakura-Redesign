@@ -4,7 +4,7 @@ import {
   users, books, pages, comments, notifications, externalLinks, departments, news, stats, systemSettings,
   helpdesks, slaStates, slaPolicies, departmentHierarchy, departmentManagers, escalationRules, 
   escalationConditions, inboundEmailConfigs, tickets, ticketComments, helpdeskWebhooks, ticketFormFields,
-  roles, rolePermissions, userRoles, auditLogs,
+  roles, rolePermissions, userRoles, auditLogs, documentActivity,
   type User, type InsertUser, type Book, type InsertBook, type Page, type InsertPage,
   type Comment, type InsertComment, type Notification, type InsertNotification,
   type ExternalLink, type InsertExternalLink, type Department, type InsertDepartment,
@@ -17,6 +17,7 @@ import {
   type HelpdeskWebhook, type InsertHelpdeskWebhook, type TicketFormField, type InsertTicketFormField,
   type Role, type InsertRole, type RolePermission, type InsertRolePermission,
   type UserRole, type InsertUserRole, type AuditLog, type InsertAuditLog,
+  type DocumentActivity, type InsertDocumentActivity,
   type RoleWithUserCount, type RoleWithPermissions,
   systemSettingsDefaults
 } from "@shared/schema";
@@ -596,5 +597,15 @@ export class DatabaseStorage implements IStorage {
   async getAuditLogCount(): Promise<number> {
     const [result] = await db.select({ count: count() }).from(auditLogs);
     return result?.count ?? 0;
+  }
+
+  // Document Activity methods
+  async getDocumentActivity(documentId: string): Promise<DocumentActivity[]> {
+    return db.select().from(documentActivity).where(eq(documentActivity.documentId, documentId)).orderBy(desc(documentActivity.createdAt));
+  }
+
+  async createDocumentActivity(insert: InsertDocumentActivity): Promise<DocumentActivity> {
+    const [activity] = await db.insert(documentActivity).values(insert).returning();
+    return activity;
   }
 }

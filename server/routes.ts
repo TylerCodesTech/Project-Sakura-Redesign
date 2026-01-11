@@ -278,6 +278,10 @@ export async function registerRoutes(
       const existing = await storage.getPage(req.params.id);
       if (!existing) return res.status(404).send("Page not found");
 
+      // Check if this is a move operation (parentId is being changed)
+      const isMove = req.body.parentId !== undefined && req.body.parentId !== existing.parentId;
+      const oldParentId = existing.parentId;
+
       // Handle transition to review
       if (req.body.status === "in_review" && existing.status === "draft") {
         const author = await storage.getUser(existing.authorId);
@@ -291,6 +295,30 @@ export async function registerRoutes(
       }
 
       const page = await storage.updatePage(req.params.id, req.body);
+
+      // Log move activity
+      if (isMove) {
+        let fromName = 'Root';
+        let toName = 'Root';
+        
+        if (oldParentId) {
+          const oldParent = await storage.getPage(oldParentId);
+          if (oldParent) fromName = oldParent.title;
+        }
+        
+        if (req.body.parentId) {
+          const newParent = await storage.getPage(req.body.parentId);
+          if (newParent) toName = newParent.title;
+        }
+        
+        await storage.createDocumentActivity({
+          documentId: page.id,
+          documentType: page.type,
+          action: 'moved',
+          userId: 'current-user-id',
+          details: JSON.stringify({ from: fromName, to: toName, fromId: oldParentId, toId: req.body.parentId }),
+        });
+      }
 
       // Create notification for status changes
       if (req.body.status === "in_review" && page.reviewerId) {

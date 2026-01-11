@@ -25,6 +25,7 @@ import {
   type RolePermission, type InsertRolePermission,
   type UserRole, type InsertUserRole,
   type AuditLog, type InsertAuditLog,
+  type DocumentActivity, type InsertDocumentActivity,
   type RoleWithUserCount, type RoleWithPermissions,
   AVAILABLE_PERMISSIONS,
   systemSettingsDefaults
@@ -180,6 +181,10 @@ export interface IStorage {
   getAuditLogsByTarget(targetType: string, targetId: string): Promise<AuditLog[]>;
   createAuditLog(log: InsertAuditLog): Promise<AuditLog>;
   getAuditLogCount(): Promise<number>;
+
+  // Document Activity
+  getDocumentActivity(documentId: string): Promise<DocumentActivity[]>;
+  createDocumentActivity(activity: InsertDocumentActivity): Promise<DocumentActivity>;
 }
 
 export class MemStorage implements IStorage {
@@ -209,6 +214,7 @@ export class MemStorage implements IStorage {
   private rolePermissions: Map<string, RolePermission>;
   private userRoles: Map<string, UserRole>;
   private auditLogs: Map<string, AuditLog>;
+  private documentActivities: Map<string, DocumentActivity>;
 
   constructor() {
     this.users = new Map();
@@ -237,6 +243,7 @@ export class MemStorage implements IStorage {
     this.rolePermissions = new Map();
     this.userRoles = new Map();
     this.auditLogs = new Map();
+    this.documentActivities = new Map();
 
     // Initialize Super Admin role with all permissions
     const superAdminId = randomUUID();
@@ -1222,6 +1229,27 @@ export class MemStorage implements IStorage {
 
   async getAuditLogCount(): Promise<number> {
     return this.auditLogs.size;
+  }
+
+  async getDocumentActivity(documentId: string): Promise<DocumentActivity[]> {
+    return Array.from(this.documentActivities.values())
+      .filter(activity => activity.documentId === documentId)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }
+
+  async createDocumentActivity(insert: InsertDocumentActivity): Promise<DocumentActivity> {
+    const id = randomUUID();
+    const activity: DocumentActivity = {
+      id,
+      documentId: insert.documentId,
+      documentType: insert.documentType,
+      action: insert.action,
+      userId: insert.userId,
+      details: insert.details ?? null,
+      createdAt: new Date().toISOString(),
+    };
+    this.documentActivities.set(id, activity);
+    return activity;
   }
 }
 
