@@ -38,6 +38,13 @@ export const systemSettingsDefaults: Record<string, string> = {
   inAppDesktopNotifications: "true",
   inAppSoundAlerts: "false",
   inAppNotificationBadge: "true",
+  versionHistoryEnabled: "true",
+  versionRetentionPolicy: "limit_by_count",
+  versionRetentionCount: "50",
+  versionRetentionDays: "365",
+  autoArchiveEnabled: "true",
+  autoArchiveAfterDays: "180",
+  showLegacyVersionsInSearch: "true",
 };
 
 export type SystemSettingsKeys = keyof typeof systemSettingsDefaults;
@@ -545,3 +552,75 @@ export type RoleWithUserCount = Role & { userCount: number };
 
 // Role with full permission list
 export type RoleWithPermissions = Role & { permissions: RolePermission[] };
+
+// ============================================
+// VERSION HISTORY SYSTEM
+// ============================================
+
+// Page versions - stores historical snapshots of pages
+export const pageVersions = pgTable("page_versions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  pageId: varchar("page_id").notNull(),
+  versionNumber: integer("version_number").notNull(),
+  title: text("title").notNull(),
+  content: text("content").notNull(),
+  status: text("status").notNull(),
+  authorId: varchar("author_id").notNull(),
+  changeDescription: text("change_description"),
+  isArchived: text("is_archived").notNull().default("false"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+// Book versions - stores historical snapshots of books
+export const bookVersions = pgTable("book_versions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  bookId: varchar("book_id").notNull(),
+  versionNumber: integer("version_number").notNull(),
+  title: text("title").notNull(),
+  description: text("description"),
+  authorId: varchar("author_id").notNull(),
+  changeDescription: text("change_description"),
+  isArchived: text("is_archived").notNull().default("false"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+// Version audit logs - tracks all version-related actions
+export const versionAuditLogs = pgTable("version_audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  documentId: varchar("document_id").notNull(),
+  documentType: text("document_type").notNull(), // 'page' or 'book'
+  actionType: text("action_type").notNull(), // 'created', 'modified', 'reverted', 'deleted', 'archived', 'restored'
+  fromVersion: integer("from_version"),
+  toVersion: integer("to_version"),
+  userId: varchar("user_id").notNull(),
+  userName: text("user_name"),
+  details: text("details"), // JSON string for additional metadata
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+// Insert schemas for version history
+export const insertPageVersionSchema = createInsertSchema(pageVersions).omit({ id: true });
+export const insertBookVersionSchema = createInsertSchema(bookVersions).omit({ id: true });
+export const insertVersionAuditLogSchema = createInsertSchema(versionAuditLogs).omit({ id: true });
+
+// Types for version history
+export type PageVersion = typeof pageVersions.$inferSelect;
+export type InsertPageVersion = z.infer<typeof insertPageVersionSchema>;
+export type BookVersion = typeof bookVersions.$inferSelect;
+export type InsertBookVersion = z.infer<typeof insertBookVersionSchema>;
+export type VersionAuditLog = typeof versionAuditLogs.$inferSelect;
+export type InsertVersionAuditLog = z.infer<typeof insertVersionAuditLogSchema>;
+
+// Version retention policy types
+export type VersionRetentionPolicy = "all" | "limit_by_count" | "limit_by_time" | "auto_archive";
+
+// Version history system settings defaults
+export const versionSettingsDefaults: Record<string, string> = {
+  versionHistoryEnabled: "true",
+  versionRetentionPolicy: "limit_by_count",
+  versionRetentionCount: "50",
+  versionRetentionDays: "365",
+  autoArchiveEnabled: "true",
+  autoArchiveAfterDays: "180",
+  showLegacyVersionsInSearch: "true",
+};

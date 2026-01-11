@@ -1,10 +1,11 @@
 import { db } from "./db";
-import { eq, and, desc, asc, count, sql } from "drizzle-orm";
+import { eq, and, desc, asc, count, sql, or, ilike } from "drizzle-orm";
 import {
   users, books, pages, comments, notifications, externalLinks, departments, news, stats, systemSettings,
   helpdesks, slaStates, slaPolicies, departmentHierarchy, departmentManagers, escalationRules, 
   escalationConditions, inboundEmailConfigs, tickets, ticketComments, helpdeskWebhooks, ticketFormFields,
   roles, rolePermissions, userRoles, auditLogs, documentActivity,
+  pageVersions, bookVersions, versionAuditLogs,
   type User, type InsertUser, type Book, type InsertBook, type Page, type InsertPage,
   type Comment, type InsertComment, type Notification, type InsertNotification,
   type ExternalLink, type InsertExternalLink, type Department, type InsertDepartment,
@@ -18,6 +19,9 @@ import {
   type Role, type InsertRole, type RolePermission, type InsertRolePermission,
   type UserRole, type InsertUserRole, type AuditLog, type InsertAuditLog,
   type DocumentActivity, type InsertDocumentActivity,
+  type PageVersion, type InsertPageVersion,
+  type BookVersion, type InsertBookVersion,
+  type VersionAuditLog, type InsertVersionAuditLog,
   type RoleWithUserCount, type RoleWithPermissions,
   systemSettingsDefaults
 } from "@shared/schema";
@@ -613,5 +617,137 @@ export class DatabaseStorage implements IStorage {
   async createDocumentActivity(insert: InsertDocumentActivity): Promise<DocumentActivity> {
     const [activity] = await db.insert(documentActivity).values(insert).returning();
     return activity;
+  }
+
+  // Version History - Pages
+  async getPageVersions(pageId: string): Promise<PageVersion[]> {
+    return db.select().from(pageVersions)
+      .where(eq(pageVersions.pageId, pageId))
+      .orderBy(desc(pageVersions.versionNumber));
+  }
+
+  async getPageVersion(pageId: string, versionNumber: number): Promise<PageVersion | undefined> {
+    const [version] = await db.select().from(pageVersions)
+      .where(and(eq(pageVersions.pageId, pageId), eq(pageVersions.versionNumber, versionNumber)));
+    return version;
+  }
+
+  async getLatestPageVersionNumber(pageId: string): Promise<number> {
+    const [result] = await db.select({ maxVersion: sql<number>`COALESCE(MAX(${pageVersions.versionNumber}), 0)` })
+      .from(pageVersions)
+      .where(eq(pageVersions.pageId, pageId));
+    return result?.maxVersion ?? 0;
+  }
+
+  async createPageVersion(insert: InsertPageVersion): Promise<PageVersion> {
+    const [version] = await db.insert(pageVersions).values(insert).returning();
+    return version;
+  }
+
+  async deletePageVersion(id: string): Promise<void> {
+    await db.delete(pageVersions).where(eq(pageVersions.id, id));
+  }
+
+  async archivePageVersion(id: string): Promise<PageVersion> {
+    const [version] = await db.update(pageVersions)
+      .set({ isArchived: "true" })
+      .where(eq(pageVersions.id, id))
+      .returning();
+    if (!version) throw new Error("Page version not found");
+    return version;
+  }
+
+  async restorePageVersion(id: string): Promise<PageVersion> {
+    const [version] = await db.update(pageVersions)
+      .set({ isArchived: "false" })
+      .where(eq(pageVersions.id, id))
+      .returning();
+    if (!version) throw new Error("Page version not found");
+    return version;
+  }
+
+  // Version History - Books
+  async getBookVersions(bookId: string): Promise<BookVersion[]> {
+    return db.select().from(bookVersions)
+      .where(eq(bookVersions.bookId, bookId))
+      .orderBy(desc(bookVersions.versionNumber));
+  }
+
+  async getBookVersion(bookId: string, versionNumber: number): Promise<BookVersion | undefined> {
+    const [version] = await db.select().from(bookVersions)
+      .where(and(eq(bookVersions.bookId, bookId), eq(bookVersions.versionNumber, versionNumber)));
+    return version;
+  }
+
+  async getLatestBookVersionNumber(bookId: string): Promise<number> {
+    const [result] = await db.select({ maxVersion: sql<number>`COALESCE(MAX(${bookVersions.versionNumber}), 0)` })
+      .from(bookVersions)
+      .where(eq(bookVersions.bookId, bookId));
+    return result?.maxVersion ?? 0;
+  }
+
+  async createBookVersion(insert: InsertBookVersion): Promise<BookVersion> {
+    const [version] = await db.insert(bookVersions).values(insert).returning();
+    return version;
+  }
+
+  async deleteBookVersion(id: string): Promise<void> {
+    await db.delete(bookVersions).where(eq(bookVersions.id, id));
+  }
+
+  async archiveBookVersion(id: string): Promise<BookVersion> {
+    const [version] = await db.update(bookVersions)
+      .set({ isArchived: "true" })
+      .where(eq(bookVersions.id, id))
+      .returning();
+    if (!version) throw new Error("Book version not found");
+    return version;
+  }
+
+  async restoreBookVersion(id: string): Promise<BookVersion> {
+    const [version] = await db.update(bookVersions)
+      .set({ isArchived: "false" })
+      .where(eq(bookVersions.id, id))
+      .returning();
+    if (!version) throw new Error("Book version not found");
+    return version;
+  }
+
+  // Version Audit Logs
+  async getVersionAuditLogs(documentId: string, documentType: string): Promise<VersionAuditLog[]> {
+    return db.select().from(versionAuditLogs)
+      .where(and(
+        eq(versionAuditLogs.documentId, documentId),
+        eq(versionAuditLogs.documentType, documentType)
+      ))
+      .orderBy(desc(versionAuditLogs.createdAt));
+  }
+
+  async getAllVersionAuditLogs(limit = 100, offset = 0): Promise<VersionAuditLog[]> {
+    return db.select().from(versionAuditLogs)
+      .orderBy(desc(versionAuditLogs.createdAt))
+      .limit(limit)
+      .offset(offset);
+  }
+
+  async createVersionAuditLog(insert: InsertVersionAuditLog): Promise<VersionAuditLog> {
+    const [log] = await db.insert(versionAuditLogs).values(insert).returning();
+    return log;
+  }
+
+  // Search versions
+  async searchVersions(query: string): Promise<{pageVersions: PageVersion[], bookVersions: BookVersion[]}> {
+    const searchPattern = `%${query}%`;
+    const matchingPageVersions = await db.select().from(pageVersions)
+      .where(or(
+        ilike(pageVersions.title, searchPattern),
+        ilike(pageVersions.content, searchPattern)
+      ));
+    const matchingBookVersions = await db.select().from(bookVersions)
+      .where(or(
+        ilike(bookVersions.title, searchPattern),
+        ilike(bookVersions.description, searchPattern)
+      ));
+    return { pageVersions: matchingPageVersions, bookVersions: matchingBookVersions };
   }
 }
