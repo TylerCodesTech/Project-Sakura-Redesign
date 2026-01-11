@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertBookSchema, insertPageSchema, insertCommentSchema, insertNotificationSchema, insertExternalLinkSchema, insertDepartmentSchema, insertNewsSchema, insertStatSchema, systemSettingsDefaults, insertHelpdeskSchema, insertSlaStateSchema, insertSlaPolicySchema, insertDepartmentHierarchySchema, insertDepartmentManagerSchema, insertEscalationRuleSchema, insertEscalationConditionSchema, insertInboundEmailConfigSchema, insertTicketSchema, insertTicketCommentSchema, insertHelpdeskWebhookSchema, insertTicketFormFieldSchema, insertRoleSchema, insertUserRoleSchema, insertAuditLogSchema, AVAILABLE_PERMISSIONS, PERMISSION_CATEGORIES } from "@shared/schema";
+import { insertBookSchema, insertPageSchema, insertCommentSchema, insertNotificationSchema, insertExternalLinkSchema, insertDepartmentSchema, insertNewsSchema, insertStatSchema, systemSettingsDefaults, insertHelpdeskSchema, insertSlaStateSchema, insertSlaPolicySchema, insertDepartmentHierarchySchema, insertDepartmentManagerSchema, insertEscalationRuleSchema, insertEscalationConditionSchema, insertInboundEmailConfigSchema, insertTicketSchema, insertTicketCommentSchema, insertHelpdeskWebhookSchema, insertTicketFormFieldSchema, insertRoleSchema, insertUserRoleSchema, insertAuditLogSchema, AVAILABLE_PERMISSIONS, PERMISSION_CATEGORIES, insertPageVersionSchema, insertBookVersionSchema, insertVersionAuditLogSchema } from "@shared/schema";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -422,6 +422,347 @@ export async function registerRoutes(
     }
     const page = await storage.getPageByTitle(bookId, title);
     res.json(page || null);
+  });
+
+  // ============================================
+  // VERSION HISTORY ROUTES
+  // ============================================
+
+  // Page versions
+  app.get("/api/pages/:id/versions", async (req, res) => {
+    const versions = await storage.getPageVersions(req.params.id);
+    res.json(versions);
+  });
+
+  app.get("/api/pages/:id/versions/:versionNumber", async (req, res) => {
+    const version = await storage.getPageVersion(req.params.id, parseInt(req.params.versionNumber));
+    if (!version) return res.status(404).json({ error: "Version not found" });
+    res.json(version);
+  });
+
+  app.post("/api/pages/:id/versions", async (req, res) => {
+    try {
+      const page = await storage.getPage(req.params.id);
+      if (!page) return res.status(404).json({ error: "Page not found" });
+      
+      const latestVersion = await storage.getLatestPageVersionNumber(req.params.id);
+      const newVersionNumber = latestVersion + 1;
+      
+      const versionData = {
+        pageId: req.params.id,
+        versionNumber: newVersionNumber,
+        title: page.title,
+        content: page.content,
+        status: page.status,
+        authorId: req.body.authorId || page.authorId,
+        changeDescription: req.body.changeDescription || null,
+      };
+      
+      const result = insertPageVersionSchema.safeParse(versionData);
+      if (!result.success) return res.status(400).json({ error: result.error });
+      
+      const version = await storage.createPageVersion(result.data);
+      
+      // Log the version creation
+      await storage.createVersionAuditLog({
+        documentId: req.params.id,
+        documentType: "page",
+        actionType: "created",
+        toVersion: newVersionNumber,
+        userId: req.body.authorId || page.authorId,
+        userName: req.body.userName,
+        details: JSON.stringify({ title: page.title, changeDescription: req.body.changeDescription }),
+      });
+      
+      res.json(version);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/pages/:id/revert/:versionNumber", async (req, res) => {
+    try {
+      const targetVersion = await storage.getPageVersion(req.params.id, parseInt(req.params.versionNumber));
+      if (!targetVersion) return res.status(404).json({ error: "Version not found" });
+      
+      const currentPage = await storage.getPage(req.params.id);
+      if (!currentPage) return res.status(404).json({ error: "Page not found" });
+      
+      // Save current state as a new version before reverting
+      const latestVersion = await storage.getLatestPageVersionNumber(req.params.id);
+      await storage.createPageVersion({
+        pageId: req.params.id,
+        versionNumber: latestVersion + 1,
+        title: currentPage.title,
+        content: currentPage.content,
+        status: currentPage.status,
+        authorId: currentPage.authorId,
+        changeDescription: `Auto-saved before reverting to version ${req.params.versionNumber}`,
+      });
+      
+      // Revert the page to the target version
+      const revertedPage = await storage.updatePage(req.params.id, {
+        title: targetVersion.title,
+        content: targetVersion.content,
+      });
+      
+      // Log the reversion
+      await storage.createVersionAuditLog({
+        documentId: req.params.id,
+        documentType: "page",
+        actionType: "reverted",
+        fromVersion: latestVersion + 1,
+        toVersion: parseInt(req.params.versionNumber),
+        userId: req.body.userId || currentPage.authorId,
+        userName: req.body.userName,
+        details: JSON.stringify({ revertedToTitle: targetVersion.title }),
+      });
+      
+      // Create activity feed notification
+      await storage.createDocumentActivity({
+        documentId: req.params.id,
+        documentType: "page",
+        action: "reverted",
+        userId: req.body.userId || currentPage.authorId,
+        details: JSON.stringify({
+          fromVersion: latestVersion + 1,
+          toVersion: parseInt(req.params.versionNumber),
+          userName: req.body.userName,
+        }),
+      });
+      
+      // Notify page author if different from reverter
+      if (req.body.userId && req.body.userId !== currentPage.authorId) {
+        await storage.createNotification({
+          userId: currentPage.authorId,
+          title: "Page Reverted",
+          message: `"${revertedPage.title}" was reverted to version ${req.params.versionNumber} by ${req.body.userName || 'a user'}.`,
+          link: `/documents?pageId=${req.params.id}`,
+          targetId: req.params.id,
+        });
+      }
+      
+      res.json(revertedPage);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/pages/:id/versions/:versionId", async (req, res) => {
+    try {
+      await storage.deletePageVersion(req.params.versionId);
+      
+      await storage.createVersionAuditLog({
+        documentId: req.params.id,
+        documentType: "page",
+        actionType: "deleted",
+        userId: req.body.userId || "system",
+        details: JSON.stringify({ deletedVersionId: req.params.versionId }),
+      });
+      
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/pages/:id/versions/:versionId/archive", async (req, res) => {
+    try {
+      const version = await storage.archivePageVersion(req.params.versionId);
+      
+      await storage.createVersionAuditLog({
+        documentId: req.params.id,
+        documentType: "page",
+        actionType: "archived",
+        toVersion: version.versionNumber,
+        userId: req.body.userId || "system",
+      });
+      
+      res.json(version);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/pages/:id/versions/:versionId/restore", async (req, res) => {
+    try {
+      const version = await storage.restorePageVersion(req.params.versionId);
+      
+      await storage.createVersionAuditLog({
+        documentId: req.params.id,
+        documentType: "page",
+        actionType: "restored",
+        toVersion: version.versionNumber,
+        userId: req.body.userId || "system",
+      });
+      
+      res.json(version);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Book versions
+  app.get("/api/books/:id/versions", async (req, res) => {
+    const versions = await storage.getBookVersions(req.params.id);
+    res.json(versions);
+  });
+
+  app.get("/api/books/:id/versions/:versionNumber", async (req, res) => {
+    const version = await storage.getBookVersion(req.params.id, parseInt(req.params.versionNumber));
+    if (!version) return res.status(404).json({ error: "Version not found" });
+    res.json(version);
+  });
+
+  app.post("/api/books/:id/versions", async (req, res) => {
+    try {
+      const book = await storage.getBook(req.params.id);
+      if (!book) return res.status(404).json({ error: "Book not found" });
+      
+      const latestVersion = await storage.getLatestBookVersionNumber(req.params.id);
+      const newVersionNumber = latestVersion + 1;
+      
+      const versionData = {
+        bookId: req.params.id,
+        versionNumber: newVersionNumber,
+        title: book.title,
+        description: book.description,
+        authorId: req.body.authorId || book.authorId,
+        changeDescription: req.body.changeDescription || null,
+      };
+      
+      const result = insertBookVersionSchema.safeParse(versionData);
+      if (!result.success) return res.status(400).json({ error: result.error });
+      
+      const version = await storage.createBookVersion(result.data);
+      
+      await storage.createVersionAuditLog({
+        documentId: req.params.id,
+        documentType: "book",
+        actionType: "created",
+        toVersion: newVersionNumber,
+        userId: req.body.authorId || book.authorId,
+        userName: req.body.userName,
+        details: JSON.stringify({ title: book.title, changeDescription: req.body.changeDescription }),
+      });
+      
+      res.json(version);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/books/:id/revert/:versionNumber", async (req, res) => {
+    try {
+      const targetVersion = await storage.getBookVersion(req.params.id, parseInt(req.params.versionNumber));
+      if (!targetVersion) return res.status(404).json({ error: "Version not found" });
+      
+      const currentBook = await storage.getBook(req.params.id);
+      if (!currentBook) return res.status(404).json({ error: "Book not found" });
+      
+      const latestVersion = await storage.getLatestBookVersionNumber(req.params.id);
+      await storage.createBookVersion({
+        bookId: req.params.id,
+        versionNumber: latestVersion + 1,
+        title: currentBook.title,
+        description: currentBook.description,
+        authorId: currentBook.authorId,
+        changeDescription: `Auto-saved before reverting to version ${req.params.versionNumber}`,
+      });
+      
+      const revertedBook = await storage.updateBook(req.params.id, {
+        title: targetVersion.title,
+        description: targetVersion.description,
+      });
+      
+      await storage.createVersionAuditLog({
+        documentId: req.params.id,
+        documentType: "book",
+        actionType: "reverted",
+        fromVersion: latestVersion + 1,
+        toVersion: parseInt(req.params.versionNumber),
+        userId: req.body.userId || currentBook.authorId,
+        userName: req.body.userName,
+      });
+      
+      await storage.createDocumentActivity({
+        documentId: req.params.id,
+        documentType: "book",
+        action: "reverted",
+        userId: req.body.userId || currentBook.authorId,
+        details: JSON.stringify({
+          fromVersion: latestVersion + 1,
+          toVersion: parseInt(req.params.versionNumber),
+          userName: req.body.userName,
+        }),
+      });
+      
+      res.json(revertedBook);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Version audit logs
+  app.get("/api/version-audit-logs", async (req, res) => {
+    const limit = parseInt(req.query.limit as string) || 100;
+    const offset = parseInt(req.query.offset as string) || 0;
+    const logs = await storage.getAllVersionAuditLogs(limit, offset);
+    res.json(logs);
+  });
+
+  app.get("/api/version-audit-logs/:documentType/:documentId", async (req, res) => {
+    const logs = await storage.getVersionAuditLogs(req.params.documentId, req.params.documentType);
+    res.json(logs);
+  });
+
+  // Version search
+  app.get("/api/versions/search", async (req, res) => {
+    const query = req.query.q;
+    if (typeof query !== "string") return res.status(400).json({ error: "Query required" });
+    
+    const results = await storage.searchVersions(query);
+    
+    // Format results with legacy version indicators
+    const formattedPageVersions = results.pageVersions.map(v => ({
+      ...v,
+      displayLabel: v.isArchived === "true" 
+        ? `[Archived – Last Updated: ${new Date(v.createdAt).toLocaleDateString()}]`
+        : `[Legacy Version – v${v.versionNumber}]`,
+    }));
+    
+    const formattedBookVersions = results.bookVersions.map(v => ({
+      ...v,
+      displayLabel: v.isArchived === "true"
+        ? `[Archived – Last Updated: ${new Date(v.createdAt).toLocaleDateString()}]`
+        : `[Legacy Version – v${v.versionNumber}]`,
+    }));
+    
+    res.json({ pageVersions: formattedPageVersions, bookVersions: formattedBookVersions });
+  });
+
+  // Compare versions
+  app.get("/api/pages/:id/compare/:v1/:v2", async (req, res) => {
+    try {
+      const version1 = await storage.getPageVersion(req.params.id, parseInt(req.params.v1));
+      const version2 = await storage.getPageVersion(req.params.id, parseInt(req.params.v2));
+      
+      if (!version1 || !version2) {
+        return res.status(404).json({ error: "One or both versions not found" });
+      }
+      
+      res.json({
+        version1,
+        version2,
+        comparison: {
+          titleChanged: version1.title !== version2.title,
+          contentChanged: version1.content !== version2.content,
+          statusChanged: version1.status !== version2.status,
+        },
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
   });
 
   app.get("/api/search", async (req, res) => {
