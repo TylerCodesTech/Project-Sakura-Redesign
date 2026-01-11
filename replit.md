@@ -39,6 +39,7 @@ Preferred communication style: Simple, everyday language.
 - **Drag-and-Drop Form Builder**: Admin form designer with side palette showing all available field types. Click to add or drag to reorder fields. Supports field duplication, editing, and deletion.
 - **Ticket Sidebar Panel**: Quick view and inline editing of ticket details, comments, and status.
 - **Reports System**: A comprehensive report builder accessible at `/reports` with department-specific configuration. Supports various report types (Audit, User Access, Ticket SLA, etc.), drag-and-drop interface, live preview, scheduling, and sharing capabilities.
+- **AI-Powered Document Matching**: Uses pgvector extension with OpenAI's text-embedding-3-small model (1536 dimensions) to generate embeddings for pages, page versions, and tickets. Automatically suggests related knowledge base articles when viewing tickets. Includes HNSW indexes for fast cosine similarity search and admin endpoints for reindexing.
 
 ## External Dependencies
 
