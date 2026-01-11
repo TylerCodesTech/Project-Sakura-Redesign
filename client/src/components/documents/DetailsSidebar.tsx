@@ -41,6 +41,8 @@ import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { format } from "date-fns";
 import { MoveDialog } from "./MoveDialog";
+import { VersionTimeline } from "./VersionTimeline";
+import { VersionCompare } from "./VersionCompare";
 
 type SidebarItem = {
   id: string;
@@ -68,6 +70,9 @@ export function DetailsSidebar({ item, onClose, isOpen, canDelete = true, canMov
   const { toast } = useToast();
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isMoveDialogOpen, setIsMoveDialogOpen] = useState(false);
+  const [isVersionTimelineOpen, setIsVersionTimelineOpen] = useState(false);
+  const [isVersionCompareOpen, setIsVersionCompareOpen] = useState(false);
+  const [compareVersions, setCompareVersions] = useState<[number, number]>([0, 0]);
   const [deleteCountdown, setDeleteCountdown] = useState(5);
   const [canConfirmDelete, setCanConfirmDelete] = useState(false);
 
@@ -200,7 +205,10 @@ export function DetailsSidebar({ item, onClose, isOpen, canDelete = true, canMov
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-48 rounded-xl">
-                    <DropdownMenuItem className="gap-2 rounded-lg cursor-pointer">
+                    <DropdownMenuItem 
+                      className="gap-2 rounded-lg cursor-pointer"
+                      onClick={() => setIsVersionTimelineOpen(true)}
+                    >
                       <History className="w-4 h-4" />
                       Version History
                     </DropdownMenuItem>
@@ -416,6 +424,30 @@ export function DetailsSidebar({ item, onClose, isOpen, canDelete = true, canMov
           itemTitle={item.title}
           itemType={item.itemType}
           currentParentId={item.parentId || null}
+        />
+      )}
+
+      {item && !isFolder && (
+        <VersionTimeline
+          documentId={item.id}
+          documentType={isBook ? "book" : "page"}
+          isOpen={isVersionTimelineOpen}
+          onClose={() => setIsVersionTimelineOpen(false)}
+          onCompare={(v1, v2) => {
+            setCompareVersions([v1, v2]);
+            setIsVersionCompareOpen(true);
+          }}
+        />
+      )}
+
+      {item && !isFolder && (
+        <VersionCompare
+          documentId={item.id}
+          documentType={isBook ? "book" : "page"}
+          version1={compareVersions[0]}
+          version2={compareVersions[1]}
+          isOpen={isVersionCompareOpen}
+          onClose={() => setIsVersionCompareOpen(false)}
         />
       )}
     </>
