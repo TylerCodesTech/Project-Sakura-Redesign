@@ -79,7 +79,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       "helpdesk-rules": { parent: "helpdesk", label: "Interaction Rules" },
       "documentation": { label: "Documentation" },
       "docs-overview": { parent: "documentation", label: "Overview" },
-      "docs-categories": { parent: "documentation", label: "Categories" },
+      "docs-versions": { parent: "documentation", label: "Version History" },
       "docs-access": { parent: "documentation", label: "Access Control" },
       "integrations": { label: "Custom Links" },
     };

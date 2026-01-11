@@ -18,6 +18,7 @@ import {
   FolderKanban,
   MessagesSquare,
   BookOpen,
+  History,
 } from "lucide-react";
 import { SettingsNavItem } from "./types";
 
@@ -92,7 +93,7 @@ export const settingsNavigation: SettingsNavItem[] = [
     description: "Knowledge base settings per department",
     children: [
       { id: "docs-overview", label: "Overview", icon: BookOpen },
-      { id: "docs-categories", label: "Categories", icon: FolderKanban },
+      { id: "docs-versions", label: "Version History", icon: History },
       { id: "docs-access", label: "Access Control", icon: UserCog },
     ],
   },
