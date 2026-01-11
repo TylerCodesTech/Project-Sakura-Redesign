@@ -98,6 +98,13 @@ The application includes a comprehensive version history system for both Pages a
    - **Visual Refinements**: Elevated card layouts, smooth Framer Motion transitions, hover states, and modern aesthetics
    - **Navigation System**: Centralized in `navigation.ts` with types in `types.ts` for easy extensibility
 
+6. **Documentation Settings Section** (`client/src/features/settings/sections/DocumentationSettings.tsx`):
+   - **Department-Specific Settings**: Each department has its own documentation configuration
+   - **Version History Settings**: Comprehensive controls for version retention, auto-archiving, and search behavior
+   - **Access Control**: Role-based access configuration for documentation per department
+   - **Sub-sections**: Overview, Version History, Access Control (removed unused Categories section)
+   - **Real-time Save**: Version history settings save directly to system_settings via API
+
 ## External Dependencies
 
 ### Database

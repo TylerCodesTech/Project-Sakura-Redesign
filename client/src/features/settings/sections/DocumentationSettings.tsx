@@ -29,7 +29,9 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { type Department, type SystemSettings } from "@shared/schema";
+import { type Department, systemSettingsDefaults } from "@shared/schema";
+
+type SystemSettings = typeof systemSettingsDefaults;
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
