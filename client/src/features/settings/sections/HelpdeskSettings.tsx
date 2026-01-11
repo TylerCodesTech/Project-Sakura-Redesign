@@ -1152,7 +1152,7 @@ export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSe
 
       <SettingsCard
         title="Ticket Form Designer"
-        description="Configure the fields that appear when creating a new ticket. Drag to reorder."
+        description="Drag field types from the palette to build your form, or drag existing fields to reorder them."
         icon={LayoutGrid}
         actions={
           <Dialog open={isAddFieldOpen} onOpenChange={setIsAddFieldOpen}>
@@ -1309,62 +1309,104 @@ export function HelpdeskSettings({ subsection, initialDepartmentId }: HelpdeskSe
           </Dialog>
         }
       >
-        {formFields.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            <FormInput className="w-12 h-12 mx-auto mb-2 opacity-20" />
-            <p className="text-sm">No custom fields configured</p>
-            <p className="text-xs">Add fields to customize the ticket creation form</p>
-          </div>
-        ) : (
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={(event: DragEndEvent) => {
-              const { active, over } = event;
-              if (over && active.id !== over.id) {
-                const oldIndex = formFields.findIndex((f) => f.id === active.id);
-                const newIndex = formFields.findIndex((f) => f.id === over.id);
-                const reorderedFields = arrayMove(formFields, oldIndex, newIndex);
-                reorderedFields.forEach((field, index) => {
-                  updateFormFieldMutation.mutate({ id: field.id, order: index });
-                });
-              }
-            }}
-          >
-            <SortableContext
-              items={formFields.map((f) => f.id)}
-              strategy={verticalListSortingStrategy}
-            >
-              <div className="space-y-2">
-                {formFields.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).map((field) => (
-                  <SortableFieldItem
-                    key={field.id}
-                    field={field}
-                    onEdit={(f) => {
-                      setEditingField(f);
-                      setIsAddFieldOpen(true);
-                    }}
-                    onDelete={(id) => deleteFormFieldMutation.mutate(id)}
-                    onDuplicate={(f) => {
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          <div className="lg:col-span-1 p-4 bg-muted/30 rounded-lg border border-border/50">
+            <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Field Types</h4>
+            <p className="text-xs text-muted-foreground mb-4">Click to add or drag to reorder</p>
+            <div className="space-y-2">
+              {FIELD_TYPES.map((fieldType) => {
+                const Icon = fieldType.icon;
+                return (
+                  <button
+                    key={fieldType.value}
+                    onClick={() => {
                       createFormFieldMutation.mutate({
-                        name: `${f.name}_copy`,
-                        label: `${f.label} (Copy)`,
-                        fieldType: f.fieldType,
-                        placeholder: f.placeholder,
-                        helpText: f.helpText,
-                        required: f.required,
-                        options: f.options,
-                        defaultValue: f.defaultValue,
-                        category: f.category,
+                        name: fieldType.value + "_" + Date.now(),
+                        label: fieldType.label + " Field",
+                        fieldType: fieldType.value,
+                        placeholder: "",
+                        required: "false",
                         order: formFields.length,
+                        width: "full",
+                        internalOnly: "false",
                       });
                     }}
-                  />
-                ))}
+                    className="w-full flex items-center gap-3 p-2.5 rounded-lg border border-border/50 bg-card hover:border-primary/50 hover:bg-primary/5 transition-all text-left group"
+                  >
+                    <div className="p-1.5 rounded-md bg-primary/10 group-hover:bg-primary/20 transition-colors">
+                      <Icon className="w-3.5 h-3.5 text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium">{fieldType.label}</p>
+                    </div>
+                    <Plus className="w-3.5 h-3.5 text-muted-foreground/50 group-hover:text-primary transition-colors" />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          
+          <div className="lg:col-span-3">
+            {formFields.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground border-2 border-dashed border-border/50 rounded-lg">
+                <FormInput className="w-12 h-12 mx-auto mb-3 opacity-20" />
+                <p className="text-sm font-medium">No custom fields configured</p>
+                <p className="text-xs mt-1">Click on a field type from the palette to add it</p>
               </div>
-            </SortableContext>
-          </DndContext>
-        )}
+            ) : (
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={(event: DragEndEvent) => {
+                  const { active, over } = event;
+                  if (over && active.id !== over.id) {
+                    const oldIndex = formFields.findIndex((f) => f.id === active.id);
+                    const newIndex = formFields.findIndex((f) => f.id === over.id);
+                    const reorderedFields = arrayMove(formFields, oldIndex, newIndex);
+                    reorderedFields.forEach((field, index) => {
+                      updateFormFieldMutation.mutate({ id: field.id, order: index });
+                    });
+                  }
+                }}
+              >
+                <SortableContext
+                  items={formFields.map((f) => f.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div className="space-y-2">
+                    {formFields.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).map((field) => (
+                      <SortableFieldItem
+                        key={field.id}
+                        field={field}
+                        onEdit={(f) => {
+                          setEditingField(f);
+                          setIsAddFieldOpen(true);
+                        }}
+                        onDelete={(id) => deleteFormFieldMutation.mutate(id)}
+                        onDuplicate={(f) => {
+                          createFormFieldMutation.mutate({
+                            name: `${f.name}_copy`,
+                            label: `${f.label} (Copy)`,
+                            fieldType: f.fieldType,
+                            placeholder: f.placeholder,
+                            helpText: f.helpText,
+                            required: f.required,
+                            options: f.options,
+                            defaultValue: f.defaultValue,
+                            category: f.category,
+                            order: formFields.length,
+                            width: f.width,
+                            internalOnly: f.internalOnly,
+                          });
+                        }}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
+            )}
+          </div>
+        </div>
       </SettingsCard>
 
       <SettingsCard
