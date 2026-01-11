@@ -767,13 +767,22 @@ export async function registerRoutes(
 
   app.get("/api/search", async (req, res) => {
     const query = req.query.q;
+    const includeVersions = req.query.includeVersions === "true";
     if (typeof query !== "string") return res.status(400).send("Query required");
     
     const books = await storage.getBooks();
     const pages = await storage.getStandalonePages();
     const departments = await storage.getDepartments();
     
-    const results = [
+    const results: Array<{
+      type: string;
+      id: string;
+      title: string;
+      link: string;
+      displayLabel?: string;
+      isLegacy?: boolean;
+      versionNumber?: number;
+    }> = [
       ...books.filter(b => b.title.toLowerCase().includes(query.toLowerCase()))
         .map(b => ({ type: 'book', id: b.id, title: b.title, link: `/documents/book/${b.id}` })),
       ...pages.filter(p => p.title.toLowerCase().includes(query.toLowerCase()))
@@ -781,6 +790,52 @@ export async function registerRoutes(
       ...departments.filter(d => d.name.toLowerCase().includes(query.toLowerCase()))
         .map(d => ({ type: 'department', id: d.id, title: d.name, link: `/system-settings` }))
     ];
+    
+    // Include legacy versions in search if requested or by default
+    if (includeVersions !== false) {
+      try {
+        const versionResults = await storage.searchVersions(query);
+        
+        // Add page versions with legacy indicators
+        versionResults.pageVersions.forEach(v => {
+          const isArchived = v.isArchived === "true";
+          const displayLabel = isArchived 
+            ? `[Archived – Last Updated: ${new Date(v.createdAt).toLocaleDateString('en-GB')}]`
+            : `[Legacy Version – v${v.versionNumber}]`;
+          
+          results.push({
+            type: 'page_version',
+            id: v.id,
+            title: v.title,
+            link: `/documents/edit/${v.pageId}?version=${v.versionNumber}`,
+            displayLabel,
+            isLegacy: true,
+            versionNumber: v.versionNumber,
+          });
+        });
+        
+        // Add book versions with legacy indicators
+        versionResults.bookVersions.forEach(v => {
+          const isArchived = v.isArchived === "true";
+          const displayLabel = isArchived 
+            ? `[Archived – Last Updated: ${new Date(v.createdAt).toLocaleDateString('en-GB')}]`
+            : `[Legacy Version – v${v.versionNumber}]`;
+          
+          results.push({
+            type: 'book_version',
+            id: v.id,
+            title: v.title,
+            link: `/documents/book/${v.bookId}?version=${v.versionNumber}`,
+            displayLabel,
+            isLegacy: true,
+            versionNumber: v.versionNumber,
+          });
+        });
+      } catch (e) {
+        // Version search failed, continue with regular results
+        console.error("Version search error:", e);
+      }
+    }
     
     res.json(results);
   });

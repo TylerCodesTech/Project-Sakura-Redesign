@@ -1,4 +1,4 @@
-import { Search, Bell, HelpCircle, X, Sparkles, User, Settings, LogOut, Moon, Sun, Monitor, Mail, MessageSquare, Globe, Loader2, Book, FileText, Building2 } from "lucide-react";
+import { Search, Bell, HelpCircle, X, Sparkles, User, Settings, LogOut, Moon, Sun, Monitor, Mail, MessageSquare, Globe, Loader2, Book, FileText, Building2, History, Archive } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { currentUser, navItems } from "@/lib/mockData";
 import { Input } from "@/components/ui/input";
@@ -39,10 +39,13 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 
 interface SearchResult {
-  type: 'book' | 'page' | 'department';
+  type: 'book' | 'page' | 'department' | 'page_version' | 'book_version';
   id: string;
   title: string;
   link: string;
+  displayLabel?: string;
+  isLegacy?: boolean;
+  versionNumber?: number;
 }
 
 export function Header() {
@@ -194,14 +197,32 @@ export function Header() {
                               result.type === 'book' && "bg-emerald-50 text-emerald-600",
                               result.type === 'page' && "bg-rose-50 text-rose-600",
                               result.type === 'department' && "bg-indigo-50 text-indigo-600",
+                              result.type === 'page_version' && "bg-violet-50 text-violet-600",
+                              result.type === 'book_version' && "bg-amber-50 text-amber-600",
                             )}>
                               {result.type === 'book' && <Book className="w-4 h-4" />}
                               {result.type === 'page' && <FileText className="w-4 h-4" />}
                               {result.type === 'department' && <Building2 className="w-4 h-4" />}
+                              {result.type === 'page_version' && <History className="w-4 h-4" />}
+                              {result.type === 'book_version' && <Archive className="w-4 h-4" />}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-bold truncate group-hover:text-primary transition-colors">{result.title}</p>
-                              <p className="text-[10px] uppercase font-black tracking-wider text-muted-foreground/60">{result.type}</p>
+                              <div className="flex items-center gap-2">
+                                <p className="text-sm font-bold truncate group-hover:text-primary transition-colors">{result.title}</p>
+                                {result.isLegacy && result.displayLabel && (
+                                  <Badge variant="outline" className={cn(
+                                    "text-[9px] font-bold shrink-0",
+                                    result.displayLabel.includes('Archived') 
+                                      ? "bg-amber-500/10 text-amber-600 border-amber-500/30" 
+                                      : "bg-violet-500/10 text-violet-600 border-violet-500/30"
+                                  )}>
+                                    {result.displayLabel}
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="text-[10px] uppercase font-black tracking-wider text-muted-foreground/60">
+                                {result.type === 'page_version' ? 'page version' : result.type === 'book_version' ? 'book version' : result.type}
+                              </p>
                             </div>
                           </div>
                         </Link>
