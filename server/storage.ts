@@ -41,6 +41,7 @@ export interface IStorage {
   getBooks(): Promise<Book[]>;
   getBook(id: string): Promise<Book | undefined>;
   createBook(book: InsertBook): Promise<Book>;
+  updateBook(id: string, update: Partial<InsertBook>): Promise<Book>;
   deleteBook(id: string): Promise<void>;
   
   getPages(bookId: string): Promise<Page[]>;
@@ -356,6 +357,14 @@ export class MemStorage implements IStorage {
     };
     this.books.set(id, book);
     return book;
+  }
+
+  async updateBook(id: string, update: Partial<InsertBook>): Promise<Book> {
+    const book = this.books.get(id);
+    if (!book) throw new Error("Book not found");
+    const updated = { ...book, ...update };
+    this.books.set(id, updated);
+    return updated;
   }
 
   async deleteBook(id: string): Promise<void> {

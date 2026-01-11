@@ -218,6 +218,45 @@ export async function registerRoutes(
     }
   });
 
+  app.patch("/api/books/:bookId", async (req, res) => {
+    try {
+      const existing = await storage.getBook(req.params.bookId);
+      if (!existing) return res.status(404).send("Book not found");
+
+      const isMove = req.body.parentId !== undefined && req.body.parentId !== existing.parentId;
+      const oldParentId = existing.parentId;
+
+      const book = await storage.updateBook(req.params.bookId, req.body);
+
+      if (isMove) {
+        let fromName = 'Root';
+        let toName = 'Root';
+        
+        if (oldParentId) {
+          const oldParent = await storage.getPage(oldParentId);
+          if (oldParent) fromName = oldParent.title;
+        }
+        
+        if (req.body.parentId) {
+          const newParent = await storage.getPage(req.body.parentId);
+          if (newParent) toName = newParent.title;
+        }
+        
+        await storage.createDocumentActivity({
+          documentId: book.id,
+          documentType: 'book',
+          action: 'moved',
+          userId: 'current-user-id',
+          details: JSON.stringify({ from: fromName, to: toName, fromId: oldParentId, toId: req.body.parentId }),
+        });
+      }
+
+      res.json(book);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.get("/api/pages", async (req, res) => {
     const pages = await storage.getStandalonePages();
     res.json(pages);

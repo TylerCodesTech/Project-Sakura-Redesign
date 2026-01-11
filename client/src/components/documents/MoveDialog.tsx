@@ -66,16 +66,18 @@ export function MoveDialog({
   }, [isOpen]);
 
   const moveItemMutation = useMutation({
-    mutationFn: async ({ id, parentId }: { id: string, parentId: string | null }) => {
-      const res = await apiRequest("PATCH", `/api/pages/${id}`, { 
+    mutationFn: async ({ id, parentId, isBook }: { id: string, parentId: string | null, isBook: boolean }) => {
+      const endpoint = isBook ? `/api/books/${id}` : `/api/pages/${id}`;
+      const res = await apiRequest("PATCH", endpoint, { 
         parentId,
         movedAt: new Date().toISOString()
       });
-      return await res.json() as Page;
+      return await res.json();
     },
     onSuccess: () => {
       toast({ title: "Item Moved", description: `"${itemTitle}" has been moved successfully.` });
       queryClient.invalidateQueries({ queryKey: ["/api/pages"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/books"] });
       onClose();
     },
     onError: () => {
@@ -110,7 +112,7 @@ export function MoveDialog({
       toast({ title: "No Change", description: "Item is already in this location.", variant: "default" });
       return;
     }
-    moveItemMutation.mutate({ id: itemId, parentId: targetId });
+    moveItemMutation.mutate({ id: itemId, parentId: targetId, isBook: itemType === 'book' });
   };
 
   const handleSelectCurrentLocation = () => {

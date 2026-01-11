@@ -57,6 +57,12 @@ export class DatabaseStorage implements IStorage {
     return book;
   }
 
+  async updateBook(id: string, update: Partial<InsertBook>): Promise<Book> {
+    const [book] = await db.update(books).set(update).where(eq(books.id, id)).returning();
+    if (!book) throw new Error("Book not found");
+    return book;
+  }
+
   async deleteBook(id: string): Promise<void> {
     await db.delete(pages).where(eq(pages.bookId, id));
     await db.delete(books).where(eq(books.id, id));
