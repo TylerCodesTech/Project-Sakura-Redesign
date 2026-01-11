@@ -105,7 +105,16 @@ The application includes a comprehensive version history system for both Pages a
    - **Sub-sections**: Overview, Version History, Access Control (removed unused Categories section)
    - **Real-time Save**: Version history settings save directly to system_settings via API
 
-7. **Reports System** (`client/src/features/settings/sections/ReportsSettings.tsx` and `client/src/features/reports/`):
+7. **Custom Links System** (`client/src/features/settings/sections/LinksSettings.tsx`):
+   - **Department-Based Links**: Links can be company-wide or assigned to specific departments
+   - **Company-Wide Toggle**: Switch to make links visible to all team members
+   - **Grid Layout UI**: Unified 4-across grid display matching app launcher style
+   - **Tab Filtering**: Filter by "All Links", "Company-Wide", or by department
+   - **Favicon Auto-Fetch**: Automatically fetches favicons from link URLs
+   - **Department Color Badges**: Visual indicators showing which department a link belongs to
+   - **Schema Fields**: `departmentId` (null = company-wide), `isCompanyWide` ("true"/"false")
+
+8. **Reports System** (`client/src/features/settings/sections/ReportsSettings.tsx` and `client/src/features/reports/`):
    - **Standalone Report Builder**: Accessible at `/reports` route from the app launcher with violet icon color
    - **Department-Specific Reporting**: Each department has independent report configuration and permissions
    - **Report Types**: Audit, User Access, Ticket SLA, Monthly Closures, and Custom reports

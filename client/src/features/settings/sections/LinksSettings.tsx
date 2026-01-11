@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Globe, Plus, GripVertical, Trash2, Settings, Eye, Loader2 } from "lucide-react";
+import { Globe, Plus, Trash2, Settings, Loader2, Building2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,113 +14,118 @@ import {
 } from "@/components/ui/dialog";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { type ExternalLink } from "@shared/schema";
+import { type ExternalLink, type Department } from "@shared/schema";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertExternalLinkSchema } from "@shared/schema";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { SettingsHeader, SettingsCard } from "../components";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
+import { SettingsHeader } from "../components";
 import { cn } from "@/lib/utils";
-import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  DragEndEvent,
-} from "@dnd-kit/core";
-import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
-  useSortable,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { motion } from "framer-motion";
 
-function SortableLinkItem({
+type ExtendedExternalLink = ExternalLink;
+
+function LinkGridItem({
   link,
   onDelete,
   isDeleting,
   onEdit,
+  departments,
 }: {
-  link: ExternalLink;
+  link: ExtendedExternalLink;
   onDelete: (id: string) => void;
   isDeleting: boolean;
-  onEdit: (link: ExternalLink) => void;
+  onEdit: (link: ExtendedExternalLink) => void;
+  departments: Department[];
 }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: link.id });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    zIndex: isDragging ? 10 : 0,
-  };
-
+  const department = departments.find(d => d.id === link.departmentId);
+  const isCompanyWide = link.isCompanyWide === "true" || !link.departmentId;
+  
   return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className={cn(
-        "flex items-center justify-between p-4 bg-secondary/10 rounded-xl border border-border/50 group",
-        isDragging && "opacity-50 border-primary/50 shadow-md bg-background"
-      )}
+    <motion.div
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      className="group relative"
     >
-      <div className="flex items-center gap-4">
-        <button
-          className="cursor-grab active:cursor-grabbing text-muted-foreground/50 hover:text-muted-foreground p-1 rounded hover:bg-secondary/80"
-          {...attributes}
-          {...listeners}
-        >
-          <GripVertical className="w-4 h-4" />
-        </button>
-        <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary overflow-hidden relative">
-          <img
-            src={`/api/proxy-favicon?url=${encodeURIComponent(link.url)}`}
-            alt={link.title}
-            className="w-full h-full object-cover z-10 relative"
-            onError={(e) => {
-              (e.target as HTMLImageElement).style.display = "none";
+      <div className={cn(
+        "flex flex-col items-center p-4 rounded-xl border bg-card hover:bg-muted/50 transition-all cursor-pointer relative",
+        "hover:shadow-md hover:border-primary/30"
+      )}>
+        <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 text-muted-foreground hover:text-primary hover:bg-primary/10"
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit(link);
             }}
-          />
-          <Globe className="w-5 h-5 absolute inset-0 m-auto z-0" />
+          >
+            <Settings className="w-3 h-3" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(link.id);
+            }}
+            disabled={isDeleting}
+          >
+            <Trash2 className="w-3 h-3" />
+          </Button>
         </div>
-        <div className="min-w-0">
-          <p className="text-sm font-semibold truncate">{link.title}</p>
-          <p className="text-xs text-muted-foreground truncate max-w-[200px] sm:max-w-md">
-            {link.url}
-          </p>
+        
+        <a 
+          href={link.url} 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="flex flex-col items-center w-full"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary overflow-hidden relative mb-3">
+            <img
+              src={`/api/proxy-favicon?url=${encodeURIComponent(link.url)}`}
+              alt={link.title}
+              className="w-full h-full object-cover z-10 relative"
+              onError={(e) => {
+                (e.target as HTMLImageElement).style.display = "none";
+              }}
+            />
+            <Globe className="w-6 h-6 absolute inset-0 m-auto z-0" />
+          </div>
+          <p className="text-sm font-medium text-center truncate w-full">{link.title}</p>
+          {link.description && (
+            <p className="text-xs text-muted-foreground text-center truncate w-full mt-1">
+              {link.description}
+            </p>
+          )}
+        </a>
+        
+        <div className="mt-2">
+          {isCompanyWide ? (
+            <Badge variant="outline" className="text-xs gap-1">
+              <Building2 className="w-3 h-3" />
+              Company
+            </Badge>
+          ) : department ? (
+            <Badge 
+              variant="secondary" 
+              className="text-xs"
+              style={{ backgroundColor: department.color + "20", color: department.color }}
+            >
+              {department.name}
+            </Badge>
+          ) : null}
         </div>
       </div>
-      <div className="flex items-center gap-1 shrink-0">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10"
-          onClick={() => onEdit(link)}
-        >
-          <Settings className="w-4 h-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-          onClick={() => onDelete(link.id)}
-          disabled={isDeleting}
-        >
-          <Trash2 className="w-4 h-4" />
-        </Button>
-      </div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -130,10 +135,23 @@ interface LinksSettingsProps {
 
 export function LinksSettings({ subsection }: LinksSettingsProps) {
   const [isAddLinkOpen, setIsAddLinkOpen] = useState(false);
-  const [editingLink, setEditingLink] = useState<ExternalLink | null>(null);
+  const [editingLink, setEditingLink] = useState<ExtendedExternalLink | null>(null);
+  const [filterTab, setFilterTab] = useState<string>("all");
 
-  const { data: links = [], isLoading } = useQuery<ExternalLink[]>({
+  const { data: links = [], isLoading } = useQuery<ExtendedExternalLink[]>({
     queryKey: ["/api/external-links"],
+    queryFn: async () => {
+      const res = await fetch("/api/external-links");
+      return res.json();
+    },
+  });
+
+  const { data: departments = [] } = useQuery<Department[]>({
+    queryKey: ["/api/departments"],
+    queryFn: async () => {
+      const res = await fetch("/api/departments");
+      return res.json();
+    },
   });
 
   const form = useForm({
@@ -145,15 +163,10 @@ export function LinksSettings({ subsection }: LinksSettingsProps) {
       category: "Resources",
       icon: "globe",
       order: "0",
+      departmentId: null as string | null,
+      isCompanyWide: "true",
     },
   });
-
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
 
   const createLinkMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -163,12 +176,11 @@ export function LinksSettings({ subsection }: LinksSettingsProps) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/external-links"] });
       setIsAddLinkOpen(false);
-      setEditingLink(null);
       form.reset();
-      toast.success("Link added successfully");
+      toast.success("Link created successfully");
     },
     onError: () => {
-      toast.error("Failed to add link");
+      toast.error("Failed to create link");
     },
   });
 
@@ -201,18 +213,6 @@ export function LinksSettings({ subsection }: LinksSettingsProps) {
     },
   });
 
-  const reorderMutation = useMutation({
-    mutationFn: async (ids: string[]) => {
-      await apiRequest("PATCH", "/api/external-links/reorder", { ids });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/external-links"] });
-    },
-    onError: () => {
-      toast.error("Failed to update link order");
-    },
-  });
-
   useEffect(() => {
     if (editingLink) {
       form.reset({
@@ -222,6 +222,8 @@ export function LinksSettings({ subsection }: LinksSettingsProps) {
         category: editingLink.category,
         icon: editingLink.icon || "globe",
         order: editingLink.order,
+        departmentId: editingLink.departmentId || null,
+        isCompanyWide: editingLink.isCompanyWide || "true",
       });
     } else {
       form.reset({
@@ -231,36 +233,42 @@ export function LinksSettings({ subsection }: LinksSettingsProps) {
         category: "Resources",
         icon: "globe",
         order: "0",
+        departmentId: null,
+        isCompanyWide: "true",
       });
     }
   }, [editingLink, form]);
 
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-
-    if (over && active.id !== over.id) {
-      const oldIndex = links.findIndex((l) => l.id === active.id);
-      const newIndex = links.findIndex((l) => l.id === over.id);
-
-      const newLinks = arrayMove(links, oldIndex, newIndex);
-      reorderMutation.mutate(newLinks.map((l) => l.id));
-    }
-  };
-
   const onSubmit = (data: any) => {
+    const submitData = {
+      ...data,
+      departmentId: data.isCompanyWide === "true" ? null : data.departmentId,
+    };
+    
     if (editingLink) {
-      updateLinkMutation.mutate({ id: editingLink.id, data });
+      updateLinkMutation.mutate({ id: editingLink.id, data: submitData });
     } else {
-      createLinkMutation.mutate(data);
+      createLinkMutation.mutate(submitData);
     }
   };
+
+  const isCompanyWide = form.watch("isCompanyWide");
+
+  const filteredLinks = links.filter(link => {
+    if (filterTab === "all") return true;
+    if (filterTab === "company") return link.isCompanyWide === "true" || !link.departmentId;
+    return link.departmentId === filterTab;
+  });
+
+  const companyWideLinks = links.filter(l => l.isCompanyWide === "true" || !l.departmentId);
+  const departmentLinks = links.filter(l => l.isCompanyWide !== "true" && l.departmentId);
 
   return (
     <div className="space-y-6">
       <SettingsHeader
         sectionId={subsection || "integrations"}
         title="Custom Links"
-        description="Add external resources and tools to the app launcher."
+        description="Add external resources and tools to the app launcher. Links can be company-wide or department-specific."
         actions={
           <Dialog
             open={isAddLinkOpen || !!editingLink}
@@ -278,7 +286,7 @@ export function LinksSettings({ subsection }: LinksSettingsProps) {
                 <Plus className="w-4 h-4" /> Add Link
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent className="sm:max-w-[500px]">
               <DialogHeader>
                 <DialogTitle>
                   {editingLink ? "Edit Custom Link" : "Add Custom Link"}
@@ -340,6 +348,75 @@ export function LinksSettings({ subsection }: LinksSettingsProps) {
                       </FormItem>
                     )}
                   />
+                  
+                  <div className="border rounded-lg p-4 space-y-4 bg-muted/30">
+                    <FormField
+                      control={form.control}
+                      name="isCompanyWide"
+                      render={({ field }) => (
+                        <FormItem className="flex items-center justify-between">
+                          <div className="space-y-0.5">
+                            <FormLabel className="flex items-center gap-2">
+                              <Building2 className="w-4 h-4" />
+                              Company-Wide Link
+                            </FormLabel>
+                            <FormDescription className="text-xs">
+                              Visible to all team members across departments
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value === "true"}
+                              onCheckedChange={(checked) => field.onChange(checked ? "true" : "false")}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    
+                    {isCompanyWide !== "true" && (
+                      <FormField
+                        control={form.control}
+                        name="departmentId"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="flex items-center gap-2">
+                              <Users className="w-4 h-4" />
+                              Department
+                            </FormLabel>
+                            <Select
+                              value={field.value || ""}
+                              onValueChange={field.onChange}
+                            >
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select a department" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {departments.map((dept) => (
+                                  <SelectItem key={dept.id} value={dept.id}>
+                                    <div className="flex items-center gap-2">
+                                      <div 
+                                        className="w-3 h-3 rounded-full" 
+                                        style={{ backgroundColor: dept.color }}
+                                      />
+                                      {dept.name}
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormDescription className="text-xs">
+                              Only visible to members of this department
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
+                  </div>
+                  
                   <DialogFooter className="pt-4">
                     <Button
                       type="submit"
@@ -363,117 +440,92 @@ export function LinksSettings({ subsection }: LinksSettingsProps) {
         }
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
-          <SettingsCard
-            title="All Links"
-            description="Drag to reorder. Links appear in the app launcher."
-            icon={Globe}
-          >
+      <Tabs value={filterTab} onValueChange={setFilterTab}>
+        <TabsList className="mb-4">
+          <TabsTrigger value="all" className="gap-2">
+            All Links
+            <Badge variant="secondary" className="ml-1">{links.length}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="company" className="gap-2">
+            <Building2 className="w-4 h-4" />
+            Company-Wide
+            <Badge variant="secondary" className="ml-1">{companyWideLinks.length}</Badge>
+          </TabsTrigger>
+          {departments.map(dept => {
+            const deptLinks = links.filter(l => l.departmentId === dept.id && l.isCompanyWide !== "true");
+            return (
+              <TabsTrigger key={dept.id} value={dept.id} className="gap-2">
+                <div 
+                  className="w-3 h-3 rounded-full" 
+                  style={{ backgroundColor: dept.color }}
+                />
+                {dept.name}
+                <Badge variant="secondary" className="ml-1">{deptLinks.length}</Badge>
+              </TabsTrigger>
+            );
+          })}
+        </TabsList>
+
+        <Card>
+          <CardHeader className="pb-4">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Globe className="w-5 h-5 text-primary" />
+              {filterTab === "all" ? "All Custom Links" : 
+               filterTab === "company" ? "Company-Wide Links" :
+               departments.find(d => d.id === filterTab)?.name + " Links"}
+            </CardTitle>
+            <CardDescription>
+              {filterTab === "all" 
+                ? "All custom links visible in the app launcher" 
+                : filterTab === "company"
+                ? "Links visible to all team members"
+                : `Links specific to ${departments.find(d => d.id === filterTab)?.name || "this department"}`}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
             {isLoading ? (
-              <div className="flex justify-center py-8">
+              <div className="flex justify-center py-12">
                 <Loader2 className="w-8 h-8 animate-spin text-primary/50" />
               </div>
-            ) : links.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-border p-8 flex flex-col items-center justify-center text-center">
-                <div className="w-12 h-12 rounded-full bg-secondary/30 flex items-center justify-center mb-4 text-muted-foreground">
-                  <Globe className="w-6 h-6" />
+            ) : filteredLinks.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-border p-12 flex flex-col items-center justify-center text-center">
+                <div className="w-16 h-16 rounded-full bg-secondary/30 flex items-center justify-center mb-4 text-muted-foreground">
+                  <Globe className="w-8 h-8" />
                 </div>
-                <p className="text-sm font-medium">No custom links yet</p>
-                <p className="text-xs text-muted-foreground mt-1 max-w-[200px]">
-                  Add frequently used tools to help your team navigate faster.
+                <p className="text-base font-medium">No links found</p>
+                <p className="text-sm text-muted-foreground mt-1 max-w-[300px]">
+                  {filterTab === "all" 
+                    ? "Add frequently used tools to help your team navigate faster."
+                    : filterTab === "company"
+                    ? "Add company-wide links that everyone can access."
+                    : `Add links specific to ${departments.find(d => d.id === filterTab)?.name || "this department"}.`}
                 </p>
+                <Button 
+                  className="mt-4" 
+                  size="sm"
+                  onClick={() => setIsAddLinkOpen(true)}
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Link
+                </Button>
               </div>
             ) : (
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragEnd={handleDragEnd}
-              >
-                <SortableContext
-                  items={links.map((l) => l.id)}
-                  strategy={verticalListSortingStrategy}
-                >
-                  <div className="space-y-2">
-                    {links.map((link) => (
-                      <SortableLinkItem
-                        key={link.id}
-                        link={link}
-                        onDelete={(id) => deleteLinkMutation.mutate(id)}
-                        isDeleting={deleteLinkMutation.isPending}
-                        onEdit={(l) => setEditingLink(l)}
-                      />
-                    ))}
-                  </div>
-                </SortableContext>
-              </DndContext>
-            )}
-          </SettingsCard>
-        </div>
-
-        <div className="lg:col-span-1">
-          <Card className="border-border/40 shadow-sm sticky top-24">
-            <CardHeader>
-              <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                <Eye className="w-4 h-4 text-primary" />
-                Launcher Preview
-              </CardTitle>
-              <CardDescription>
-                How your custom links appear to team members.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="bg-muted/30 p-6 rounded-b-xl border-t">
-                <div className="bg-background rounded-2xl shadow-xl border p-4 scale-90 origin-top">
-                  <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-4">
-                    Resources
-                  </h4>
-                  <div className="grid grid-cols-3 gap-4">
-                    {links.slice(0, 6).map((link) => (
-                      <div
-                        key={link.id}
-                        className="flex flex-col items-center gap-2"
-                      >
-                        <div className="w-12 h-12 rounded-xl bg-secondary/50 flex items-center justify-center overflow-hidden relative shadow-sm">
-                          <img
-                            src={`/api/proxy-favicon?url=${encodeURIComponent(link.url)}`}
-                            alt={link.title}
-                            className="w-full h-full object-cover z-10"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).style.display =
-                                "none";
-                            }}
-                          />
-                          <Globe className="w-6 h-6 absolute inset-0 m-auto z-0 text-muted-foreground/30" />
-                        </div>
-                        <span className="text-[10px] font-medium text-center line-clamp-1 w-full">
-                          {link.title}
-                        </span>
-                      </div>
-                    ))}
-                    {links.length === 0 && (
-                      <div className="col-span-3 py-6 flex flex-col items-center justify-center text-center text-muted-foreground">
-                        <Globe className="w-8 h-8 opacity-20 mb-2" />
-                        <p className="text-[10px]">No links added</p>
-                      </div>
-                    )}
-                    {links.length > 6 && (
-                      <div className="flex flex-col items-center gap-2">
-                        <div className="w-12 h-12 rounded-xl bg-secondary/50 flex items-center justify-center text-muted-foreground">
-                          <Plus className="w-5 h-5" />
-                        </div>
-                        <span className="text-[10px] font-medium text-center">
-                          +{links.length - 6} more
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                {filteredLinks.map((link) => (
+                  <LinkGridItem
+                    key={link.id}
+                    link={link}
+                    onDelete={(id) => deleteLinkMutation.mutate(id)}
+                    isDeleting={deleteLinkMutation.isPending}
+                    onEdit={(l) => setEditingLink(l)}
+                    departments={departments}
+                  />
+                ))}
               </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+            )}
+          </CardContent>
+        </Card>
+      </Tabs>
     </div>
   );
 }

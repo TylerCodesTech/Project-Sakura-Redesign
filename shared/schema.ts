@@ -114,6 +114,8 @@ export const externalLinks = pgTable("external_links", {
   category: text("category").notNull().default("Resources"),
   icon: text("icon"), // Store lucide icon name
   order: text("order").notNull().default("0"),
+  departmentId: varchar("department_id"), // null = company-wide
+  isCompanyWide: text("is_company_wide").notNull().default("true"), // "true" = visible to all
 });
 
 export const news = pgTable("news", {
