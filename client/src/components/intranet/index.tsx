@@ -17,7 +17,13 @@ import {
   Users,
   Star,
   ChevronDown,
-  Sparkles
+  Sparkles,
+  X,
+  AlertTriangle,
+  Info,
+  CheckCircle,
+  XCircle,
+  ExternalLink
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
@@ -87,8 +93,8 @@ export interface Announcement {
   id: string;
   title: string;
   message: string;
-  type: 'info' | 'warning' | 'error';
-  link: string;
+  type: 'info' | 'warning' | 'success' | 'error';
+  link?: string | null;
   createdAt: string;
 }
 
@@ -393,6 +399,88 @@ interface AnnouncementsBannerProps {
 
 export function AnnouncementsBanner({ announcements, onDismiss }: AnnouncementsBannerProps) {
   if (announcements.length === 0) return null;
-  
-  return null;
+
+  const getTypeStyles = (type: Announcement['type']) => {
+    switch (type) {
+      case 'warning':
+        return {
+          bg: 'bg-amber-50 dark:bg-amber-500/10',
+          border: 'border-amber-200 dark:border-amber-500/30',
+          icon: <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400" />,
+          text: 'text-amber-800 dark:text-amber-200'
+        };
+      case 'error':
+        return {
+          bg: 'bg-red-50 dark:bg-red-500/10',
+          border: 'border-red-200 dark:border-red-500/30',
+          icon: <XCircle className="w-5 h-5 text-red-600 dark:text-red-400" />,
+          text: 'text-red-800 dark:text-red-200'
+        };
+      case 'success':
+        return {
+          bg: 'bg-emerald-50 dark:bg-emerald-500/10',
+          border: 'border-emerald-200 dark:border-emerald-500/30',
+          icon: <CheckCircle className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />,
+          text: 'text-emerald-800 dark:text-emerald-200'
+        };
+      case 'info':
+      default:
+        return {
+          bg: 'bg-blue-50 dark:bg-blue-500/10',
+          border: 'border-blue-200 dark:border-blue-500/30',
+          icon: <Info className="w-5 h-5 text-blue-600 dark:text-blue-400" />,
+          text: 'text-blue-800 dark:text-blue-200'
+        };
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      {announcements.map((announcement) => {
+        const styles = getTypeStyles(announcement.type);
+        return (
+          <div
+            key={announcement.id}
+            className={cn(
+              "flex items-start gap-3 p-4 rounded-xl border",
+              styles.bg,
+              styles.border
+            )}
+          >
+            <div className="flex-shrink-0 mt-0.5">{styles.icon}</div>
+            <div className="flex-1 min-w-0">
+              <p className={cn("font-semibold text-sm", styles.text)}>
+                {announcement.title}
+              </p>
+              <p className={cn("text-sm mt-0.5 opacity-90", styles.text)}>
+                {announcement.message}
+              </p>
+              {announcement.link && (
+                <a
+                  href={announcement.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={cn(
+                    "inline-flex items-center gap-1 text-xs mt-2 font-medium hover:underline",
+                    styles.text
+                  )}
+                >
+                  Learn more <ExternalLink className="w-3 h-3" />
+                </a>
+              )}
+            </div>
+            <button
+              onClick={() => onDismiss(announcement.id)}
+              className={cn(
+                "flex-shrink-0 p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition-colors",
+                styles.text
+              )}
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  );
 }
