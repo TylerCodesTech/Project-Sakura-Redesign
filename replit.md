@@ -49,6 +49,12 @@ Preferred communication style: Simple, everyday language.
 - **System Maintenance Announcements**: Administrators can create, edit, and manage system announcements (info, warning, success, error types) via the Maintenance section in Settings. Announcements can be company-wide or department-specific with optional date ranges. Active announcements are displayed in a dismissible banner on the Dashboard.
 - **Trending Topics**: Search history tracking and trending topics API that aggregates popular searches within a user's department. Displays top searched terms in the Dashboard sidebar.
 - **Online Team Members**: Shows users from the signed-in user's department in the Dashboard sidebar with online/away/busy status indicators.
+- **Infrastructure Monitoring**: System administrators can configure and monitor services and applications for outages and latency. Features include:
+  - **Monitored Services**: Add internal/external services (APIs, websites, databases) with configurable endpoints, check intervals, latency thresholds, and timeout settings
+  - **Service Status Tracking**: Real-time status badges (up/down/unknown) with last checked time and latency metrics
+  - **Service Alerts**: Automatic alerting on outages or high latency with severity levels and acknowledgment workflow
+  - **Status History**: View historical status checks and latency data for each monitored service
+  - Located in Settings > Maintenance > Infrastructure
 
 ## External Dependencies
 
