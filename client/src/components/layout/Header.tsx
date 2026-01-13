@@ -67,23 +67,13 @@ export function Header() {
     }
   };
 
-  const trackSearchMutation = useMutation({
-    mutationFn: async ({ query, resultCount }: { query: string; resultCount: number }) => {
-      await apiRequest("POST", "/api/search-history", { query, resultCount });
-    },
-  });
-
   const { data: searchResults = [], isLoading: isSearching } = useQuery<SearchResult[]>({
     queryKey: ["/api/search", { q: globalSearch }],
     queryFn: async () => {
       if (!globalSearch) return [];
       const res = await fetch(`/api/search?q=${encodeURIComponent(globalSearch)}`);
       if (!res.ok) throw new Error("Search failed");
-      const results = await res.json();
-      if (globalSearch.length >= 2) {
-        trackSearchMutation.mutate({ query: globalSearch, resultCount: results.length });
-      }
-      return results;
+      return res.json();
     },
     enabled: globalSearch.length > 0,
   });

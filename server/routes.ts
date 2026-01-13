@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertBookSchema, insertPageSchema, insertCommentSchema, insertNotificationSchema, insertExternalLinkSchema, insertDepartmentSchema, insertNewsSchema, insertStatSchema, systemSettingsDefaults, insertHelpdeskSchema, insertSlaStateSchema, insertSlaPolicySchema, insertDepartmentHierarchySchema, insertDepartmentManagerSchema, insertEscalationRuleSchema, insertEscalationConditionSchema, insertInboundEmailConfigSchema, insertTicketSchema, insertTicketCommentSchema, insertHelpdeskWebhookSchema, insertTicketFormCategorySchema, insertTicketFormFieldSchema, insertRoleSchema, insertUserRoleSchema, insertAuditLogSchema, AVAILABLE_PERMISSIONS, PERMISSION_CATEGORIES, insertPageVersionSchema, insertBookVersionSchema, insertVersionAuditLogSchema } from "@shared/schema";
+import { insertBookSchema, insertPageSchema, insertCommentSchema, insertNotificationSchema, insertExternalLinkSchema, insertDepartmentSchema, insertNewsSchema, insertStatSchema, systemSettingsDefaults, insertHelpdeskSchema, insertSlaStateSchema, insertSlaPolicySchema, insertDepartmentHierarchySchema, insertDepartmentManagerSchema, insertEscalationRuleSchema, insertEscalationConditionSchema, insertInboundEmailConfigSchema, insertTicketSchema, insertTicketCommentSchema, insertHelpdeskWebhookSchema, insertTicketFormCategorySchema, insertTicketFormFieldSchema, insertRoleSchema, insertUserRoleSchema, insertAuditLogSchema, AVAILABLE_PERMISSIONS, PERMISSION_CATEGORIES, insertPageVersionSchema, insertBookVersionSchema, insertVersionAuditLogSchema, insertPostSchema, insertPostCommentSchema } from "@shared/schema";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -2157,6 +2157,160 @@ export async function registerRoutes(
     const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
     const topics = await storage.getTrendingTopics(departmentId, limit);
     res.json(topics);
+  });
+
+  // Intranet Posts API
+  app.get("/api/posts", async (req, res) => {
+    const departmentId = req.query.departmentId as string | undefined;
+    const postsList = await storage.getPosts(departmentId);
+    const users = await storage.getUsers();
+    const userMap = new Map(users.map(u => [u.id, u]));
+    
+    const postsWithAuthor = postsList.map(post => {
+      const author = userMap.get(post.authorId);
+      return {
+        ...post,
+        author: author ? {
+          id: author.id,
+          name: author.username,
+          department: author.department
+        } : null
+      };
+    });
+    res.json(postsWithAuthor);
+  });
+
+  app.get("/api/posts/:id", async (req, res) => {
+    const post = await storage.getPost(req.params.id);
+    if (!post) return res.status(404).json({ error: "Post not found" });
+    
+    const author = await storage.getUser(post.authorId);
+    res.json({
+      ...post,
+      author: author ? {
+        id: author.id,
+        name: author.username,
+        department: author.department
+      } : null
+    });
+  });
+
+  app.post("/api/posts", async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).send("Unauthorized");
+    const result = insertPostSchema.safeParse({ ...req.body, authorId: req.user!.id });
+    if (!result.success) return res.status(400).json({ error: result.error });
+    
+    try {
+      const post = await storage.createPost(result.data);
+      const author = await storage.getUser(post.authorId);
+      res.status(201).json({
+        ...post,
+        author: author ? {
+          id: author.id,
+          name: author.username,
+          department: author.department
+        } : null
+      });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.patch("/api/posts/:id", async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).send("Unauthorized");
+    
+    const post = await storage.getPost(req.params.id);
+    if (!post) return res.status(404).json({ error: "Post not found" });
+    if (post.authorId !== req.user!.id) return res.status(403).json({ error: "Not authorized" });
+    
+    const result = insertPostSchema.partial().safeParse(req.body);
+    if (!result.success) return res.status(400).json({ error: result.error });
+    
+    try {
+      const updated = await storage.updatePost(req.params.id, result.data);
+      const author = await storage.getUser(updated.authorId);
+      res.json({
+        ...updated,
+        author: author ? {
+          id: author.id,
+          name: author.username,
+          department: author.department
+        } : null
+      });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/posts/:id", async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).send("Unauthorized");
+    
+    const post = await storage.getPost(req.params.id);
+    if (!post) return res.status(404).json({ error: "Post not found" });
+    if (post.authorId !== req.user!.id) return res.status(403).json({ error: "Not authorized" });
+    
+    try {
+      await storage.deletePost(req.params.id);
+      res.sendStatus(204);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/posts/:id/like", async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).send("Unauthorized");
+    
+    try {
+      const liked = await storage.likePost(req.params.id, req.user!.id);
+      res.json({ liked });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/posts/:id/comments", async (req, res) => {
+    const comments = await storage.getPostComments(req.params.id);
+    const users = await storage.getUsers();
+    const userMap = new Map(users.map(u => [u.id, u]));
+    
+    const commentsWithAuthor = comments.map(comment => {
+      const author = userMap.get(comment.authorId);
+      return {
+        ...comment,
+        author: author ? {
+          id: author.id,
+          name: author.username,
+          department: author.department
+        } : null
+      };
+    });
+    res.json(commentsWithAuthor);
+  });
+
+  app.post("/api/posts/:id/comments", async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).send("Unauthorized");
+    
+    const result = insertPostCommentSchema.safeParse({
+      ...req.body,
+      postId: req.params.id,
+      authorId: req.user!.id
+    });
+    if (!result.success) return res.status(400).json({ error: result.error });
+    
+    try {
+      const comment = await storage.createPostComment(result.data);
+      const author = await storage.getUser(comment.authorId);
+      res.status(201).json({
+        ...comment,
+        author: author ? {
+          id: author.id,
+          name: author.username,
+          department: author.department
+        } : null
+      });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
   });
 
   return httpServer;

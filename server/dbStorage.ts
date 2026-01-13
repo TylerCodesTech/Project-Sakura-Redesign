@@ -9,6 +9,7 @@ import {
   pageVersions, bookVersions, versionAuditLogs,
   reportDefinitions, reportFields, savedReports, reportSchedules, reportShares, reportAuditLogs, departmentReportSettings,
   aiModelConfigs, announcements, searchHistory,
+  posts, postLikes, postComments,
   type User, type InsertUser, type Book, type InsertBook, type Page, type InsertPage,
   type Comment, type InsertComment, type Notification, type InsertNotification,
   type ExternalLink, type InsertExternalLink, type Department, type InsertDepartment,
@@ -37,6 +38,9 @@ import {
   type AiModelConfig, type InsertAiModelConfig,
   type Announcement, type InsertAnnouncement,
   type SearchHistory, type InsertSearchHistory,
+  type Post, type InsertPost,
+  type PostLike,
+  type PostComment, type InsertPostComment,
   type RoleWithUserCount, type RoleWithPermissions,
   systemSettingsDefaults
 } from "@shared/schema";
@@ -1108,5 +1112,79 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(count()))
       .limit(limit);
     return results.map(r => ({ query: r.query, count: Number(r.count) }));
+  }
+
+  // Intranet Posts
+  async getPosts(departmentId?: string): Promise<Post[]> {
+    if (departmentId) {
+      return db.select().from(posts)
+        .where(or(eq(posts.departmentId, departmentId), eq(posts.visibility, 'public')))
+        .orderBy(desc(posts.isPinned), desc(posts.createdAt));
+    }
+    return db.select().from(posts).orderBy(desc(posts.isPinned), desc(posts.createdAt));
+  }
+
+  async getPost(id: string): Promise<Post | undefined> {
+    const [post] = await db.select().from(posts).where(eq(posts.id, id));
+    return post;
+  }
+
+  async createPost(insert: InsertPost): Promise<Post> {
+    const [post] = await db.insert(posts).values(insert).returning();
+    return post;
+  }
+
+  async updatePost(id: string, update: Partial<InsertPost>): Promise<Post> {
+    const [post] = await db.update(posts)
+      .set({ ...update, updatedAt: new Date().toISOString() })
+      .where(eq(posts.id, id))
+      .returning();
+    if (!post) throw new Error("Post not found");
+    return post;
+  }
+
+  async deletePost(id: string): Promise<void> {
+    await db.delete(postLikes).where(eq(postLikes.postId, id));
+    await db.delete(postComments).where(eq(postComments.postId, id));
+    await db.delete(posts).where(eq(posts.id, id));
+  }
+
+  async likePost(postId: string, userId: string): Promise<boolean> {
+    const [existing] = await db.select().from(postLikes)
+      .where(and(eq(postLikes.postId, postId), eq(postLikes.userId, userId)));
+    
+    if (existing) {
+      await db.delete(postLikes).where(eq(postLikes.id, existing.id));
+      await db.update(posts)
+        .set({ likesCount: sql`GREATEST(0, ${posts.likesCount} - 1)` })
+        .where(eq(posts.id, postId));
+      return false;
+    } else {
+      await db.insert(postLikes).values({ postId, userId });
+      await db.update(posts)
+        .set({ likesCount: sql`${posts.likesCount} + 1` })
+        .where(eq(posts.id, postId));
+      return true;
+    }
+  }
+
+  async isPostLiked(postId: string, userId: string): Promise<boolean> {
+    const [existing] = await db.select().from(postLikes)
+      .where(and(eq(postLikes.postId, postId), eq(postLikes.userId, userId)));
+    return !!existing;
+  }
+
+  async getPostComments(postId: string): Promise<PostComment[]> {
+    return db.select().from(postComments)
+      .where(eq(postComments.postId, postId))
+      .orderBy(asc(postComments.createdAt));
+  }
+
+  async createPostComment(insert: InsertPostComment): Promise<PostComment> {
+    const [comment] = await db.insert(postComments).values(insert).returning();
+    await db.update(posts)
+      .set({ commentsCount: sql`${posts.commentsCount} + 1` })
+      .where(eq(posts.id, insert.postId));
+    return comment;
   }
 }

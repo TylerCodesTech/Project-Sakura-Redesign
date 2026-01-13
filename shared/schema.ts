@@ -925,6 +925,63 @@ export const insertSearchHistorySchema = createInsertSchema(searchHistory).omit(
 export type SearchHistory = typeof searchHistory.$inferSelect;
 export type InsertSearchHistory = z.infer<typeof insertSearchHistorySchema>;
 
+// ============================================
+// INTRANET POSTS
+// ============================================
+
+export const posts = pgTable("posts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  authorId: varchar("author_id").notNull(),
+  content: text("content").notNull(),
+  visibility: text("visibility").notNull().default("public"), // public, department, private
+  departmentId: varchar("department_id"), // for department-only posts
+  hashtags: text("hashtags"), // JSON array as string
+  imageUrl: text("image_url"),
+  isPinned: boolean("is_pinned").notNull().default(false),
+  likesCount: integer("likes_count").notNull().default(0),
+  commentsCount: integer("comments_count").notNull().default(0),
+  sharesCount: integer("shares_count").notNull().default(0),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const insertPostSchema = createInsertSchema(posts).omit({
+  id: true,
+  likesCount: true,
+  commentsCount: true,
+  sharesCount: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type Post = typeof posts.$inferSelect;
+export type InsertPost = z.infer<typeof insertPostSchema>;
+
+export const postLikes = pgTable("post_likes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  postId: varchar("post_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+export type PostLike = typeof postLikes.$inferSelect;
+
+export const postComments = pgTable("post_comments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  postId: varchar("post_id").notNull(),
+  authorId: varchar("author_id").notNull(),
+  content: text("content").notNull(),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const insertPostCommentSchema = createInsertSchema(postComments).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type PostComment = typeof postComments.$inferSelect;
+export type InsertPostComment = z.infer<typeof insertPostCommentSchema>;
+
 // Report configuration type for the JSON field
 export interface ReportConfiguration {
   dataSource: ReportDataSource;

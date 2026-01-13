@@ -41,6 +41,9 @@ import {
   type AiModelConfig, type InsertAiModelConfig,
   type Announcement, type InsertAnnouncement,
   type SearchHistory, type InsertSearchHistory,
+  type Post, type InsertPost,
+  type PostLike,
+  type PostComment, type InsertPostComment,
   AVAILABLE_PERMISSIONS,
   systemSettingsDefaults
 } from "@shared/schema";
@@ -296,6 +299,17 @@ export interface IStorage {
   // Search History / Trending Topics
   createSearchHistory(search: InsertSearchHistory): Promise<SearchHistory>;
   getTrendingTopics(departmentId?: string, limit?: number): Promise<{query: string; count: number}[]>;
+
+  // Intranet Posts
+  getPosts(departmentId?: string): Promise<Post[]>;
+  getPost(id: string): Promise<Post | undefined>;
+  createPost(insert: InsertPost): Promise<Post>;
+  updatePost(id: string, update: Partial<InsertPost>): Promise<Post>;
+  deletePost(id: string): Promise<void>;
+  likePost(postId: string, userId: string): Promise<boolean>;
+  isPostLiked(postId: string, userId: string): Promise<boolean>;
+  getPostComments(postId: string): Promise<PostComment[]>;
+  createPostComment(insert: InsertPostComment): Promise<PostComment>;
 }
 
 export class MemStorage implements IStorage {
@@ -1793,6 +1807,116 @@ export class MemStorage implements IStorage {
       .map(([query, count]) => ({ query, count }))
       .sort((a, b) => b.count - a.count)
       .slice(0, limit);
+  }
+
+  // Intranet Posts (in-memory stub implementations)
+  private posts: Map<string, Post> = new Map();
+  private postLikes: Map<string, PostLike> = new Map();
+  private postComments: Map<string, PostComment> = new Map();
+
+  async getPosts(departmentId?: string): Promise<Post[]> {
+    const all = Array.from(this.posts.values());
+    if (departmentId) {
+      return all.filter(p => p.departmentId === departmentId || p.visibility === 'public');
+    }
+    return all.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  async getPost(id: string): Promise<Post | undefined> {
+    return this.posts.get(id);
+  }
+
+  async createPost(insert: InsertPost): Promise<Post> {
+    const id = randomUUID();
+    const post: Post = {
+      id,
+      authorId: insert.authorId,
+      content: insert.content,
+      visibility: insert.visibility ?? 'public',
+      departmentId: insert.departmentId ?? null,
+      hashtags: insert.hashtags ?? null,
+      imageUrl: insert.imageUrl ?? null,
+      isPinned: insert.isPinned ?? false,
+      likesCount: 0,
+      commentsCount: 0,
+      sharesCount: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    this.posts.set(id, post);
+    return post;
+  }
+
+  async updatePost(id: string, update: Partial<InsertPost>): Promise<Post> {
+    const existing = this.posts.get(id);
+    if (!existing) throw new Error("Post not found");
+    const updated = { ...existing, ...update, updatedAt: new Date().toISOString() };
+    this.posts.set(id, updated);
+    return updated;
+  }
+
+  async deletePost(id: string): Promise<void> {
+    for (const [likeId, like] of this.postLikes.entries()) {
+      if (like.postId === id) this.postLikes.delete(likeId);
+    }
+    for (const [commentId, comment] of this.postComments.entries()) {
+      if (comment.postId === id) this.postComments.delete(commentId);
+    }
+    this.posts.delete(id);
+  }
+
+  async likePost(postId: string, userId: string): Promise<boolean> {
+    const existing = Array.from(this.postLikes.values()).find(
+      l => l.postId === postId && l.userId === userId
+    );
+    const post = this.posts.get(postId);
+    if (!post) throw new Error("Post not found");
+
+    if (existing) {
+      this.postLikes.delete(existing.id);
+      this.posts.set(postId, { ...post, likesCount: Math.max(0, post.likesCount - 1) });
+      return false;
+    } else {
+      const id = randomUUID();
+      this.postLikes.set(id, {
+        id,
+        postId,
+        userId,
+        createdAt: new Date().toISOString(),
+      });
+      this.posts.set(postId, { ...post, likesCount: post.likesCount + 1 });
+      return true;
+    }
+  }
+
+  async isPostLiked(postId: string, userId: string): Promise<boolean> {
+    return Array.from(this.postLikes.values()).some(
+      l => l.postId === postId && l.userId === userId
+    );
+  }
+
+  async getPostComments(postId: string): Promise<PostComment[]> {
+    return Array.from(this.postComments.values())
+      .filter(c => c.postId === postId)
+      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  }
+
+  async createPostComment(insert: InsertPostComment): Promise<PostComment> {
+    const id = randomUUID();
+    const comment: PostComment = {
+      id,
+      postId: insert.postId,
+      authorId: insert.authorId,
+      content: insert.content,
+      createdAt: new Date().toISOString(),
+    };
+    this.postComments.set(id, comment);
+
+    const post = this.posts.get(insert.postId);
+    if (post) {
+      this.posts.set(insert.postId, { ...post, commentsCount: post.commentsCount + 1 });
+    }
+    return comment;
   }
 }
 
