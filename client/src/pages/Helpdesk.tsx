@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Layout } from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -14,6 +14,7 @@ import {
   Loader2,
   Eye,
   ExternalLink,
+  Search,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,6 +27,9 @@ import { type Ticket, type Department, type User as UserType, type SlaState, typ
 import { TicketSidebarPanel } from "@/components/tickets/TicketSidebarPanel";
 import { HelpdeskSidebar } from "@/components/helpdesk/HelpdeskSidebar";
 import { HelpdeskDashboard } from "@/components/helpdesk/HelpdeskDashboard";
+import { QuickTicketModal } from "@/components/helpdesk/QuickTicketModal";
+import { TicketDrawer } from "@/components/helpdesk/TicketDrawer";
+import { TicketSearchCommand } from "@/components/helpdesk/TicketSearchCommand";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
@@ -41,8 +45,22 @@ export default function Helpdesk() {
   const [displayMode, setDisplayMode] = useState("list");
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
   const [selectedDepartmentId, setSelectedDepartmentId] = useState<string | null>(null);
+  const [isQuickTicketOpen, setIsQuickTicketOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [drawerTicketId, setDrawerTicketId] = useState<string | null>(null);
   const [, setLocation] = useLocation();
   const { user } = useAuth();
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setIsSearchOpen(true);
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   const { data: tickets = [], isLoading: isLoadingTickets } = useQuery<Ticket[]>({
     queryKey: ["/api/tickets"],
@@ -221,6 +239,23 @@ export default function Helpdesk() {
                   <Button variant="outline" size="sm" className="h-9 rounded-xl gap-2">
                     <Filter className="w-4 h-4 text-muted-foreground" />
                     Filter
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="h-9 rounded-xl gap-2"
+                    onClick={() => setIsSearchOpen(true)}
+                  >
+                    <Search className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground">Cmd+K</span>
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    className="h-9 rounded-xl gap-2"
+                    onClick={() => setIsQuickTicketOpen(true)}
+                  >
+                    <Plus className="w-4 h-4" />
+                    Quick Ticket
                   </Button>
                 </div>
               </div>
@@ -530,7 +565,27 @@ export default function Helpdesk() {
           onClose={() => setSelectedTicketId(null)}
           onOpenFull={handleOpenFull}
         />
+
+        <TicketDrawer
+          ticketId={drawerTicketId}
+          open={!!drawerTicketId}
+          onOpenChange={(open) => !open && setDrawerTicketId(null)}
+        />
       </div>
+
+      <QuickTicketModal
+        open={isQuickTicketOpen}
+        onOpenChange={setIsQuickTicketOpen}
+        helpdesks={helpdesks}
+        departments={departments}
+        users={users}
+      />
+
+      <TicketSearchCommand
+        open={isSearchOpen}
+        onOpenChange={setIsSearchOpen}
+        onTicketSelect={(ticketId) => setDrawerTicketId(ticketId)}
+      />
     </Layout>
   );
 }
