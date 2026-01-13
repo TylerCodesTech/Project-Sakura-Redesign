@@ -4,6 +4,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Input } from "@/components/ui/input";
 import {
   Heart,
   MessageCircle,
@@ -33,7 +34,9 @@ import {
   Link as LinkIcon,
   Heading1,
   Heading2,
-  AtSign
+  AtSign,
+  Send,
+  Loader2
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useEditor, EditorContent } from '@tiptap/react';
@@ -42,6 +45,15 @@ import Underline from '@tiptap/extension-underline';
 import TiptapLink from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
 import Image from '@tiptap/extension-image';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiRequest } from "@/lib/queryClient";
+
+interface Comment {
+  id: string;
+  author: { id: string; name: string; department?: string };
+  content: string;
+  createdAt: string;
+}
 
 export interface Post {
   id: string;
@@ -374,9 +386,32 @@ interface PostCardProps {
 
 export function PostCard({ post, onLike, onComment, onShare, onBookmark, currentUserId }: PostCardProps) {
   const [showComments, setShowComments] = useState(false);
+  const [newComment, setNewComment] = useState("");
+  const queryClient = useQueryClient();
 
   const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+  };
+
+  const { data: comments = [], isLoading: isLoadingComments } = useQuery<Comment[]>({
+    queryKey: [`/api/posts/${post.id}/comments`],
+    enabled: showComments,
+  });
+
+  const addCommentMutation = useMutation({
+    mutationFn: async (content: string) => {
+      return apiRequest("POST", `/api/posts/${post.id}/comments`, { content });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/posts/${post.id}/comments`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+      setNewComment("");
+    },
+  });
+
+  const handleSubmitComment = () => {
+    if (!newComment.trim()) return;
+    addCommentMutation.mutate(newComment);
   };
 
   return (
@@ -444,9 +479,12 @@ export function PostCard({ post, onLike, onComment, onShare, onBookmark, current
           </button>
           <button 
             onClick={() => setShowComments(!showComments)}
-            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors"
+            className={cn(
+              "flex items-center gap-1.5 text-sm transition-colors",
+              showComments ? "text-primary" : "text-muted-foreground hover:text-primary"
+            )}
           >
-            <MessageCircle className="w-4 h-4" />
+            <MessageCircle className={cn("w-4 h-4", showComments && "fill-current")} />
             <span className="font-medium">{post.commentsCount}</span>
           </button>
           <button 
@@ -458,6 +496,75 @@ export function PostCard({ post, onLike, onComment, onShare, onBookmark, current
           </button>
         </div>
       </div>
+
+      {showComments && (
+        <div className="px-4 pb-4 border-t border-border/50 pt-4 space-y-4">
+          <div className="flex items-center gap-3">
+            <Avatar className="h-8 w-8 border border-primary/20">
+              <AvatarFallback className="bg-gradient-to-br from-pink-500 to-rose-500 text-white text-xs font-bold">
+                U
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1 flex gap-2">
+              <Input
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+                placeholder="Write a comment..."
+                className="flex-1 h-9 text-sm rounded-xl"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSubmitComment();
+                  }
+                }}
+              />
+              <Button 
+                size="sm" 
+                onClick={handleSubmitComment}
+                disabled={!newComment.trim() || addCommentMutation.isPending}
+                className="h-9 px-3 rounded-xl bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600"
+              >
+                {addCommentMutation.isPending ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Send className="w-4 h-4" />
+                )}
+              </Button>
+            </div>
+          </div>
+
+          {isLoadingComments ? (
+            <div className="flex items-center justify-center py-4">
+              <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : comments.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-2">
+              No comments yet. Be the first to comment!
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {comments.map((comment) => (
+                <div key={comment.id} className="flex gap-3">
+                  <Avatar className="h-8 w-8 border border-border/50 shrink-0">
+                    <AvatarFallback className="bg-secondary text-xs font-bold">
+                      {getInitials(comment.author.name)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <div className="bg-secondary/50 rounded-xl px-3 py-2">
+                      <p className="text-sm font-semibold">{comment.author.name}</p>
+                      <p className="text-sm">{comment.content}</p>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1 px-1">
+                      {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
