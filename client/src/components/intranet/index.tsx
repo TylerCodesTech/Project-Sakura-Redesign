@@ -190,7 +190,7 @@ export function PostComposer({ onPost }: PostComposerProps) {
     if (!editor) return;
     const html = editor.getHTML();
     if (html === '<p></p>' || !html.trim()) return;
-    onPost(html, 'public');
+    onPost(html, 'company');
     editor.commands.clearContent();
     setIsExpanded(false);
   };
