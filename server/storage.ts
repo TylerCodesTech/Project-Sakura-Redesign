@@ -19,10 +19,6 @@ import {
   type InboundEmailConfig, type InsertInboundEmailConfig,
   type Ticket, type InsertTicket,
   type TicketComment, type InsertTicketComment,
-  type TicketActivity, type InsertTicketActivity,
-  type HelpdeskRoutingConfig, type InsertHelpdeskRoutingConfig,
-  type HelpdeskEscalationConfig, type InsertHelpdeskEscalationConfig,
-  type EscalationPath, type InsertEscalationPath,
   type HelpdeskWebhook, type InsertHelpdeskWebhook,
   type TicketFormCategory, type InsertTicketFormCategory,
   type TicketFormField, type InsertTicketFormField,
@@ -164,25 +160,6 @@ export interface IStorage {
   // Ticket Comments
   getTicketComments(ticketId: string): Promise<TicketComment[]>;
   createTicketComment(comment: InsertTicketComment): Promise<TicketComment>;
-
-  // Ticket Activity (audit trail)
-  getTicketActivity(ticketId: string): Promise<TicketActivity[]>;
-  createTicketActivity(activity: InsertTicketActivity): Promise<TicketActivity>;
-
-  // Helpdesk Routing Configuration
-  getHelpdeskRoutingConfig(helpdeskId: string): Promise<HelpdeskRoutingConfig | undefined>;
-  createHelpdeskRoutingConfig(config: InsertHelpdeskRoutingConfig): Promise<HelpdeskRoutingConfig>;
-  updateHelpdeskRoutingConfig(helpdeskId: string, update: Partial<InsertHelpdeskRoutingConfig>): Promise<HelpdeskRoutingConfig>;
-
-  // Helpdesk Escalation Configuration
-  getHelpdeskEscalationConfig(helpdeskId: string): Promise<HelpdeskEscalationConfig | undefined>;
-  createHelpdeskEscalationConfig(config: InsertHelpdeskEscalationConfig): Promise<HelpdeskEscalationConfig>;
-  updateHelpdeskEscalationConfig(helpdeskId: string, update: Partial<InsertHelpdeskEscalationConfig>): Promise<HelpdeskEscalationConfig>;
-
-  // Escalation Path
-  getEscalationPath(helpdeskId: string): Promise<EscalationPath[]>;
-  createEscalationPathStep(step: InsertEscalationPath): Promise<EscalationPath>;
-  deleteEscalationPathStep(id: string): Promise<void>;
 
   // Webhooks
   getWebhooks(helpdeskId: string): Promise<HelpdeskWebhook[]>;
@@ -1094,18 +1071,8 @@ export class MemStorage implements IStorage {
       assignedTo: insert.assignedTo ?? null,
       createdBy: insert.createdBy,
       departmentId: insert.departmentId ?? null,
-      subDepartmentId: insert.subDepartmentId ?? null,
       ticketType: insert.ticketType ?? "request",
       source: insert.source ?? "web",
-      formCategoryId: insert.formCategoryId ?? null,
-      responseReminderSent: insert.responseReminderSent ?? "false",
-      escalationWarningSent: insert.escalationWarningSent ?? "false",
-      currentEscalationStep: insert.currentEscalationStep ?? 0,
-      lastActivityAt: new Date().toISOString(),
-      firstResponseAt: insert.firstResponseAt ?? null,
-      resolvedAt: insert.resolvedAt ?? null,
-      aiRoutingConfidence: insert.aiRoutingConfidence ?? null,
-      aiSuggestedAssignee: insert.aiSuggestedAssignee ?? null,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       embedding: null,
@@ -1144,125 +1111,6 @@ export class MemStorage implements IStorage {
     };
     this.ticketComments.set(id, comment);
     return comment;
-  }
-
-  // Ticket Activity methods
-  private ticketActivityMap = new Map<string, TicketActivity>();
-  
-  async getTicketActivity(ticketId: string): Promise<TicketActivity[]> {
-    return Array.from(this.ticketActivityMap.values())
-      .filter(a => a.ticketId === ticketId)
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  }
-
-  async createTicketActivity(insert: InsertTicketActivity): Promise<TicketActivity> {
-    const id = randomUUID();
-    const activity: TicketActivity = {
-      id,
-      ticketId: insert.ticketId,
-      userId: insert.userId ?? null,
-      action: insert.action,
-      previousValue: insert.previousValue ?? null,
-      newValue: insert.newValue ?? null,
-      reason: insert.reason ?? null,
-      metadata: insert.metadata ?? null,
-      createdAt: new Date().toISOString(),
-    };
-    this.ticketActivityMap.set(id, activity);
-    return activity;
-  }
-
-  // Helpdesk Routing Configuration methods
-  private routingConfigMap = new Map<string, HelpdeskRoutingConfig>();
-
-  async getHelpdeskRoutingConfig(helpdeskId: string): Promise<HelpdeskRoutingConfig | undefined> {
-    return Array.from(this.routingConfigMap.values()).find(c => c.helpdeskId === helpdeskId);
-  }
-
-  async createHelpdeskRoutingConfig(insert: InsertHelpdeskRoutingConfig): Promise<HelpdeskRoutingConfig> {
-    const id = randomUUID();
-    const config: HelpdeskRoutingConfig = {
-      id,
-      helpdeskId: insert.helpdeskId,
-      firstContactType: insert.firstContactType ?? "round_robin",
-      firstContactId: insert.firstContactId ?? null,
-      routingMethod: insert.routingMethod ?? "ai_semantic",
-      autoAssignEnabled: insert.autoAssignEnabled ?? "true",
-      loadBalancingEnabled: insert.loadBalancingEnabled ?? "true",
-      maxTicketsPerUser: insert.maxTicketsPerUser ?? 20,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    this.routingConfigMap.set(id, config);
-    return config;
-  }
-
-  async updateHelpdeskRoutingConfig(helpdeskId: string, update: Partial<InsertHelpdeskRoutingConfig>): Promise<HelpdeskRoutingConfig> {
-    const existing = Array.from(this.routingConfigMap.values()).find(c => c.helpdeskId === helpdeskId);
-    if (!existing) throw new Error("Routing config not found");
-    const updated = { ...existing, ...update, updatedAt: new Date().toISOString() };
-    this.routingConfigMap.set(existing.id, updated);
-    return updated;
-  }
-
-  // Helpdesk Escalation Configuration methods
-  private escalationConfigMap = new Map<string, HelpdeskEscalationConfig>();
-
-  async getHelpdeskEscalationConfig(helpdeskId: string): Promise<HelpdeskEscalationConfig | undefined> {
-    return Array.from(this.escalationConfigMap.values()).find(c => c.helpdeskId === helpdeskId);
-  }
-
-  async createHelpdeskEscalationConfig(insert: InsertHelpdeskEscalationConfig): Promise<HelpdeskEscalationConfig> {
-    const id = randomUUID();
-    const config: HelpdeskEscalationConfig = {
-      id,
-      helpdeskId: insert.helpdeskId,
-      escalationMethod: insert.escalationMethod ?? "workflow",
-      reminderEnabled: insert.reminderEnabled ?? "true",
-      reminderHours: insert.reminderHours ?? 2,
-      escalationHours: insert.escalationHours ?? 4,
-      notifyManagerOnEscalation: insert.notifyManagerOnEscalation ?? "true",
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    this.escalationConfigMap.set(id, config);
-    return config;
-  }
-
-  async updateHelpdeskEscalationConfig(helpdeskId: string, update: Partial<InsertHelpdeskEscalationConfig>): Promise<HelpdeskEscalationConfig> {
-    const existing = Array.from(this.escalationConfigMap.values()).find(c => c.helpdeskId === helpdeskId);
-    if (!existing) throw new Error("Escalation config not found");
-    const updated = { ...existing, ...update, updatedAt: new Date().toISOString() };
-    this.escalationConfigMap.set(existing.id, updated);
-    return updated;
-  }
-
-  // Escalation Path methods
-  private escalationPathMap = new Map<string, EscalationPath>();
-
-  async getEscalationPath(helpdeskId: string): Promise<EscalationPath[]> {
-    return Array.from(this.escalationPathMap.values())
-      .filter(p => p.helpdeskId === helpdeskId)
-      .sort((a, b) => a.stepOrder - b.stepOrder);
-  }
-
-  async createEscalationPathStep(insert: InsertEscalationPath): Promise<EscalationPath> {
-    const id = randomUUID();
-    const step: EscalationPath = {
-      id,
-      helpdeskId: insert.helpdeskId,
-      stepOrder: insert.stepOrder ?? 0,
-      targetType: insert.targetType ?? "user",
-      targetId: insert.targetId,
-      waitHours: insert.waitHours ?? 4,
-      createdAt: new Date().toISOString(),
-    };
-    this.escalationPathMap.set(id, step);
-    return step;
-  }
-
-  async deleteEscalationPathStep(id: string): Promise<void> {
-    this.escalationPathMap.delete(id);
   }
 
   // Webhook methods
