@@ -84,6 +84,9 @@ export function ProfileSettings() {
       if (!res.ok) throw new Error("Failed to update profile");
       
       queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/online-users"] });
       
       toast({
         title: "Profile updated",

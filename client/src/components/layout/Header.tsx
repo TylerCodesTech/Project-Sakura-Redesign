@@ -163,6 +163,9 @@ export function Header() {
       if (!updateRes.ok) throw new Error("Failed to save");
       
       queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/online-users"] });
       toast.success("Profile photo updated!");
     } catch (error) {
       toast.error("Failed to upload photo");
