@@ -153,12 +153,37 @@ export async function registerRoutes(
   });
 
   app.patch("/api/users/:id", async (req, res) => {
-    const { username, department } = req.body;
+    const { username, department, avatar, displayName, email, phone, bio } = req.body;
     const user = await storage.getUser(req.params.id);
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
-    const updated = await storage.updateUser(req.params.id, { username, department });
+    const updateData: Record<string, any> = {};
+    if (username !== undefined) updateData.username = username;
+    if (department !== undefined) updateData.department = department;
+    if (avatar !== undefined) updateData.avatar = avatar;
+    if (displayName !== undefined) updateData.displayName = displayName;
+    if (email !== undefined) updateData.email = email;
+    if (phone !== undefined) updateData.phone = phone;
+    if (bio !== undefined) updateData.bio = bio;
+    
+    const updated = await storage.updateUser(req.params.id, updateData);
+    res.json({ ...updated, password: undefined });
+  });
+
+  app.patch("/api/profile", async (req, res) => {
+    if (!req.user) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+    const { displayName, email, phone, bio, avatar } = req.body;
+    const updateData: Record<string, any> = {};
+    if (displayName !== undefined) updateData.displayName = displayName;
+    if (email !== undefined) updateData.email = email;
+    if (phone !== undefined) updateData.phone = phone;
+    if (bio !== undefined) updateData.bio = bio;
+    if (avatar !== undefined) updateData.avatar = avatar;
+    
+    const updated = await storage.updateUser((req.user as any).id, updateData);
     res.json({ ...updated, password: undefined });
   });
 
