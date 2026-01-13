@@ -26,6 +26,10 @@ import {
   Construction,
   Megaphone,
   User,
+  Server,
+  Activity,
+  AlertTriangle,
+  Gauge,
 } from "lucide-react";
 import { SettingsNavItem } from "./types";
 
@@ -132,6 +136,9 @@ export const settingsNavigation: SettingsNavItem[] = [
     description: "System announcements and maintenance notices",
     children: [
       { id: "maintenance-announcements", label: "Announcements", icon: Megaphone },
+      { id: "maintenance-infrastructure", label: "Infrastructure", icon: Server },
+      { id: "maintenance-services", label: "Monitored Services", icon: Activity },
+      { id: "maintenance-alerts", label: "Service Alerts", icon: AlertTriangle },
     ],
   },
 ];

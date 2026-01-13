@@ -1024,3 +1024,78 @@ export interface ReportConfiguration {
     endDate?: string;
   };
 }
+
+// ============================================
+// INFRASTRUCTURE MONITORING TABLES
+// ============================================
+
+export const monitoredServices = pgTable("monitored_services", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  endpoint: text("endpoint").notNull(),
+  serviceType: text("service_type").notNull().default("api"),
+  checkInterval: integer("check_interval").notNull().default(60),
+  latencyThreshold: integer("latency_threshold").notNull().default(1000),
+  enabled: text("enabled").notNull().default("true"),
+  expectedStatusCode: integer("expected_status_code").notNull().default(200),
+  timeout: integer("timeout").notNull().default(30000),
+  alertOnDown: text("alert_on_down").notNull().default("true"),
+  alertOnLatency: text("alert_on_latency").notNull().default("true"),
+  lastCheckedAt: text("last_checked_at"),
+  lastStatus: text("last_status").notNull().default("unknown"),
+  lastLatency: integer("last_latency"),
+  consecutiveFailures: integer("consecutive_failures").notNull().default(0),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const serviceStatusHistory = pgTable("service_status_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  serviceId: varchar("service_id").notNull(),
+  status: text("status").notNull(),
+  latency: integer("latency"),
+  statusCode: integer("status_code"),
+  errorMessage: text("error_message"),
+  checkedAt: text("checked_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const serviceAlerts = pgTable("service_alerts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  serviceId: varchar("service_id").notNull(),
+  alertType: text("alert_type").notNull(),
+  severity: text("severity").notNull().default("warning"),
+  message: text("message").notNull(),
+  acknowledged: text("acknowledged").notNull().default("false"),
+  acknowledgedBy: varchar("acknowledged_by"),
+  acknowledgedAt: text("acknowledged_at"),
+  resolvedAt: text("resolved_at"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const insertMonitoredServiceSchema = createInsertSchema(monitoredServices).omit({
+  id: true,
+  lastCheckedAt: true,
+  lastStatus: true,
+  lastLatency: true,
+  consecutiveFailures: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertServiceStatusHistorySchema = createInsertSchema(serviceStatusHistory).omit({
+  id: true,
+  checkedAt: true,
+});
+
+export const insertServiceAlertSchema = createInsertSchema(serviceAlerts).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type MonitoredService = typeof monitoredServices.$inferSelect;
+export type InsertMonitoredService = z.infer<typeof insertMonitoredServiceSchema>;
+export type ServiceStatusHistory = typeof serviceStatusHistory.$inferSelect;
+export type InsertServiceStatusHistory = z.infer<typeof insertServiceStatusHistorySchema>;
+export type ServiceAlert = typeof serviceAlerts.$inferSelect;
+export type InsertServiceAlert = z.infer<typeof insertServiceAlertSchema>;
