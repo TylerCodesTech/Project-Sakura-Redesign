@@ -1,4 +1,4 @@
-import { Search, Bell, HelpCircle, X, Sparkles, User, Settings, LogOut, Moon, Sun, Monitor, Mail, MessageSquare, Globe, Loader2, Book, FileText, Building2, History, Archive } from "lucide-react";
+import { Search, Bell, X, Sparkles, User, Settings, LogOut, Moon, Sun, Monitor, Mail, MessageSquare, Globe, Loader2, Book, FileText, Building2, History, Archive } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { navItems } from "@/lib/mockData";
 import { Input } from "@/components/ui/input";
@@ -14,7 +14,6 @@ import {
 } from "@/components/ui/popover";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { type Notification, type User as DBUser, type ExternalLink } from "@shared/schema";
 import { formatDistanceToNow } from "date-fns";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
@@ -128,33 +127,12 @@ export function Header() {
     }
   }, [theme]);
 
-  // Custom App Launcher Icon based on user screenshot
   const LauncherIcon = () => (
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
       <rect x="4" y="4" width="7" height="7" rx="2" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
       <rect x="13" y="4" width="7" height="7" rx="2" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
       <rect x="4" y="13" width="7" height="7" rx="2" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
       <rect x="13" y="13" width="7" height="7" rx="2" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
-    </svg>
-  );
-
-  // Pink/Magenta gradient flower icon for project branding
-  const ProjectIcon = () => (
-    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <linearGradient id="pinkGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#ec4899" />
-          <stop offset="50%" stopColor="#db2777" />
-          <stop offset="100%" stopColor="#be185d" />
-        </linearGradient>
-      </defs>
-      <circle cx="16" cy="16" r="14" fill="url(#pinkGradient)" />
-      <circle cx="16" cy="10" r="3" fill="white" fillOpacity="0.9" />
-      <circle cx="10.5" cy="14" r="3" fill="white" fillOpacity="0.9" />
-      <circle cx="21.5" cy="14" r="3" fill="white" fillOpacity="0.9" />
-      <circle cx="12" cy="20" r="3" fill="white" fillOpacity="0.9" />
-      <circle cx="20" cy="20" r="3" fill="white" fillOpacity="0.9" />
-      <circle cx="16" cy="16" r="2.5" fill="white" />
     </svg>
   );
 
@@ -165,162 +143,21 @@ export function Header() {
             {settings.logoUrl ? (
               <img src={settings.logoUrl} alt={settings.companyName} className="w-8 h-8 rounded-lg object-contain" />
             ) : (
-              <ProjectIcon />
+              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary/20 transition-colors">
+                <Sparkles className="w-5 h-5 fill-primary/20" />
+              </div>
             )}
+            <span className="font-display font-bold text-xl tracking-tight">{settings.companyName}</span>
         </Link>
 
-        {/* App Launcher */}
-        <Popover open={isLauncherOpen} onOpenChange={setIsLauncherOpen}>
-          <PopoverTrigger asChild>
-            <button 
-              className="p-2 hover:bg-secondary rounded-lg transition-colors group text-muted-foreground hover:text-primary"
-              data-testid="button-app-launcher"
-            >
-              <LauncherIcon />
-            </button>
-          </PopoverTrigger>
-          <PopoverContent className="w-[480px] p-0 border-border shadow-2xl rounded-2xl overflow-hidden" align="start" sideOffset={12}>
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-display font-bold">App Launcher</h2>
-                <button onClick={() => setIsLauncherOpen(false)} className="p-1 hover:bg-secondary rounded-md transition-colors">
-                  <X className="w-4 h-4 text-muted-foreground" />
-                </button>
-              </div>
+        <div className="h-6 w-px bg-border mx-2"></div>
 
-              <div className="relative mb-8 group">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                <Input 
-                  placeholder="Search apps and resources..." 
-                  className="pl-10 h-11 bg-secondary/30 border-transparent focus-visible:bg-background focus-visible:border-primary/20 transition-all"
-                  value={resourceSearch}
-                  onChange={(e) => setResourceSearch(e.target.value)}
-                />
-              </div>
-
-              <ScrollArea className="h-[480px] -mr-4 pr-4">
-                <div className="space-y-8 pb-4">
-                  <div>
-                    <h3 className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-6">{settings.companyName} Apps</h3>
-                    <div className="grid grid-cols-4 gap-4">
-                      {navItems.map((item) => {
-                        const isActive = location === item.href;
-                        const Icon = item.icon;
-                        const getIconColor = (label: string) => {
-                          switch(label) {
-                            case 'Dashboard': return 'bg-emerald-50 text-emerald-600';
-                            case 'Documents': return 'bg-rose-50 text-rose-600';
-                            case 'Team Directory': return 'bg-indigo-50 text-indigo-600';
-                            case 'Helpdesk': return 'bg-amber-50 text-amber-600';
-                            case 'Report Builder': return 'bg-violet-50 text-violet-600';
-                            default: return 'bg-primary/10 text-primary';
-                          }
-                        };
-
-                        if (resourceSearch && !item.label.toLowerCase().includes(resourceSearch.toLowerCase())) {
-                          return null;
-                        }
-
-                        return (
-                          <Link 
-                            key={item.href} 
-                            href={item.href}
-                            onClick={() => setIsLauncherOpen(false)}
-                            className="flex flex-col items-center gap-3 group"
-                          >
-                              <div className={cn(
-                                "w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 group-hover:scale-110 group-hover:shadow-lg",
-                                getIconColor(item.label),
-                                isActive && "ring-2 ring-primary ring-offset-2"
-                              )}>
-                                <Icon className="w-7 h-7" />
-                              </div>
-                              <span className="text-xs font-medium text-foreground group-hover:text-primary transition-colors">
-                                {item.label === 'Dashboard' ? 'Intranet' : item.label === 'Team Directory' ? 'Directory' : item.label}
-                              </span>
-                          </Link>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  <div>
-                    <h3 className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-4">Resources</h3>
-                    <div className="grid grid-cols-4 gap-4">
-                      {isLoadingLinks ? (
-                        <div className="col-span-4 py-8 flex justify-center">
-                          <Loader2 className="w-6 h-6 animate-spin text-primary/30" />
-                        </div>
-                      ) : filteredLinks.length === 0 ? (
-                        <div className="col-span-4 py-8 flex flex-col items-center justify-center bg-secondary/20 rounded-xl border border-dashed border-border">
-                          <p className="text-sm text-muted-foreground">
-                            {resourceSearch ? "No matching resources" : "No resources available"}
-                          </p>
-                        </div>
-                      ) : (
-                        filteredLinks.map((link) => (
-                          <a 
-                            key={link.id}
-                            href={link.url} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="flex flex-col items-center gap-3 group"
-                          >
-                            <div className="w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 group-hover:scale-110 group-hover:shadow-lg bg-secondary/50 text-muted-foreground overflow-hidden relative">
-                              <img 
-                                src={`/api/proxy-favicon?url=${encodeURIComponent(link.url)}`} 
-                                alt={link.title}
-                                className="w-full h-full object-cover z-10 relative"
-                                onError={(e) => {
-                                  (e.target as HTMLImageElement).style.display = 'none';
-                                }}
-                              />
-                              <Globe className="w-7 h-7 absolute inset-0 m-auto z-0" />
-                            </div>
-                            <span className="text-xs font-medium text-foreground group-hover:text-primary transition-colors text-center line-clamp-1">
-                              {link.title}
-                            </span>
-                          </a>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </ScrollArea>
-            </div>
-            <div className="bg-secondary/30 p-4 border-t border-border flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="p-1 bg-primary/10 rounded">
-                  <Sparkles className="w-3 h-3 text-primary" />
-                </div>
-                <span className="text-xs font-semibold">AI Powered Workspace</span>
-              </div>
-            </div>
-          </PopoverContent>
-        </Popover>
-
-        {/* What's on your mind? Post Composer */}
-        <div className="flex-1 max-w-lg hidden md:flex items-center gap-2 bg-secondary/30 dark:bg-card/60 rounded-full px-2 py-1.5 border border-border/50">
-          <Avatar className="h-8 w-8 border border-border shrink-0">
-            <AvatarImage src="" />
-            <AvatarFallback className="text-xs">{(user?.username || "U").substring(0, 2).toUpperCase()}</AvatarFallback>
-          </Avatar>
-          <Input 
-            placeholder="What's on your mind?" 
-            className="flex-1 h-8 bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/60 text-sm"
-          />
-          <Button size="sm" className="h-8 px-4 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold">
-            Post
-          </Button>
-        </div>
-
-        {/* Global Search (hidden on mobile) */}
-        <div className="hidden lg:block relative" ref={searchRef}>
+        <div className="flex-1 max-w-md hidden md:block relative" ref={searchRef}>
           <div className="relative group">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
             <Input 
-              placeholder="Search..." 
-              className="pl-10 h-9 w-48 bg-secondary/50 border-transparent focus-visible:bg-background focus-visible:border-primary/20 rounded-full transition-all duration-300"
+              placeholder="Ask AI or search..." 
+              className="pl-10 h-9 bg-secondary/50 border-transparent focus-visible:bg-background focus-visible:border-primary/20 w-full transition-all duration-300"
               data-testid="global-search"
               value={globalSearch}
               onChange={(e) => {
@@ -406,6 +243,137 @@ export function Header() {
       </div>
 
       <div className="flex items-center gap-2 ml-4">
+        {/* App Launcher -  left of the bell */}
+        <Popover open={isLauncherOpen} onOpenChange={setIsLauncherOpen}>
+          <PopoverTrigger asChild>
+            <button 
+              className="p-2 hover:bg-secondary rounded-lg transition-colors group text-muted-foreground hover:text-primary"
+              data-testid="button-app-launcher"
+            >
+              <LauncherIcon />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[480px] p-0 border-border shadow-2xl rounded-2xl overflow-hidden" align="end" sideOffset={12}>
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-display font-bold">App Launcher</h2>
+                <button onClick={() => setIsLauncherOpen(false)} className="p-1 hover:bg-secondary rounded-md transition-colors">
+                  <X className="w-4 h-4 text-muted-foreground" />
+                </button>
+              </div>
+
+              <div className="relative mb-8 group">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                <Input 
+                  placeholder="Search apps and resources..." 
+                  className="pl-10 h-11 bg-secondary/30 border-transparent focus-visible:bg-background focus-visible:border-primary/20 transition-all"
+                  value={resourceSearch}
+                  onChange={(e) => setResourceSearch(e.target.value)}
+                />
+              </div>
+
+              <ScrollArea className="h-[480px] -mr-4 pr-4">
+                <div className="space-y-8 pb-4">
+                  <div>
+                    <h3 className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-6">{settings.companyName} Apps</h3>
+                    <div className="grid grid-cols-4 gap-4">
+                      {navItems.map((item) => {
+                        const isActive = location === item.href;
+                        const Icon = item.icon;
+                        const getIconColor = (label: string) => {
+                          switch(label) {
+                            case 'Dashboard': return 'bg-emerald-50 text-emerald-600';
+                            case 'Documents': return 'bg-rose-50 text-rose-600';
+                            case 'Team Directory': return 'bg-indigo-50 text-indigo-600';
+                            case 'Helpdesk': return 'bg-amber-50 text-amber-600';
+                            case 'Report Builder': return 'bg-violet-50 text-violet-600';
+                            default: return 'bg-primary/10 text-primary';
+                          }
+                        };
+
+                        if (resourceSearch && !item.label.toLowerCase().includes(resourceSearch.toLowerCase())) {
+                          return null;
+                        }
+
+                        return (
+                          <Link 
+                            key={item.href} 
+                            href={item.href}
+                            onClick={() => setIsLauncherOpen(false)}
+                            className="flex flex-col items-center gap-3 group"
+                          >
+                              <div className={cn(
+                                "w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 group-hover:scale-110 group-hover:shadow-lg",
+                                getIconColor(item.label),
+                                isActive && "ring-2 ring-primary ring-offset-2"
+                              )}>
+                                <Icon className="w-7 h-7" />
+                              </div>
+                              <span className="text-xs font-medium text-foreground group-hover:text-primary transition-colors">
+                                {item.label === 'Dashboard' ? 'Intranet' : item.label === 'Team Directory' ? 'Directory' : item.label}
+                              </span>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-4">Resources</h3>
+                    <div className="grid grid-cols-4 gap-4">
+                      {/* Native App Links */}
+                      {isLoadingLinks ? (
+                        <div className="col-span-4 py-8 flex justify-center">
+                          <Loader2 className="w-6 h-6 animate-spin text-primary/30" />
+                        </div>
+                      ) : filteredLinks.length === 0 ? (
+                        <div className="col-span-4 py-8 flex flex-col items-center justify-center bg-secondary/20 rounded-xl border border-dashed border-border">
+                          <p className="text-sm text-muted-foreground">
+                            {resourceSearch ? "No matching resources" : "No resources available"}
+                          </p>
+                        </div>
+                      ) : (
+                        filteredLinks.map((link) => (
+                          <a 
+                            key={link.id}
+                            href={link.url} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="flex flex-col items-center gap-3 group"
+                          >
+                            <div className="w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 group-hover:scale-110 group-hover:shadow-lg bg-secondary/50 text-muted-foreground overflow-hidden relative">
+                              <img 
+                                src={`/api/proxy-favicon?url=${encodeURIComponent(link.url)}`} 
+                                alt={link.title}
+                                className="w-full h-full object-cover z-10 relative"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).style.display = 'none';
+                                }}
+                              />
+                              <Globe className="w-7 h-7 absolute inset-0 m-auto z-0" />
+                            </div>
+                            <span className="text-xs font-medium text-foreground group-hover:text-primary transition-colors text-center line-clamp-1">
+                              {link.title}
+                            </span>
+                          </a>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </ScrollArea>
+            </div>
+            <div className="bg-secondary/30 p-4 border-t border-border flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-1 bg-primary/10 rounded">
+                  <Sparkles className="w-3 h-3 text-primary" />
+                </div>
+                <span className="text-xs font-semibold">AI Powered Workspace</span>
+              </div>
+            </div>
+          </PopoverContent>
+        </Popover>
+
         <Popover>
           <PopoverTrigger asChild>
             <button className="p-2 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-full transition-colors relative">
@@ -481,9 +449,15 @@ export function Header() {
           </PopoverContent>
         </Popover>
 
+        <div className="h-6 w-px bg-border hidden sm:block mx-1"></div>
+
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="flex items-center gap-2 group outline-none cursor-pointer">
+            <button className="flex items-center gap-3 pl-2 group outline-none cursor-pointer">
+              <div className="text-right hidden sm:block">
+                <p className="text-sm font-medium leading-none transition-colors group-hover:text-primary">{user?.username || "User"}</p>
+                <p className="text-xs text-muted-foreground mt-1">{user?.department || "Member"}</p>
+              </div>
               <Avatar className="h-9 w-9 border border-border shadow-sm group-hover:border-primary/30 transition-colors">
                 <AvatarImage src="" />
                 <AvatarFallback>{(user?.username || "U").substring(0, 2).toUpperCase()}</AvatarFallback>
@@ -498,7 +472,7 @@ export function Header() {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator className="mx-[-8px] my-2" />
-            
+
             <Dialog open={isProfileOpen} onOpenChange={setIsProfileOpen}>
               <DialogTrigger asChild>
                 <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="rounded-lg gap-2 cursor-pointer">
@@ -521,7 +495,7 @@ export function Header() {
                     </Avatar>
                     <Button variant="outline" size="sm">Change Photo</Button>
                   </div>
-                  
+
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="name">Username</Label>

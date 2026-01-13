@@ -1,14 +1,24 @@
 import { Layout } from "@/components/layout/Layout";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useSystemSettings } from "@/contexts/SystemSettingsContext";
+import { cn } from "@/lib/utils";
 import {
+  Clock,
+  CloudSun,
+  Activity,
   Filter,
   RefreshCw
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,17 +27,21 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 
+// Import intranet components
 import {
+  PostComposer,
   PostCard,
   DepartmentChannels,
   OnlineUsers,
   TrendingTopics,
   UpcomingEvents,
+  AnnouncementsBanner,
   type Post,
   type DepartmentChannel,
   type OnlineUser,
   type TrendingTopic,
-  type UpcomingEvent
+  type UpcomingEvent,
+  type Announcement
 } from "@/components/intranet";
 
 // Local interface for department data from API
@@ -38,6 +52,12 @@ interface Department {
   color?: string;
 }
 
+function getTimeGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good Morning";
+  if (hour < 17) return "Good Afternoon";
+  return "Good Evening";
+}
 
 
 // Mock data for demonstration - will be replaced with API calls
@@ -164,8 +184,19 @@ const mockUpcomingEvents: UpcomingEvent[] = [
   },
 ];
 
+const mockAnnouncements: Announcement[] = [
+  {
+    id: "1",
+    title: "System Maintenance Scheduled",
+    message: "The intranet will be undergoing scheduled maintenance this Saturday from 2 AM to 6 AM EST. Please save your work beforehand.",
+    type: "warning",
+    link: "/announcements/maintenance",
+    createdAt: new Date().toISOString(),
+  },
+];
 
 export default function Dashboard() {
+  const [time, setTime] = useState(new Date());
   const [activeChannel, setActiveChannel] = useState<string>("all");
   const [feedFilter, setFeedFilter] = useState<"all" | "following" | "department">("all");
   const { user } = useAuth();
@@ -175,13 +206,24 @@ export default function Dashboard() {
     queryKey: ["/api/departments"],
   });
 
+  // Transform departments to channels format
   const channels: DepartmentChannel[] = departments.map(dept => ({
     id: dept.id.toString(),
     name: dept.name,
     color: dept.color || '#7c3aed',
-    memberCount: 12,
+    memberCount: 12, // TODO: get from backend
     isFavorite: false,
   }));
+
+  useEffect(() => {
+    const timer = setInterval(() => setTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const handlePost = (content: string, visibility: string, departmentId?: string) => {
+    console.log("New post:", { content, visibility, departmentId });
+    // TODO: Implement post creation via API
+  };
 
   const handleLike = (postId: string) => {
     console.log("Like post:", postId);
@@ -193,10 +235,82 @@ export default function Dashboard() {
     // TODO: Implement comment via API
   };
 
+  const systems = [
+    { name: "AI Engine", status: "Operational", color: "bg-emerald-400", latency: "42ms" },
+    { name: "Document Store", status: "Operational", color: "bg-emerald-400", latency: "12ms" },
+    { name: "Helpdesk API", status: "Degraded", color: "bg-rose-400/30", latency: "850ms" },
+    { name: "Auth Service", status: "Operational", color: "bg-emerald-400", latency: "24ms" },
+  ];
+
+  const userName = user?.username || "User";
+  const companyName = settings.companyName || "Your Company";
 
   return (
     <Layout>
       <div className="space-y-6">
+        {/* Header Section */}
+        <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
+          <div className="space-y-2">
+            <h1 className="text-4xl font-display font-bold text-primary tracking-tight">
+              {getTimeGreeting()}, {userName}
+            </h1>
+            <p className="text-muted-foreground text-lg">
+              What's happening at {companyName} today
+            </p>
+          </div>
+
+          {/* Top Right Status Bar */}
+          <div className="flex items-center gap-4 p-2 bg-secondary/20 dark:bg-card/40 backdrop-blur-md rounded-[20px] border border-border/50 shadow-sm">
+            <div className="flex items-center gap-2.5 px-4 py-2.5 bg-background dark:bg-card rounded-2xl border border-border/50 shadow-sm">
+              <CloudSun className="w-5 h-5 text-amber-500" />
+              <span className="text-sm font-bold">72°F</span>
+            </div>
+
+            <div className="flex items-center gap-2.5 px-4 py-2.5 bg-background dark:bg-card rounded-2xl border border-border/50 shadow-sm">
+              <Clock className="w-5 h-5 text-primary" />
+              <span className="text-sm font-bold tabular-nums">
+                {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            </div>
+
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button className="flex items-center gap-2.5 px-5 py-2.5 bg-emerald-100 dark:bg-emerald-500/20 rounded-2xl border border-emerald-200 dark:border-emerald-500/20 hover:bg-emerald-200 dark:hover:bg-emerald-500/30 transition-colors cursor-help group outline-none">
+                    <Activity className="w-5 h-5 text-emerald-600 dark:text-emerald-400 animate-pulse group-hover:scale-110 transition-transform" />
+                    <span className="text-xs font-black text-emerald-700 dark:text-emerald-400 uppercase tracking-widest">Nominal</span>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent className="w-[320px] p-0 rounded-3xl overflow-hidden border-none shadow-[0_20px_50px_rgba(219,39,119,0.3)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)]" sideOffset={12} align="end">
+                  <div className="bg-primary/40 dark:bg-primary/60 backdrop-blur-md p-4 px-6 border-b border-white/10">
+                    <h4 className="text-[11px] font-black uppercase tracking-[0.3em] text-white/90">System Infrastructure</h4>
+                  </div>
+                  <div className="bg-primary dark:bg-primary/90 p-6 space-y-5">
+                    {systems.map((s) => (
+                      <div key={s.name} className="flex items-center justify-between group">
+                        <div className="flex items-center gap-4">
+                          <div className={cn("w-2.5 h-2.5 rounded-full shadow-[0_0_10px_rgba(52,211,153,0.5)]", s.color)} />
+                          <span className="text-sm font-bold text-white group-hover:translate-x-1 transition-transform">{s.name}</span>
+                        </div>
+                        <div className="text-[10px] font-black text-white/90 bg-white/20 px-2 py-1 rounded-lg border border-white/10 backdrop-blur-sm min-w-[50px] text-center">
+                          {s.latency}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+        </div>
+
+        {/* Announcements Banner */}
+        {mockAnnouncements.length > 0 && (
+          <AnnouncementsBanner
+            announcements={mockAnnouncements}
+            onDismiss={(id) => console.log("Dismissed:", id)}
+          />
+        )}
 
         {/* Main 3-Column Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -212,6 +326,16 @@ export default function Dashboard() {
 
           {/* Center - Feed */}
           <div className="lg:col-span-6 space-y-6">
+            {/* Post Composer */}
+            <PostComposer
+              onPost={handlePost}
+              departments={channels.map(c => ({
+                id: c.id,
+                name: c.name,
+                color: c.color
+              }))}
+            />
+
             {/* Feed Header */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
