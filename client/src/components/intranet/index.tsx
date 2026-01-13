@@ -65,6 +65,7 @@ export interface Post {
   };
   content: string;
   visibility: string;
+  departmentId?: string;
   hashtags?: string[];
   imageUrl?: string;
   createdAt: string;
@@ -129,9 +130,10 @@ export interface Announcement {
 interface PostComposerProps {
   onPost: (content: string, visibility: string, departmentId?: string) => void;
   departments: { id: string; name: string; color: string }[];
+  activeChannelId?: string;
 }
 
-export function PostComposer({ onPost }: PostComposerProps) {
+export function PostComposer({ onPost, activeChannelId = 'company' }: PostComposerProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const editor = useEditor({
@@ -190,7 +192,8 @@ export function PostComposer({ onPost }: PostComposerProps) {
     if (!editor) return;
     const html = editor.getHTML();
     if (html === '<p></p>' || !html.trim()) return;
-    onPost(html, 'company');
+    const isCompanyChannel = activeChannelId === 'company';
+    onPost(html, isCompanyChannel ? 'company' : 'department', isCompanyChannel ? undefined : activeChannelId);
     editor.commands.clearContent();
     setIsExpanded(false);
   };

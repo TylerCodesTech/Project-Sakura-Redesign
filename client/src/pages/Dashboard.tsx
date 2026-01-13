@@ -208,7 +208,7 @@ export default function Dashboard() {
 
   const handlePost = (content: string, visibility: string, departmentId?: string) => {
     const hashtagsArray = content.match(/#\w+/g)?.map(tag => tag.slice(1)) || [];
-    const hashtags = hashtagsArray.length > 0 ? JSON.stringify(hashtagsArray) : undefined;
+    const hashtags = hashtagsArray.length > 0 ? hashtagsArray : undefined;
     createPostMutation.mutate({ content, visibility, departmentId, hashtags });
   };
 
@@ -223,15 +223,11 @@ export default function Dashboard() {
   // Filter posts based on active channel
   const filteredPosts = posts.filter((post) => {
     if (activeChannel === "company") {
-      // Show company-wide posts (visibility = "company" or no departmentId)
-      return post.visibility === "company" || !post.author.department;
+      // Show company-wide posts (visibility = "company" and no departmentId)
+      return post.visibility === "company" && !post.departmentId;
     } else {
-      // Show posts for the selected department
-      const selectedDept = channels.find(c => c.id === activeChannel);
-      if (selectedDept) {
-        return post.author.department === selectedDept.name;
-      }
-      return true;
+      // Show posts for the selected department channel
+      return post.visibility === "department" && post.departmentId === activeChannel;
     }
   });
 
@@ -336,6 +332,7 @@ export default function Dashboard() {
                 name: c.name,
                 color: c.color
               }))}
+              activeChannelId={activeChannel}
             />
 
             {/* Feed Header */}
