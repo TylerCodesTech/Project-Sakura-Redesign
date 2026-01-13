@@ -574,9 +574,11 @@ interface DepartmentChannelsProps {
   activeChannelId: string;
   onChannelSelect: (channelId: string) => void;
   onToggleFavorite: (channelId: string) => void;
+  companyName?: string;
+  userDepartment?: string;
 }
 
-export function DepartmentChannels({ channels, activeChannelId, onChannelSelect, onToggleFavorite }: DepartmentChannelsProps) {
+export function DepartmentChannels({ channels, activeChannelId, onChannelSelect, onToggleFavorite, companyName = "Company", userDepartment }: DepartmentChannelsProps) {
   const getDepartmentIcon = (name: string) => {
     switch(name.toLowerCase()) {
       case 'marketing':
@@ -606,33 +608,92 @@ export function DepartmentChannels({ channels, activeChannelId, onChannelSelect,
     }
   };
 
+  const userDeptChannel = channels.find(c => c.name === userDepartment);
+  const otherChannels = channels.filter(c => c.name !== userDepartment);
+
   return (
     <div className="bg-card/60 dark:bg-card/40 backdrop-blur-sm rounded-2xl border border-border/50 p-4">
-      <h3 className="text-sm font-bold mb-4">Department Channels</h3>
+      <h3 className="text-sm font-bold mb-4">Channels</h3>
       <div className="space-y-1">
-        {channels.map((channel) => (
-          <button
-            key={channel.id}
-            onClick={() => onChannelSelect(channel.id)}
-            className={cn(
-              "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left group",
-              activeChannelId === channel.id
-                ? "bg-primary/10 text-primary"
-                : "hover:bg-secondary/50 text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <div className={cn(
-              "w-8 h-8 rounded-lg flex items-center justify-center transition-colors",
-              activeChannelId === channel.id ? "bg-primary/20" : "bg-secondary/50"
-            )}>
-              {getDepartmentIcon(channel.name)}
-            </div>
-            <span className="flex-1 text-sm font-medium">{channel.name}</span>
-            {channel.isFavorite && (
-              <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-            )}
-          </button>
-        ))}
+        <button
+          onClick={() => onChannelSelect("company")}
+          className={cn(
+            "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left group",
+            activeChannelId === "company"
+              ? "bg-gradient-to-r from-pink-500/20 to-rose-500/20 text-primary border border-primary/20"
+              : "hover:bg-secondary/50 text-muted-foreground hover:text-foreground"
+          )}
+        >
+          <div className={cn(
+            "w-8 h-8 rounded-lg flex items-center justify-center transition-colors",
+            activeChannelId === "company" 
+              ? "bg-gradient-to-br from-pink-500 to-rose-500" 
+              : "bg-gradient-to-br from-pink-500/50 to-rose-500/50"
+          )}>
+            <Users className="w-4 h-4 text-white" />
+          </div>
+          <div className="flex-1">
+            <span className="text-sm font-semibold block">{companyName}</span>
+            <span className="text-[10px] text-muted-foreground">Company-wide</span>
+          </div>
+        </button>
+
+        {userDeptChannel && (
+          <>
+            <div className="h-px bg-border/50 my-2" />
+            <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-1 mb-1">Your Department</p>
+            <button
+              onClick={() => onChannelSelect(userDeptChannel.id)}
+              className={cn(
+                "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left group",
+                activeChannelId === userDeptChannel.id
+                  ? "bg-primary/10 text-primary"
+                  : "hover:bg-secondary/50 text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <div className={cn(
+                "w-8 h-8 rounded-lg flex items-center justify-center transition-colors",
+                activeChannelId === userDeptChannel.id ? "bg-primary/20" : "bg-secondary/50"
+              )}>
+                {getDepartmentIcon(userDeptChannel.name)}
+              </div>
+              <span className="flex-1 text-sm font-medium">{userDeptChannel.name}</span>
+              {userDeptChannel.isFavorite && (
+                <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+              )}
+            </button>
+          </>
+        )}
+
+        {otherChannels.length > 0 && (
+          <>
+            <div className="h-px bg-border/50 my-2" />
+            <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-1 mb-1">Other Departments</p>
+            {otherChannels.map((channel) => (
+              <button
+                key={channel.id}
+                onClick={() => onChannelSelect(channel.id)}
+                className={cn(
+                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left group",
+                  activeChannelId === channel.id
+                    ? "bg-primary/10 text-primary"
+                    : "hover:bg-secondary/50 text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <div className={cn(
+                  "w-8 h-8 rounded-lg flex items-center justify-center transition-colors",
+                  activeChannelId === channel.id ? "bg-primary/20" : "bg-secondary/50"
+                )}>
+                  {getDepartmentIcon(channel.name)}
+                </div>
+                <span className="flex-1 text-sm font-medium">{channel.name}</span>
+                {channel.isFavorite && (
+                  <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                )}
+              </button>
+            ))}
+          </>
+        )}
       </div>
     </div>
   );

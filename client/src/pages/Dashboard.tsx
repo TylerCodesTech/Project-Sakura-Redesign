@@ -108,7 +108,7 @@ const mockUpcomingEvents: UpcomingEvent[] = [
 
 export default function Dashboard() {
   const [time, setTime] = useState(new Date());
-  const [activeChannel, setActiveChannel] = useState<string>("all");
+  const [activeChannel, setActiveChannel] = useState<string>("company");
   const [feedFilter, setFeedFilter] = useState<"all" | "following" | "department">("all");
   const { user } = useAuth();
   const { settings } = useSystemSettings();
@@ -305,6 +305,8 @@ export default function Dashboard() {
               activeChannelId={activeChannel}
               onChannelSelect={setActiveChannel}
               onToggleFavorite={(id) => console.log("Toggle favorite:", id)}
+              companyName={companyName}
+              userDepartment={user?.department}
             />
           </div>
 
@@ -325,7 +327,7 @@ export default function Dashboard() {
               <div className="flex items-center gap-2">
                 <h2 className="text-sm font-bold">Feed</h2>
                 <Badge variant="secondary" className="h-5 px-1.5 text-[10px] font-bold">
-                  {activeChannel === "all" ? "All" : channels.find(c => c.id === activeChannel)?.name}
+                  {activeChannel === "company" ? companyName : channels.find(c => c.id === activeChannel)?.name || "All"}
                 </Badge>
               </div>
               <div className="flex items-center gap-2">
