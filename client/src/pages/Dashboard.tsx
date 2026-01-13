@@ -1,29 +1,17 @@
 import { Layout } from "@/components/layout/Layout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { 
-  CloudSun, 
-  Clock, 
+import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/use-auth";
+import { useSystemSettings } from "@/contexts/SystemSettingsContext";
+import { cn } from "@/lib/utils";
+import {
+  Clock,
+  CloudSun,
   Activity,
-  Calendar,
-  MessageSquare,
-  FileText,
-  Plus,
-  PenLine,
-  LifeBuoy,
-  AlertCircle,
-  Smile,
-  Paperclip,
-  SendHorizontal,
-  TrendingUp,
-  Users,
-  Building2,
-  Bell,
-  ChevronRight as ChevronRightIcon,
-  Ticket,
-  Loader2,
+  Filter,
+  RefreshCw
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
   Tooltip,
@@ -31,16 +19,38 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { useState, useEffect, useRef } from "react";
-import { cn } from "@/lib/utils";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { type Department, type News, type Stat, type Comment, type Helpdesk } from "@shared/schema";
-import { apiRequest, queryClient } from "@/lib/queryClient";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { useAuth } from "@/hooks/use-auth";
-import { useSystemSettings } from "@/contexts/SystemSettingsContext";
-import { toast } from "sonner";
-import { TicketCreationWizard } from "@/components/tickets/TicketCreationWizard";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
+
+// Import intranet components
+import {
+  PostComposer,
+  PostCard,
+  DepartmentChannels,
+  OnlineUsers,
+  TrendingTopics,
+  UpcomingEvents,
+  AnnouncementsBanner,
+  type Post,
+  type DepartmentChannel,
+  type OnlineUser,
+  type TrendingTopic,
+  type UpcomingEvent,
+  type Announcement
+} from "@/components/intranet";
+
+// Local interface for department data from API
+interface Department {
+  id: number | string;
+  name: string;
+  description?: string | null;
+  color?: string;
+}
 
 function getTimeGreeting(): string {
   const hour = new Date().getHours();
@@ -49,11 +59,146 @@ function getTimeGreeting(): string {
   return "Good Evening";
 }
 
+
+// Mock data for demonstration - will be replaced with API calls
+const mockPosts: Post[] = [
+  {
+    id: "1",
+    author: {
+      id: "user1",
+      name: "Sarah Chen",
+      department: "Marketing"
+    },
+    content: "Excited to announce that our Q4 campaign exceeded expectations! 📈 Huge thanks to the entire team for their incredible work. Can't wait to share the full results at Friday's all-hands meeting.",
+    visibility: "public",
+    hashtags: ["Q4Results", "TeamWin", "Marketing"],
+    createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+    likesCount: 24,
+    commentsCount: 8,
+    sharesCount: 3,
+    isLiked: true,
+    isPinned: true,
+  },
+  {
+    id: "2",
+    author: {
+      id: "user2",
+      name: "Marcus Johnson",
+      department: "Engineering"
+    },
+    content: "Just pushed the new authentication system to staging! 🚀 If anyone has time to do some exploratory testing before EOD, please reach out. Looking for edge cases we might have missed.",
+    visibility: "public",
+    hashtags: ["Engineering", "Release", "Testing"],
+    createdAt: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
+    likesCount: 18,
+    commentsCount: 12,
+    sharesCount: 1,
+    comments: [
+      {
+        id: "c1",
+        author: { id: "user3", name: "Alex Rivera" },
+        content: "I'll take a look this afternoon! Any specific areas of concern?",
+        createdAt: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
+      }
+    ]
+  },
+  {
+    id: "3",
+    author: {
+      id: "user4",
+      name: "Emily Wang",
+      department: "HR"
+    },
+    content: "📢 Reminder: Open enrollment for benefits ends this Friday! If you haven't reviewed your options yet, please visit the HR portal or reach out to our team with any questions.",
+    visibility: "public",
+    hashtags: ["HR", "Benefits", "Reminder"],
+    createdAt: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
+    likesCount: 5,
+    commentsCount: 2,
+    sharesCount: 0,
+  },
+  {
+    id: "4",
+    author: {
+      id: "user5",
+      name: "David Kim",
+      department: "Sales"
+    },
+    content: "Just closed our biggest enterprise deal of the year! 🎉 This has been 6 months in the making and I couldn't have done it without @Lisa Thompson and the solutions engineering team. Drinks are on me!",
+    visibility: "public",
+    hashtags: ["Sales", "BigWin", "Celebration"],
+    createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+    likesCount: 67,
+    commentsCount: 23,
+    sharesCount: 8,
+  },
+];
+
+const mockOnlineUsers: OnlineUser[] = [
+  { id: "1", name: "Sarah Chen", department: "Marketing", status: "online" },
+  { id: "2", name: "Marcus Johnson", department: "Engineering", status: "online" },
+  { id: "3", name: "Emily Wang", department: "HR", status: "away", statusMessage: "In a meeting" },
+  { id: "4", name: "David Kim", department: "Sales", status: "busy", statusMessage: "Do not disturb" },
+  { id: "5", name: "Alex Rivera", department: "Engineering", status: "online" },
+  { id: "6", name: "Lisa Thompson", department: "Solutions", status: "online" },
+  { id: "7", name: "James Wilson", department: "Finance", status: "away" },
+  { id: "8", name: "Rachel Green", department: "Design", status: "online" },
+];
+
+const mockTrendingTopics: TrendingTopic[] = [
+  { id: "1", tag: "Q4Results", postCount: 45, trend: "up" },
+  { id: "2", tag: "NewProduct", postCount: 32, trend: "up" },
+  { id: "3", tag: "TeamBuilding", postCount: 28, trend: "stable" },
+  { id: "4", tag: "RemoteWork", postCount: 21, trend: "stable" },
+  { id: "5", tag: "Innovation", postCount: 18, trend: "new" },
+];
+
+const mockUpcomingEvents: UpcomingEvent[] = [
+  {
+    id: "1",
+    title: "All-Hands Meeting",
+    type: "meeting",
+    date: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
+    time: "2:00 PM",
+    location: "Main Conference Room",
+    attendeesCount: 48,
+    isAttending: true,
+  },
+  {
+    id: "2",
+    title: "Product Launch Party",
+    type: "celebration",
+    date: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
+    time: "6:00 PM",
+    location: "Rooftop Lounge",
+    attendeesCount: 72,
+  },
+  {
+    id: "3",
+    title: "Security Training",
+    type: "training",
+    date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    time: "10:00 AM",
+    location: "Online",
+    attendeesCount: 120,
+  },
+];
+
+const mockAnnouncements: Announcement[] = [
+  {
+    id: "1",
+    title: "System Maintenance Scheduled",
+    message: "The intranet will be undergoing scheduled maintenance this Saturday from 2 AM to 6 AM EST. Please save your work beforehand.",
+    type: "warning",
+    link: "/announcements/maintenance",
+    createdAt: new Date().toISOString(),
+  },
+];
+
 export default function Dashboard() {
   const [time, setTime] = useState(new Date());
-  const [message, setMessage] = useState("");
-  const [isCreateTicketOpen, setIsCreateTicketOpen] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const [activeChannel, setActiveChannel] = useState<string>("all");
+  const [feedFilter, setFeedFilter] = useState<"all" | "following" | "department">("all");
   const { user } = useAuth();
   const { settings } = useSystemSettings();
 
@@ -61,51 +206,33 @@ export default function Dashboard() {
     queryKey: ["/api/departments"],
   });
 
-  const { data: helpdesks = [] } = useQuery<Helpdesk[]>({
-    queryKey: ["/api/helpdesks"],
-  });
-
-
-  const { data: news = [], isLoading: isLoadingNews } = useQuery<News[]>({
-    queryKey: ["/api/news"],
-  });
-
-  const { data: backendStats = [], isLoading: isLoadingStats } = useQuery<Stat[]>({
-    queryKey: ["/api/stats"],
-  });
-
-  const { data: messages = [] } = useQuery<Comment[]>({
-    queryKey: ["/api/watercooler"],
-    refetchInterval: 3000,
-  });
-
-  const postMessageMutation = useMutation({
-    mutationFn: async (content: string) => {
-      await apiRequest("POST", "/api/watercooler", {
-        content,
-        userId: user?.id || "anonymous",
-      });
-    },
-    onSuccess: () => {
-      setMessage("");
-      queryClient.invalidateQueries({ queryKey: ["/api/watercooler"] });
-    }
-  });
-
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [messages]);
+  // Transform departments to channels format
+  const channels: DepartmentChannel[] = departments.map(dept => ({
+    id: dept.id.toString(),
+    name: dept.name,
+    color: dept.color || '#7c3aed',
+    memberCount: 12, // TODO: get from backend
+    isFavorite: false,
+  }));
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  const handleSendMessage = () => {
-    if (!message.trim()) return;
-    postMessageMutation.mutate(message);
+  const handlePost = (content: string, visibility: string, departmentId?: string) => {
+    console.log("New post:", { content, visibility, departmentId });
+    // TODO: Implement post creation via API
+  };
+
+  const handleLike = (postId: string) => {
+    console.log("Like post:", postId);
+    // TODO: Implement like via API
+  };
+
+  const handleComment = (postId: string, content: string) => {
+    console.log("Comment on post:", postId, content);
+    // TODO: Implement comment via API
   };
 
   const systems = [
@@ -120,19 +247,25 @@ export default function Dashboard() {
 
   return (
     <Layout>
-      <div className="space-y-8">
+      <div className="space-y-6">
+        {/* Header Section */}
         <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
           <div className="space-y-2">
-            <h1 className="text-4xl font-display font-bold text-primary tracking-tight">{getTimeGreeting()}, {userName}</h1>
-            <p className="text-muted-foreground text-lg">Here's what's happening at {companyName} today.</p>
+            <h1 className="text-4xl font-display font-bold text-primary tracking-tight">
+              {getTimeGreeting()}, {userName}
+            </h1>
+            <p className="text-muted-foreground text-lg">
+              What's happening at {companyName} today
+            </p>
           </div>
-          
+
+          {/* Top Right Status Bar */}
           <div className="flex items-center gap-4 p-2 bg-secondary/20 dark:bg-card/40 backdrop-blur-md rounded-[20px] border border-border/50 shadow-sm">
             <div className="flex items-center gap-2.5 px-4 py-2.5 bg-background dark:bg-card rounded-2xl border border-border/50 shadow-sm">
               <CloudSun className="w-5 h-5 text-amber-500" />
               <span className="text-sm font-bold">72°F</span>
             </div>
-            
+
             <div className="flex items-center gap-2.5 px-4 py-2.5 bg-background dark:bg-card rounded-2xl border border-border/50 shadow-sm">
               <Clock className="w-5 h-5 text-primary" />
               <span className="text-sm font-bold tabular-nums">
@@ -171,217 +304,121 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          <div className="lg:col-span-8 space-y-8">
-            <Card className="border border-border/50 shadow-sm rounded-3xl overflow-hidden bg-white/60 dark:bg-card/60 backdrop-blur-md">
-              <CardHeader className="flex flex-row items-center justify-between border-b border-border/40 pb-4 bg-secondary/10">
-                <div className="flex items-center gap-3">
-                  <div className="p-1.5 bg-indigo-500/10 rounded-lg">
-                    <Bell className="w-4 h-4 text-indigo-500" />
-                  </div>
-                  <CardTitle className="text-lg font-bold text-primary">Company News</CardTitle>
-                </div>
-                <Button variant="ghost" size="sm" className="text-primary font-bold hover:bg-primary/5 px-4 rounded-xl">
-                  View All
-                  <ChevronRightIcon className="w-4 h-4 ml-1" />
-                </Button>
-              </CardHeader>
-              <CardContent className="p-4 space-y-4">
-                {isLoadingNews ? (
-                  Array.from({ length: 2 }).map((_, i) => (
-                    <div key={i} className="h-16 rounded-2xl bg-secondary/20 animate-pulse" />
-                  ))
-                ) : (
-                  news.slice(0, 3).map((item) => (
-                    <div key={item.id} className="flex items-center justify-between p-3 rounded-2xl hover:bg-secondary/20 transition-colors cursor-pointer group">
-                      <div className="space-y-1">
-                        <p className="text-sm font-bold group-hover:text-primary transition-colors">{item.title}</p>
-                        <p className="text-xs text-muted-foreground">{item.category}</p>
-                      </div>
-                      <Badge variant="secondary" className="rounded-full px-3 bg-primary/10 text-primary hover:bg-primary/20">
-                        New
-                      </Badge>
-                    </div>
-                  ))
-                )}
-              </CardContent>
-            </Card>
+        {/* Announcements Banner */}
+        {mockAnnouncements.length > 0 && (
+          <AnnouncementsBanner
+            announcements={mockAnnouncements}
+            onDismiss={(id) => console.log("Dismissed:", id)}
+          />
+        )}
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              {isLoadingStats ? (
-                Array.from({ length: 4 }).map((_, i) => (
-                  <Card key={i} className="border border-border/50 shadow-sm rounded-3xl bg-white/60 dark:bg-card/60 backdrop-blur-md">
-                    <CardContent className="p-4 h-24 flex flex-col justify-center">
-                      <div className="h-4 w-16 bg-secondary/30 rounded animate-pulse mb-2" />
-                      <div className="h-8 w-12 bg-secondary/20 rounded animate-pulse" />
-                    </CardContent>
-                  </Card>
-                ))
-              ) : (
-                backendStats.map((stat) => (
-                  <Card key={stat.id} className="border border-border/50 shadow-sm rounded-3xl bg-white/60 dark:bg-card/60 backdrop-blur-md hover:shadow-md transition-shadow group">
-                    <CardContent className="p-4">
-                      <p className="text-xs text-muted-foreground font-medium capitalize">{stat.key.replace(/_/g, " ")}</p>
-                      <p className="text-3xl font-black text-primary mt-1 group-hover:scale-105 transition-transform origin-left">
-                        {stat.value}
-                      </p>
-                      <div className="flex items-center gap-1 mt-1">
-                        <TrendingUp className="w-3 h-3 text-emerald-500" />
-                        <span className="text-xs text-emerald-500 font-bold">{stat.change || "+0%"}</span>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))
-              )}
-            </div>
-
-            <Card className="border border-border/50 shadow-sm rounded-3xl overflow-hidden bg-white/60 dark:bg-card/60 backdrop-blur-md">
-              <CardHeader className="flex flex-row items-center justify-between border-b border-border/40 pb-4 bg-secondary/10">
-                <div className="flex items-center gap-3">
-                  <div className="p-1.5 bg-cyan-500/10 rounded-lg">
-                    <Building2 className="w-4 h-4 text-cyan-500" />
-                  </div>
-                  <CardTitle className="text-lg font-bold text-primary">Departments</CardTitle>
-                </div>
-                <Button variant="ghost" size="sm" className="text-primary font-bold hover:bg-primary/5 px-4 rounded-xl">
-                  View All
-                  <ChevronRightIcon className="w-4 h-4 ml-1" />
-                </Button>
-              </CardHeader>
-              <CardContent className="p-4">
-                {isLoadingDepts ? (
-                  <div className="grid grid-cols-2 gap-3">
-                    {Array.from({ length: 4 }).map((_, i) => (
-                      <div key={i} className="h-20 rounded-2xl bg-secondary/20 animate-pulse" />
-                    ))}
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 gap-3">
-                    {departments.slice(0, 4).map((dept) => (
-                      <div 
-                        key={dept.id} 
-                        className="p-4 rounded-2xl border border-border/50 hover:border-primary/30 hover:bg-primary/5 transition-all cursor-pointer group"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div 
-                            className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-black text-lg shadow-sm"
-                            style={{ backgroundColor: dept.color || '#7c3aed' }}
-                          >
-                            {dept.name.charAt(0)}
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-sm font-bold text-primary truncate group-hover:text-primary transition-colors">{dept.name}</p>
-                            <p className="text-xs text-muted-foreground">12 members</p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+        {/* Main 3-Column Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Left Sidebar - Department Channels */}
+          <div className="hidden lg:block lg:col-span-3 space-y-6">
+            <DepartmentChannels
+              channels={channels}
+              activeChannelId={activeChannel}
+              onChannelSelect={setActiveChannel}
+              onToggleFavorite={(id) => console.log("Toggle favorite:", id)}
+            />
           </div>
 
-          <div className="lg:col-span-4 space-y-6">
-            <Card className="border border-border/50 shadow-sm rounded-3xl bg-white/60 dark:bg-card/60 backdrop-blur-md">
-              <CardHeader className="flex flex-row items-center justify-between border-b border-border/40 pb-4 bg-secondary/10">
-                <div className="flex items-center gap-3">
-                  <div className="p-1.5 bg-purple-500/10 rounded-lg">
-                    <Calendar className="w-4 h-4 text-purple-500" />
-                  </div>
-                  <CardTitle className="text-lg font-bold text-primary">Quick Actions</CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent className="p-4 space-y-2">
-                <Button 
-                  variant="outline" 
-                  className="w-full justify-start gap-3 h-12 rounded-2xl border-border/50 hover:bg-primary/5 hover:text-primary hover:border-primary/30 transition-all font-medium"
-                  onClick={() => setIsCreateTicketOpen(true)}
-                >
-                  <div className="p-1.5 bg-rose-500/10 rounded-lg">
-                    <Ticket className="w-4 h-4 text-rose-500" />
-                  </div>
-                  Create Ticket
-                </Button>
-                <TicketCreationWizard 
-                  open={isCreateTicketOpen} 
-                  onOpenChange={setIsCreateTicketOpen} 
-                />
-                <Button variant="outline" className="w-full justify-start gap-3 h-12 rounded-2xl border-border/50 hover:bg-primary/5 hover:text-primary hover:border-primary/30 transition-all font-medium">
-                  <div className="p-1.5 bg-blue-500/10 rounded-lg">
-                    <PenLine className="w-4 h-4 text-blue-500" />
-                  </div>
-                  New Document
-                </Button>
-                <Button variant="outline" className="w-full justify-start gap-3 h-12 rounded-2xl border-border/50 hover:bg-primary/5 hover:text-primary hover:border-primary/30 transition-all font-medium">
-                  <div className="p-1.5 bg-amber-500/10 rounded-lg">
-                    <LifeBuoy className="w-4 h-4 text-amber-500" />
-                  </div>
-                  Get Support
-                </Button>
-              </CardContent>
-            </Card>
+          {/* Center - Feed */}
+          <div className="lg:col-span-6 space-y-6">
+            {/* Post Composer */}
+            <PostComposer
+              onPost={handlePost}
+              departments={channels.map(c => ({
+                id: c.id,
+                name: c.name,
+                color: c.color
+              }))}
+            />
 
-            <Card className="border border-border/50 shadow-sm rounded-3xl bg-white/60 dark:bg-card/60 backdrop-blur-md flex flex-col h-[400px]">
-              <CardHeader className="flex flex-row items-center justify-between border-b border-border/40 pb-4 bg-secondary/10">
-                <div className="flex items-center gap-3">
-                  <div className="p-1.5 bg-green-500/10 rounded-lg">
-                    <MessageSquare className="w-4 h-4 text-green-500" />
-                  </div>
-                  <CardTitle className="text-lg font-bold text-primary">Water Cooler</CardTitle>
-                </div>
-                <Badge variant="outline" className="rounded-full text-xs font-black">
-                  Live
+            {/* Feed Header */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-bold">Feed</h2>
+                <Badge variant="secondary" className="h-5 px-1.5 text-[10px] font-bold">
+                  {activeChannel === "all" ? "All" : channels.find(c => c.id === activeChannel)?.name}
                 </Badge>
-              </CardHeader>
-              <CardContent className="p-0 flex-1 flex flex-col overflow-hidden">
-                <ScrollArea className="flex-1 p-4" ref={scrollRef}>
-                  <div className="space-y-3">
-                    {messages.map((msg, i) => (
-                      <div key={msg.id || i} className="flex gap-2">
-                        <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                          <span className="text-xs font-bold text-primary">
-                            {(msg.userId || "U").charAt(0).toUpperCase()}
-                          </span>
-                        </div>
-                        <div className="bg-secondary/30 rounded-2xl rounded-tl-md px-3 py-2 max-w-[85%]">
-                          <p className="text-sm">{msg.content}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </ScrollArea>
-                <div className="p-3 border-t border-border/40 bg-secondary/5">
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 relative">
-                      <Input 
-                        placeholder="Say something..." 
-                        className="h-10 rounded-2xl border-border/50 pr-20 bg-background/50"
-                        value={message}
-                        onChange={(e) => setMessage(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-                      />
-                      <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                        <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full hover:bg-secondary/50">
-                          <Smile className="w-4 h-4 text-muted-foreground" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full hover:bg-secondary/50">
-                          <Paperclip className="w-4 h-4 text-muted-foreground" />
-                        </Button>
-                      </div>
-                    </div>
-                    <Button 
-                      size="icon" 
-                      className="h-10 w-10 rounded-2xl shadow-sm"
-                      onClick={handleSendMessage}
-                      disabled={postMessageMutation.isPending}
-                    >
-                      <SendHorizontal className="w-4 h-4" />
+              </div>
+              <div className="flex items-center gap-2">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-8 gap-2 rounded-lg">
+                      <Filter className="w-4 h-4" />
+                      <span className="text-xs font-medium capitalize">{feedFilter}</span>
                     </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-36 rounded-xl">
+                    <DropdownMenuItem
+                      className="rounded-lg"
+                      onClick={() => setFeedFilter("all")}
+                    >
+                      All Posts
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="rounded-lg"
+                      onClick={() => setFeedFilter("following")}
+                    >
+                      Following
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="rounded-lg"
+                      onClick={() => setFeedFilter("department")}
+                    >
+                      My Department
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg">
+                  <RefreshCw className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Posts Feed */}
+            <div className="space-y-4">
+              {mockPosts.map((post) => (
+                <PostCard
+                  key={post.id}
+                  post={post}
+                  onLike={handleLike}
+                  onComment={handleComment}
+                  onShare={(id) => console.log("Share:", id)}
+                  onBookmark={(id) => console.log("Bookmark:", id)}
+                  currentUserId={user?.id?.toString()}
+                />
+              ))}
+
+              {/* Load More */}
+              <div className="flex justify-center py-8">
+                <Button variant="outline" className="rounded-full px-6">
+                  Load more posts
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Sidebar - Online Users, Trending, Events */}
+          <div className="hidden lg:block lg:col-span-3 space-y-6">
+            <OnlineUsers
+              users={mockOnlineUsers}
+              onMessageUser={(id) => console.log("Message user:", id)}
+            />
+
+            <TrendingTopics
+              topics={mockTrendingTopics}
+              onTopicClick={(tag) => console.log("Topic clicked:", tag)}
+            />
+
+            <UpcomingEvents
+              events={mockUpcomingEvents}
+              onEventClick={(id) => console.log("Event clicked:", id)}
+              onRSVP={(id) => console.log("RSVP:", id)}
+            />
           </div>
         </div>
       </div>

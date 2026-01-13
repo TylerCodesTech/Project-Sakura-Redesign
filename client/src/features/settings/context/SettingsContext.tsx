@@ -55,7 +55,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const getBreadcrumbs = useCallback((section: string): { id: string; label: string }[] => {
     const normalized = normalizeSection(section);
     const crumbs: { id: string; label: string }[] = [{ id: "settings", label: "Settings" }];
-    
+
     const sectionMap: Record<string, { parent?: string; label: string }> = {
       "general": { label: "General" },
       "branding": { parent: "general", label: "Branding" },
