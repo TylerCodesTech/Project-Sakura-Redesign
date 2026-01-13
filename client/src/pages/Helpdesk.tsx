@@ -35,7 +35,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { type Ticket, type Department, type User as UserType, type SlaState, type Helpdesk as HelpdeskType, type DepartmentHierarchy } from "@shared/schema";
 import { TicketSidebarPanel } from "@/components/tickets/TicketSidebarPanel";
 import { HelpdeskSidebar } from "@/components/helpdesk/HelpdeskSidebar";
@@ -69,6 +69,7 @@ export default function Helpdesk() {
   const [filterText, setFilterText] = useState("");
   const [, setLocation] = useLocation();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -161,7 +162,7 @@ export default function Helpdesk() {
       textMatch = 
         ticket.title.toLowerCase().includes(searchText) ||
         ticket.id.toLowerCase().includes(searchText) ||
-        (ticket.description && ticket.description.toLowerCase().includes(searchText));
+        Boolean(ticket.description && ticket.description.toLowerCase().includes(searchText));
     }
 
     return departmentMatch && textMatch;
@@ -914,10 +915,11 @@ export default function Helpdesk() {
                           })}
                         </div>
                       )}
-                  </>
-                )}
+                    </>
+                  )}
+                </div>
               </ScrollArea>
-            </div>
+            </>
           )}
         </div>
 
