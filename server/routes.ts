@@ -2248,7 +2248,8 @@ export async function registerRoutes(
         author: author ? {
           id: author.id,
           name: author.username,
-          department: author.department
+          department: author.department,
+          avatar: author.avatar
         } : null
       };
     });
@@ -2265,7 +2266,8 @@ export async function registerRoutes(
       author: author ? {
         id: author.id,
         name: author.username,
-        department: author.department
+        department: author.department,
+        avatar: author.avatar
       } : null
     });
   });
@@ -2283,7 +2285,8 @@ export async function registerRoutes(
         author: author ? {
           id: author.id,
           name: author.username,
-          department: author.department
+          department: author.department,
+          avatar: author.avatar
         } : null
       });
     } catch (error: any) {
@@ -2355,7 +2358,8 @@ export async function registerRoutes(
         author: author ? {
           id: author.id,
           name: author.username,
-          department: author.department
+          department: author.department,
+          avatar: author.avatar
         } : null
       };
     });
@@ -2380,7 +2384,8 @@ export async function registerRoutes(
         author: author ? {
           id: author.id,
           name: author.username,
-          department: author.department
+          department: author.department,
+          avatar: author.avatar
         } : null
       });
     } catch (error: any) {
