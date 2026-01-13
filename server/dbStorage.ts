@@ -10,6 +10,7 @@ import {
   reportDefinitions, reportFields, savedReports, reportSchedules, reportShares, reportAuditLogs, departmentReportSettings,
   aiModelConfigs, announcements, searchHistory,
   posts, postLikes, postComments,
+  monitoredServices, serviceStatusHistory, serviceAlerts,
   type User, type InsertUser, type Book, type InsertBook, type Page, type InsertPage,
   type Comment, type InsertComment, type Notification, type InsertNotification,
   type ExternalLink, type InsertExternalLink, type Department, type InsertDepartment,
@@ -41,6 +42,9 @@ import {
   type Post, type InsertPost,
   type PostLike,
   type PostComment, type InsertPostComment,
+  type MonitoredService, type InsertMonitoredService,
+  type ServiceStatusHistory, type InsertServiceStatusHistory,
+  type ServiceAlert, type InsertServiceAlert,
   type RoleWithUserCount, type RoleWithPermissions,
   systemSettingsDefaults
 } from "@shared/schema";
@@ -1186,5 +1190,63 @@ export class DatabaseStorage implements IStorage {
       .set({ commentsCount: sql`${posts.commentsCount} + 1` })
       .where(eq(posts.id, insert.postId));
     return comment;
+  }
+
+  async getMonitoredServices(): Promise<MonitoredService[]> {
+    return db.select().from(monitoredServices).orderBy(asc(monitoredServices.name));
+  }
+
+  async getMonitoredServiceById(id: string): Promise<MonitoredService | undefined> {
+    const [service] = await db.select().from(monitoredServices).where(eq(monitoredServices.id, id));
+    return service;
+  }
+
+  async createMonitoredService(insert: InsertMonitoredService): Promise<MonitoredService> {
+    const [service] = await db.insert(monitoredServices).values(insert).returning();
+    return service;
+  }
+
+  async updateMonitoredService(id: string, update: Partial<InsertMonitoredService>): Promise<MonitoredService> {
+    const [service] = await db.update(monitoredServices)
+      .set({ ...update, updatedAt: new Date().toISOString() })
+      .where(eq(monitoredServices.id, id))
+      .returning();
+    if (!service) throw new Error("Monitored service not found");
+    return service;
+  }
+
+  async deleteMonitoredService(id: string): Promise<void> {
+    await db.delete(serviceStatusHistory).where(eq(serviceStatusHistory.serviceId, id));
+    await db.delete(serviceAlerts).where(eq(serviceAlerts.serviceId, id));
+    await db.delete(monitoredServices).where(eq(monitoredServices.id, id));
+  }
+
+  async getServiceStatusHistory(serviceId: string): Promise<ServiceStatusHistory[]> {
+    return db.select().from(serviceStatusHistory)
+      .where(eq(serviceStatusHistory.serviceId, serviceId))
+      .orderBy(desc(serviceStatusHistory.checkedAt))
+      .limit(100);
+  }
+
+  async createServiceStatusHistory(insert: InsertServiceStatusHistory): Promise<ServiceStatusHistory> {
+    const [history] = await db.insert(serviceStatusHistory).values(insert).returning();
+    return history;
+  }
+
+  async getServiceAlerts(): Promise<ServiceAlert[]> {
+    return db.select().from(serviceAlerts).orderBy(desc(serviceAlerts.createdAt));
+  }
+
+  async acknowledgeServiceAlert(id: string, userId: string): Promise<ServiceAlert> {
+    const [alert] = await db.update(serviceAlerts)
+      .set({ 
+        acknowledged: "true", 
+        acknowledgedBy: userId, 
+        acknowledgedAt: new Date().toISOString() 
+      })
+      .where(eq(serviceAlerts.id, id))
+      .returning();
+    if (!alert) throw new Error("Service alert not found");
+    return alert;
   }
 }

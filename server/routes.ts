@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertBookSchema, insertPageSchema, insertCommentSchema, insertNotificationSchema, insertExternalLinkSchema, insertDepartmentSchema, insertNewsSchema, insertStatSchema, systemSettingsDefaults, insertHelpdeskSchema, insertSlaStateSchema, insertSlaPolicySchema, insertDepartmentHierarchySchema, insertDepartmentManagerSchema, insertEscalationRuleSchema, insertEscalationConditionSchema, insertInboundEmailConfigSchema, insertTicketSchema, insertTicketCommentSchema, insertHelpdeskWebhookSchema, insertTicketFormCategorySchema, insertTicketFormFieldSchema, insertRoleSchema, insertUserRoleSchema, insertAuditLogSchema, AVAILABLE_PERMISSIONS, PERMISSION_CATEGORIES, insertPageVersionSchema, insertBookVersionSchema, insertVersionAuditLogSchema, insertPostSchema, insertPostCommentSchema } from "@shared/schema";
+import { insertBookSchema, insertPageSchema, insertCommentSchema, insertNotificationSchema, insertExternalLinkSchema, insertDepartmentSchema, insertNewsSchema, insertStatSchema, systemSettingsDefaults, insertHelpdeskSchema, insertSlaStateSchema, insertSlaPolicySchema, insertDepartmentHierarchySchema, insertDepartmentManagerSchema, insertEscalationRuleSchema, insertEscalationConditionSchema, insertInboundEmailConfigSchema, insertTicketSchema, insertTicketCommentSchema, insertHelpdeskWebhookSchema, insertTicketFormCategorySchema, insertTicketFormFieldSchema, insertRoleSchema, insertUserRoleSchema, insertAuditLogSchema, AVAILABLE_PERMISSIONS, PERMISSION_CATEGORIES, insertPageVersionSchema, insertBookVersionSchema, insertVersionAuditLogSchema, insertPostSchema, insertPostCommentSchema, insertMonitoredServiceSchema, insertServiceStatusHistorySchema, insertServiceAlertSchema } from "@shared/schema";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -2390,6 +2390,75 @@ export async function registerRoutes(
       });
     } catch (error: any) {
       res.status(400).json({ error: error.message });
+    }
+  });
+
+  // ============================================
+  // INFRASTRUCTURE MONITORING ROUTES
+  // ============================================
+
+  app.get("/api/monitored-services", async (_req, res) => {
+    const services = await storage.getMonitoredServices();
+    res.json(services);
+  });
+
+  app.get("/api/monitored-services/:id", async (req, res) => {
+    const service = await storage.getMonitoredServiceById(req.params.id);
+    if (!service) return res.status(404).json({ error: "Service not found" });
+    res.json(service);
+  });
+
+  app.post("/api/monitored-services", async (req, res) => {
+    const result = insertMonitoredServiceSchema.safeParse(req.body);
+    if (!result.success) return res.status(400).json({ error: result.error });
+    
+    try {
+      const service = await storage.createMonitoredService(result.data);
+      res.status(201).json(service);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.patch("/api/monitored-services/:id", async (req, res) => {
+    const result = insertMonitoredServiceSchema.partial().safeParse(req.body);
+    if (!result.success) return res.status(400).json({ error: result.error });
+    
+    try {
+      const service = await storage.updateMonitoredService(req.params.id, result.data);
+      res.json(service);
+    } catch (error: any) {
+      res.status(404).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/monitored-services/:id", async (req, res) => {
+    try {
+      await storage.deleteMonitoredService(req.params.id);
+      res.sendStatus(204);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/service-status-history/:serviceId", async (req, res) => {
+    const history = await storage.getServiceStatusHistory(req.params.serviceId);
+    res.json(history);
+  });
+
+  app.get("/api/service-alerts", async (_req, res) => {
+    const alerts = await storage.getServiceAlerts();
+    res.json(alerts);
+  });
+
+  app.patch("/api/service-alerts/:id/acknowledge", async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).send("Unauthorized");
+    
+    try {
+      const alert = await storage.acknowledgeServiceAlert(req.params.id, req.user!.id);
+      res.json(alert);
+    } catch (error: any) {
+      res.status(404).json({ error: error.message });
     }
   });
 

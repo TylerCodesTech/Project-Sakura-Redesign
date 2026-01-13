@@ -13,6 +13,7 @@ import {
   LinksSettings,
   GeneralSettings,
   MaintenanceSettings,
+  InfrastructureSettings,
   ProfileSettings,
 } from "@/features/settings/sections";
 import { motion, AnimatePresence } from "framer-motion";
@@ -83,6 +84,10 @@ export default function SystemSettings() {
 
     if (section === "integrations") {
       return <LinksSettings subsection={section} />;
+    }
+
+    if (section === "maintenance-infrastructure" || section === "maintenance-services" || section === "maintenance-alerts") {
+      return <InfrastructureSettings subsection={section} />;
     }
 
     if (section.startsWith("maintenance")) {

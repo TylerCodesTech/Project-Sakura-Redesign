@@ -44,6 +44,9 @@ import {
   type Post, type InsertPost,
   type PostLike,
   type PostComment, type InsertPostComment,
+  type MonitoredService, type InsertMonitoredService,
+  type ServiceStatusHistory, type InsertServiceStatusHistory,
+  type ServiceAlert, type InsertServiceAlert,
   AVAILABLE_PERMISSIONS,
   systemSettingsDefaults
 } from "@shared/schema";
@@ -310,6 +313,17 @@ export interface IStorage {
   isPostLiked(postId: string, userId: string): Promise<boolean>;
   getPostComments(postId: string): Promise<PostComment[]>;
   createPostComment(insert: InsertPostComment): Promise<PostComment>;
+
+  // Infrastructure Monitoring
+  getMonitoredServices(): Promise<MonitoredService[]>;
+  getMonitoredServiceById(id: string): Promise<MonitoredService | undefined>;
+  createMonitoredService(service: InsertMonitoredService): Promise<MonitoredService>;
+  updateMonitoredService(id: string, update: Partial<InsertMonitoredService>): Promise<MonitoredService>;
+  deleteMonitoredService(id: string): Promise<void>;
+  getServiceStatusHistory(serviceId: string): Promise<ServiceStatusHistory[]>;
+  createServiceStatusHistory(history: InsertServiceStatusHistory): Promise<ServiceStatusHistory>;
+  getServiceAlerts(): Promise<ServiceAlert[]>;
+  acknowledgeServiceAlert(id: string, userId: string): Promise<ServiceAlert>;
 }
 
 export class MemStorage implements IStorage {
