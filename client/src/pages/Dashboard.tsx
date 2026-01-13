@@ -219,6 +219,21 @@ export default function Dashboard() {
     commentMutation.mutate({ postId, content });
   };
 
+  // Filter posts based on active channel
+  const filteredPosts = posts.filter((post) => {
+    if (activeChannel === "company") {
+      // Show company-wide posts (visibility = "company" or no departmentId)
+      return post.visibility === "company" || !post.author.department;
+    } else {
+      // Show posts for the selected department
+      const selectedDept = channels.find(c => c.id === activeChannel);
+      if (selectedDept) {
+        return post.author.department === selectedDept.name;
+      }
+      return true;
+    }
+  });
+
   const systems = [
     { name: "AI Engine", status: "Operational", color: "bg-emerald-400", latency: "42ms" },
     { name: "Document Store", status: "Operational", color: "bg-emerald-400", latency: "12ms" },
@@ -369,12 +384,12 @@ export default function Dashboard() {
             <div className="space-y-4">
               {isLoadingPosts ? (
                 <div className="text-center py-8 text-muted-foreground">Loading posts...</div>
-              ) : posts.length === 0 ? (
+              ) : filteredPosts.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  No posts yet. Be the first to share something!
+                  No posts in this channel yet. Be the first to share something!
                 </div>
               ) : (
-                posts.map((post) => (
+                filteredPosts.map((post) => (
                   <PostCard
                     key={post.id}
                     post={post}
@@ -387,7 +402,7 @@ export default function Dashboard() {
                 ))
               )}
 
-              {posts.length > 0 && (
+              {filteredPosts.length > 0 && (
                 <div className="flex justify-center py-8">
                   <Button variant="outline" className="rounded-full px-6">
                     Load more posts
