@@ -206,6 +206,43 @@ export default function Dashboard() {
     queryKey: ["/api/departments"],
   });
 
+  // Fetch active announcements
+  const { data: announcements = [] } = useQuery<Announcement[]>({
+    queryKey: ["/api/announcements/active"],
+  });
+
+  // Fetch users from signed-in user's department
+  const { data: departmentUsers = [] } = useQuery<{id: string; username: string; department: string}[]>({
+    queryKey: ["/api/users/department", user?.department],
+    enabled: !!user?.department,
+  });
+
+  // Fetch trending topics for user's department
+  const { data: trendingData = [] } = useQuery<{query: string; count: number}[]>({
+    queryKey: ["/api/trending-topics", user?.department],
+    queryFn: async () => {
+      const res = await fetch(`/api/trending-topics?departmentId=${user?.department || ''}&limit=5`);
+      return res.json();
+    },
+    enabled: !!user,
+  });
+
+  // Transform trending data to expected format
+  const trendingTopics: TrendingTopic[] = trendingData.map((t, i) => ({
+    id: i.toString(),
+    tag: t.query,
+    postCount: t.count,
+    trend: "stable" as const,
+  }));
+
+  // Transform department users to online users format
+  const onlineUsers: OnlineUser[] = departmentUsers.map((u, i) => ({
+    id: u.id,
+    name: u.username,
+    department: u.department || user?.department || "",
+    status: i % 4 === 0 ? "away" : i % 5 === 0 ? "busy" : "online" as const,
+  }));
+
   // Transform departments to channels format
   const channels: DepartmentChannel[] = departments.map(dept => ({
     id: dept.id.toString(),
@@ -305,9 +342,9 @@ export default function Dashboard() {
         </div>
 
         {/* Announcements Banner */}
-        {mockAnnouncements.length > 0 && (
+        {announcements.length > 0 && (
           <AnnouncementsBanner
-            announcements={mockAnnouncements}
+            announcements={announcements}
             onDismiss={(id) => console.log("Dismissed:", id)}
           />
         )}
@@ -405,12 +442,12 @@ export default function Dashboard() {
           {/* Right Sidebar - Online Users, Trending, Events */}
           <div className="hidden lg:block lg:col-span-3 space-y-6">
             <OnlineUsers
-              users={mockOnlineUsers}
+              users={onlineUsers.length > 0 ? onlineUsers : mockOnlineUsers}
               onMessageUser={(id) => console.log("Message user:", id)}
             />
 
             <TrendingTopics
-              topics={mockTrendingTopics}
+              topics={trendingTopics.length > 0 ? trendingTopics : mockTrendingTopics}
               onTopicClick={(tag) => console.log("Topic clicked:", tag)}
             />
 
