@@ -1741,8 +1741,15 @@ export class MemStorage implements IStorage {
     const id = randomUUID();
     const announcement: Announcement = {
       id,
-      ...insert,
+      title: insert.title,
+      message: insert.message,
+      type: insert.type ?? "info",
+      link: insert.link ?? null,
       isActive: insert.isActive ?? true,
+      departmentId: insert.departmentId ?? null,
+      startDate: insert.startDate ?? null,
+      endDate: insert.endDate ?? null,
+      createdBy: insert.createdBy,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -1765,8 +1772,10 @@ export class MemStorage implements IStorage {
   async createSearchHistory(insert: InsertSearchHistory): Promise<SearchHistory> {
     const history: SearchHistory = {
       id: randomUUID(),
-      ...insert,
-      resultCount: insert.resultCount ?? 0,
+      query: insert.query,
+      userId: insert.userId,
+      departmentId: insert.departmentId ?? null,
+      resultCount: insert.resultCount ?? null,
       createdAt: new Date().toISOString(),
     };
     this.searchHistory.push(history);

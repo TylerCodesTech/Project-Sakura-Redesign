@@ -2079,5 +2079,85 @@ export async function registerRoutes(
     }
   });
 
+  // Announcements API
+  app.get("/api/announcements", async (req, res) => {
+    const departmentId = req.query.departmentId as string | undefined;
+    const announcements = await storage.getAnnouncements(departmentId);
+    res.json(announcements);
+  });
+
+  app.get("/api/announcements/active", async (req, res) => {
+    const departmentId = req.query.departmentId as string | undefined;
+    const announcements = await storage.getActiveAnnouncements(departmentId);
+    res.json(announcements);
+  });
+
+  app.get("/api/announcements/:id", async (req, res) => {
+    const announcement = await storage.getAnnouncement(req.params.id);
+    if (!announcement) return res.status(404).json({ error: "Announcement not found" });
+    res.json(announcement);
+  });
+
+  app.post("/api/announcements", async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).send("Unauthorized");
+    try {
+      const announcement = await storage.createAnnouncement({
+        ...req.body,
+        createdBy: req.user!.id,
+      });
+      res.status(201).json(announcement);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.patch("/api/announcements/:id", async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).send("Unauthorized");
+    try {
+      const announcement = await storage.updateAnnouncement(req.params.id, req.body);
+      res.json(announcement);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/announcements/:id", async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).send("Unauthorized");
+    try {
+      await storage.deleteAnnouncement(req.params.id);
+      res.sendStatus(204);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // Users by department (for Online Team Members)
+  app.get("/api/users/department/:department", async (req, res) => {
+    const users = await storage.getUsersByDepartment(req.params.department);
+    res.json(users.map(u => ({ id: u.id, username: u.username, department: u.department })));
+  });
+
+  // Search tracking and trending topics
+  app.post("/api/search-history", async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).send("Unauthorized");
+    try {
+      const history = await storage.createSearchHistory({
+        ...req.body,
+        userId: req.user!.id,
+        departmentId: req.user!.department,
+      });
+      res.status(201).json(history);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/trending-topics", async (req, res) => {
+    const departmentId = req.query.departmentId as string | undefined;
+    const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
+    const topics = await storage.getTrendingTopics(departmentId, limit);
+    res.json(topics);
+  });
+
   return httpServer;
 }

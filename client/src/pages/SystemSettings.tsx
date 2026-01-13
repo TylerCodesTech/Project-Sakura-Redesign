@@ -12,6 +12,7 @@ import {
   ReportsSettings,
   LinksSettings,
   GeneralSettings,
+  MaintenanceSettings,
 } from "@/features/settings/sections";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -77,6 +78,10 @@ export default function SystemSettings() {
 
     if (section === "integrations") {
       return <LinksSettings subsection={section} />;
+    }
+
+    if (section.startsWith("maintenance")) {
+      return <MaintenanceSettings subsection={section} />;
     }
 
     return <HelpdeskSettings subsection="helpdesk-overview" />;
