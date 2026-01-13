@@ -13,6 +13,7 @@ import {
   LinksSettings,
   GeneralSettings,
   MaintenanceSettings,
+  ProfileSettings,
 } from "@/features/settings/sections";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -33,6 +34,10 @@ export default function SystemSettings() {
 
   const renderSection = () => {
     const section = normalizeSection(activeSection);
+    
+    if (section === "profile") {
+      return <ProfileSettings />;
+    }
     
     if (section.startsWith("general") || section === "branding" || section === "notifications") {
       return <GeneralSettings subsection={section} />;

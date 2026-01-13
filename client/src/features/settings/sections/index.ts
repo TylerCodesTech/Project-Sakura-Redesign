@@ -8,3 +8,4 @@ export { ReportsSettings } from "./ReportsSettings";
 export { LinksSettings } from "./LinksSettings";
 export { GeneralSettings } from "./GeneralSettings";
 export { MaintenanceSettings } from "./MaintenanceSettings";
+export { ProfileSettings } from "./ProfileSettings";

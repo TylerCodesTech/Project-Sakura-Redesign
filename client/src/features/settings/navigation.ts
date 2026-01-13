@@ -25,12 +25,19 @@ import {
   Share2,
   Construction,
   Megaphone,
+  User,
 } from "lucide-react";
 import { SettingsNavItem } from "./types";
 
 export type { SettingsNavItem };
 
 export const settingsNavigation: SettingsNavItem[] = [
+  {
+    id: "profile",
+    label: "My Profile",
+    icon: User,
+    description: "Manage your personal information",
+  },
   {
     id: "general",
     label: "General",

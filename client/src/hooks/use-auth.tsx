@@ -11,6 +11,11 @@ interface User {
   id: string;
   username: string;
   department: string;
+  avatar?: string;
+  displayName?: string;
+  email?: string;
+  phone?: string;
+  bio?: string;
 }
 
 interface LoginData {
