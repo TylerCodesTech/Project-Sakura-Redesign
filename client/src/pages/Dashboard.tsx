@@ -177,16 +177,6 @@ const mockUpcomingEvents: UpcomingEvent[] = [
   },
 ];
 
-const mockAnnouncements: Announcement[] = [
-  {
-    id: "1",
-    title: "System Maintenance Scheduled",
-    message: "The intranet will be undergoing scheduled maintenance this Saturday from 2 AM to 6 AM EST. Please save your work beforehand.",
-    type: "warning",
-    link: "/announcements/maintenance",
-    createdAt: new Date().toISOString(),
-  },
-];
 
 export default function Dashboard() {
   const [time, setTime] = useState(new Date());
@@ -199,9 +189,10 @@ export default function Dashboard() {
     queryKey: ["/api/departments"],
   });
 
-  // Fetch active announcements
+  // Fetch active announcements with auto-refresh every 30 seconds
   const { data: announcements = [] } = useQuery<Announcement[]>({
     queryKey: ["/api/announcements/active"],
+    refetchInterval: 30000,
   });
 
   // Fetch users from signed-in user's department
