@@ -1,4 +1,4 @@
-import { Search, Bell, X, Sparkles, User, Settings, LogOut, Moon, Sun, Monitor, Mail, MessageSquare, Globe, Loader2, Book, FileText, Building2, History, Archive } from "lucide-react";
+import { Search, Bell, X, Sparkles, User, Settings, LogOut, Moon, Sun, Monitor, Mail, MessageSquare, Globe, Loader2, Book, FileText, Building2, History, Archive, Camera } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { navItems } from "@/lib/mockData";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { formatDistanceToNow } from "date-fns";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -52,6 +53,9 @@ export function Header() {
   const [location] = useLocation();
   const [isLauncherOpen, setIsLauncherOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [profileAvatar, setProfileAvatar] = useState<string>("");
+  const avatarInputRef = useRef<HTMLInputElement>(null);
   const { settings, isLoading } = useSystemSettings();
   const { user, logoutMutation } = useAuth();
   const [userTheme, setUserTheme] = useState<'light' | 'dark' | 'system' | null>(null);
@@ -126,6 +130,46 @@ export function Header() {
       root.classList.add(theme);
     }
   }, [theme]);
+
+  useEffect(() => {
+    if (user?.avatar) {
+      setProfileAvatar(user.avatar);
+    }
+  }, [user?.avatar]);
+
+  const handleAvatarUpload = async (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select an image file");
+      return;
+    }
+    setIsUploadingAvatar(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const uploadRes = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+      if (!uploadRes.ok) throw new Error("Upload failed");
+      const { url } = await uploadRes.json();
+      setProfileAvatar(url);
+      
+      const updateRes = await fetch("/api/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ avatar: url }),
+        credentials: "include",
+      });
+      if (!updateRes.ok) throw new Error("Failed to save");
+      
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      toast.success("Profile photo updated!");
+    } catch (error) {
+      toast.error("Failed to upload photo");
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
 
   const LauncherIcon = () => (
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -459,8 +503,10 @@ export function Header() {
                 <p className="text-xs text-muted-foreground mt-1">{user?.department || "Member"}</p>
               </div>
               <Avatar className="h-9 w-9 border border-border shadow-sm group-hover:border-primary/30 transition-colors">
-                <AvatarImage src="" />
-                <AvatarFallback>{(user?.username || "U").substring(0, 2).toUpperCase()}</AvatarFallback>
+                <AvatarImage src={user?.avatar} className="object-cover" />
+                <AvatarFallback className="bg-gradient-to-br from-pink-500 to-purple-600 text-white text-sm">
+                  {(user?.username || "U").substring(0, 2).toUpperCase()}
+                </AvatarFallback>
               </Avatar>
             </button>
           </DropdownMenuTrigger>
@@ -489,11 +535,51 @@ export function Header() {
                 </DialogHeader>
                 <div className="grid gap-6 py-4">
                   <div className="flex items-center gap-6">
-                    <Avatar className="h-20 w-20 border-2 border-primary/20">
-                      <AvatarImage src="" />
-                      <AvatarFallback className="text-xl">{(user?.username || "U").substring(0, 2).toUpperCase()}</AvatarFallback>
-                    </Avatar>
-                    <Button variant="outline" size="sm">Change Photo</Button>
+                    <div 
+                      className="relative cursor-pointer group"
+                      onClick={() => avatarInputRef.current?.click()}
+                    >
+                      <Avatar className="h-20 w-20 border-2 border-primary/20">
+                        <AvatarImage src={profileAvatar || user?.avatar} className="object-cover" />
+                        <AvatarFallback className="text-xl bg-gradient-to-br from-pink-500 to-purple-600 text-white">
+                          {(user?.username || "U").substring(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="absolute inset-0 rounded-full bg-black/60 opacity-0 group-hover:opacity-100 transition-all flex flex-col items-center justify-center">
+                        {isUploadingAvatar ? (
+                          <Loader2 className="w-6 h-6 text-white animate-spin" />
+                        ) : (
+                          <>
+                            <Camera className="w-5 h-5 text-white" />
+                            <span className="text-white text-[10px] mt-0.5">Change</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    <input
+                      ref={avatarInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleAvatarUpload(file);
+                      }}
+                    />
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => avatarInputRef.current?.click()}
+                      disabled={isUploadingAvatar}
+                      className="gap-2"
+                    >
+                      {isUploadingAvatar ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Camera className="w-4 h-4" />
+                      )}
+                      Change Photo
+                    </Button>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
