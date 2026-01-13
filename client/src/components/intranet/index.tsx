@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -23,9 +23,25 @@ import {
   Info,
   CheckCircle,
   XCircle,
-  ExternalLink
+  ExternalLink,
+  Bold,
+  Italic,
+  Underline as UnderlineIcon,
+  List,
+  ListOrdered,
+  Image as ImageIcon,
+  Link as LinkIcon,
+  Heading1,
+  Heading2,
+  AtSign
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { useEditor, EditorContent } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import Underline from '@tiptap/extension-underline';
+import TiptapLink from '@tiptap/extension-link';
+import Placeholder from '@tiptap/extension-placeholder';
+import Image from '@tiptap/extension-image';
 
 export interface Post {
   id: string;
@@ -103,90 +119,242 @@ interface PostComposerProps {
   departments: { id: string; name: string; color: string }[];
 }
 
-export function PostComposer({ onPost, departments }: PostComposerProps) {
-  const [content, setContent] = useState("");
-  const [visibility, setVisibility] = useState("public");
-  const [selectedDepartment, setSelectedDepartment] = useState<string | undefined>();
+export function PostComposer({ onPost }: PostComposerProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({
+        heading: {
+          levels: [1, 2],
+        },
+      }),
+      Underline,
+      TiptapLink.configure({
+        openOnClick: false,
+        HTMLAttributes: {
+          class: 'text-primary underline cursor-pointer',
+        },
+      }),
+      Placeholder.configure({
+        placeholder: "What's happening at your department?",
+      }),
+      Image.configure({
+        inline: true,
+        allowBase64: true,
+      }),
+    ],
+    editorProps: {
+      attributes: {
+        class: 'prose prose-sm dark:prose-invert max-w-none focus:outline-none min-h-[60px] text-sm',
+      },
+      handlePaste: (view, event) => {
+        const items = event.clipboardData?.items;
+        if (items) {
+          for (let i = 0; i < items.length; i++) {
+            if (items[i].type.indexOf('image') !== -1) {
+              const file = items[i].getAsFile();
+              if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                  const result = e.target?.result as string;
+                  if (result && editor) {
+                    editor.chain().focus().setImage({ src: result }).run();
+                  }
+                };
+                reader.readAsDataURL(file);
+                return true;
+              }
+            }
+          }
+        }
+        return false;
+      },
+    },
+    onFocus: () => setIsExpanded(true),
+  });
+
   const handleSubmit = () => {
-    if (!content.trim()) return;
-    onPost(content, visibility, selectedDepartment);
-    setContent("");
-    setVisibility("public");
-    setSelectedDepartment(undefined);
+    if (!editor) return;
+    const html = editor.getHTML();
+    if (html === '<p></p>' || !html.trim()) return;
+    onPost(html, 'public');
+    editor.commands.clearContent();
     setIsExpanded(false);
   };
 
+  const addLink = useCallback(() => {
+    if (!editor) return;
+    const url = window.prompt('Enter URL:');
+    if (url) {
+      editor.chain().focus().setLink({ href: url }).run();
+    }
+  }, [editor]);
+
+  const addImage = useCallback(() => {
+    if (!editor) return;
+    const url = window.prompt('Enter image URL:');
+    if (url) {
+      editor.chain().focus().setImage({ src: url }).run();
+    }
+  }, [editor]);
+
+  const ToolbarButton = ({ 
+    onClick, 
+    isActive, 
+    children,
+    title 
+  }: { 
+    onClick: () => void; 
+    isActive?: boolean; 
+    children: React.ReactNode;
+    title: string;
+  }) => (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      className={cn(
+        "p-1.5 rounded-lg transition-colors",
+        isActive 
+          ? "bg-primary/20 text-primary" 
+          : "hover:bg-secondary/80 text-muted-foreground hover:text-foreground"
+      )}
+    >
+      {children}
+    </button>
+  );
+
   return (
     <div className="bg-card/80 dark:bg-card/60 backdrop-blur-sm rounded-2xl border border-border/50 overflow-hidden">
-      <div className="p-4 space-y-4">
+      <div className="p-4 space-y-3">
         <div className="flex items-start gap-3">
-          <Avatar className="h-10 w-10 border-2 border-primary/20">
+          <Avatar className="h-10 w-10 border-2 border-primary/20 shrink-0">
             <AvatarFallback className="bg-gradient-to-br from-pink-500 to-rose-500 text-white text-sm font-bold">
               U
             </AvatarFallback>
           </Avatar>
-          <div className="flex-1">
-            <textarea
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              onFocus={() => setIsExpanded(true)}
-              placeholder="What's happening at your department?"
-              className="w-full bg-transparent border-0 resize-none focus:outline-none focus:ring-0 text-sm placeholder:text-muted-foreground min-h-[60px]"
-              rows={isExpanded ? 3 : 2}
+          <div className="flex-1 min-w-0">
+            <EditorContent 
+              editor={editor} 
+              className="w-full [&_.ProseMirror]:min-h-[60px] [&_.ProseMirror_p.is-editor-empty:first-child::before]:text-muted-foreground [&_.ProseMirror_p.is-editor-empty:first-child::before]:content-[attr(data-placeholder)] [&_.ProseMirror_p.is-editor-empty:first-child::before]:float-left [&_.ProseMirror_p.is-editor-empty:first-child::before]:h-0 [&_.ProseMirror_p.is-editor-empty:first-child::before]:pointer-events-none"
             />
           </div>
         </div>
 
-        {isExpanded && (
-          <div className="flex items-center justify-between pt-2 border-t border-border/50">
-            <div className="flex items-center gap-2">
-              <select
-                value={visibility}
-                onChange={(e) => setVisibility(e.target.value)}
-                className="text-xs bg-secondary/50 border border-border/50 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary"
+        {isExpanded && editor && (
+          <div className="space-y-3 pt-2 border-t border-border/50">
+            <div className="flex items-center gap-1 flex-wrap">
+              <ToolbarButton
+                onClick={() => editor.chain().focus().toggleBold().run()}
+                isActive={editor.isActive('bold')}
+                title="Bold"
               >
-                <option value="public">Public</option>
-                <option value="department">Department Only</option>
-                <option value="private">Private</option>
-              </select>
-              {visibility === "department" && departments.length > 0 && (
-                <select
-                  value={selectedDepartment || ""}
-                  onChange={(e) => setSelectedDepartment(e.target.value || undefined)}
-                  className="text-xs bg-secondary/50 border border-border/50 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary"
-                >
-                  <option value="">Select department</option>
-                  {departments.map((dept) => (
-                    <option key={dept.id} value={dept.id}>
-                      {dept.name}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
+                <Bold className="w-4 h-4" />
+              </ToolbarButton>
+              <ToolbarButton
+                onClick={() => editor.chain().focus().toggleItalic().run()}
+                isActive={editor.isActive('italic')}
+                title="Italic"
+              >
+                <Italic className="w-4 h-4" />
+              </ToolbarButton>
+              <ToolbarButton
+                onClick={() => editor.chain().focus().toggleUnderline().run()}
+                isActive={editor.isActive('underline')}
+                title="Underline"
+              >
+                <UnderlineIcon className="w-4 h-4" />
+              </ToolbarButton>
+              
+              <div className="w-px h-5 bg-border/50 mx-1" />
+              
+              <ToolbarButton
+                onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+                isActive={editor.isActive('heading', { level: 1 })}
+                title="Heading 1"
+              >
+                <Heading1 className="w-4 h-4" />
+              </ToolbarButton>
+              <ToolbarButton
+                onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+                isActive={editor.isActive('heading', { level: 2 })}
+                title="Heading 2"
+              >
+                <Heading2 className="w-4 h-4" />
+              </ToolbarButton>
+              
+              <div className="w-px h-5 bg-border/50 mx-1" />
+              
+              <ToolbarButton
+                onClick={() => editor.chain().focus().toggleBulletList().run()}
+                isActive={editor.isActive('bulletList')}
+                title="Bullet List"
+              >
+                <List className="w-4 h-4" />
+              </ToolbarButton>
+              <ToolbarButton
+                onClick={() => editor.chain().focus().toggleOrderedList().run()}
+                isActive={editor.isActive('orderedList')}
+                title="Numbered List"
+              >
+                <ListOrdered className="w-4 h-4" />
+              </ToolbarButton>
+              
+              <div className="w-px h-5 bg-border/50 mx-1" />
+              
+              <ToolbarButton
+                onClick={addLink}
+                isActive={editor.isActive('link')}
+                title="Add Link"
+              >
+                <LinkIcon className="w-4 h-4" />
+              </ToolbarButton>
+              <ToolbarButton
+                onClick={addImage}
+                title="Add Image"
+              >
+                <ImageIcon className="w-4 h-4" />
+              </ToolbarButton>
+              <ToolbarButton
                 onClick={() => {
-                  setIsExpanded(false);
-                  setContent("");
+                  const mention = window.prompt('Enter @mention:');
+                  if (mention) {
+                    editor.chain().focus().insertContent(`@${mention} `).run();
+                  }
                 }}
-                className="h-8 text-xs"
+                title="Mention Someone"
               >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSubmit}
-                disabled={!content.trim()}
-                size="sm"
-                className="h-8 px-4 text-xs bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white"
-              >
-                <Sparkles className="w-3 h-3 mr-1" />
-                Post
-              </Button>
+                <AtSign className="w-4 h-4" />
+              </ToolbarButton>
+            </div>
+            
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">
+                Tip: Paste images directly, use #hashtags
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setIsExpanded(false);
+                    editor.commands.clearContent();
+                  }}
+                  className="h-8 text-xs"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleSubmit}
+                  disabled={!editor || editor.isEmpty}
+                  size="sm"
+                  className="h-8 px-4 text-xs bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white"
+                >
+                  <Sparkles className="w-3 h-3 mr-1" />
+                  Post
+                </Button>
+              </div>
             </div>
           </div>
         )}
@@ -235,7 +403,10 @@ export function PostCard({ post, onLike, onComment, onShare, onBookmark, current
         </div>
 
         <div className="space-y-3">
-          <p className="text-sm leading-relaxed">{post.content}</p>
+          <div 
+            className="prose prose-sm dark:prose-invert max-w-none text-sm leading-relaxed [&_img]:rounded-xl [&_img]:max-w-full [&_a]:text-primary [&_a]:underline"
+            dangerouslySetInnerHTML={{ __html: post.content }}
+          />
           
           {post.hashtags && post.hashtags.length > 0 && (
             <div className="flex flex-wrap gap-1">
