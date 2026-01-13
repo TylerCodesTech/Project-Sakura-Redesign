@@ -104,7 +104,95 @@ interface PostComposerProps {
 }
 
 export function PostComposer({ onPost, departments }: PostComposerProps) {
-  return null;
+  const [content, setContent] = useState("");
+  const [visibility, setVisibility] = useState("public");
+  const [selectedDepartment, setSelectedDepartment] = useState<string | undefined>();
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  const handleSubmit = () => {
+    if (!content.trim()) return;
+    onPost(content, visibility, selectedDepartment);
+    setContent("");
+    setVisibility("public");
+    setSelectedDepartment(undefined);
+    setIsExpanded(false);
+  };
+
+  return (
+    <div className="bg-card/80 dark:bg-card/60 backdrop-blur-sm rounded-2xl border border-border/50 overflow-hidden">
+      <div className="p-4 space-y-4">
+        <div className="flex items-start gap-3">
+          <Avatar className="h-10 w-10 border-2 border-primary/20">
+            <AvatarFallback className="bg-gradient-to-br from-pink-500 to-rose-500 text-white text-sm font-bold">
+              U
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex-1">
+            <textarea
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              onFocus={() => setIsExpanded(true)}
+              placeholder="What's happening at your department?"
+              className="w-full bg-transparent border-0 resize-none focus:outline-none focus:ring-0 text-sm placeholder:text-muted-foreground min-h-[60px]"
+              rows={isExpanded ? 3 : 2}
+            />
+          </div>
+        </div>
+
+        {isExpanded && (
+          <div className="flex items-center justify-between pt-2 border-t border-border/50">
+            <div className="flex items-center gap-2">
+              <select
+                value={visibility}
+                onChange={(e) => setVisibility(e.target.value)}
+                className="text-xs bg-secondary/50 border border-border/50 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary"
+              >
+                <option value="public">Public</option>
+                <option value="department">Department Only</option>
+                <option value="private">Private</option>
+              </select>
+              {visibility === "department" && departments.length > 0 && (
+                <select
+                  value={selectedDepartment || ""}
+                  onChange={(e) => setSelectedDepartment(e.target.value || undefined)}
+                  className="text-xs bg-secondary/50 border border-border/50 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  <option value="">Select department</option>
+                  {departments.map((dept) => (
+                    <option key={dept.id} value={dept.id}>
+                      {dept.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setIsExpanded(false);
+                  setContent("");
+                }}
+                className="h-8 text-xs"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSubmit}
+                disabled={!content.trim()}
+                size="sm"
+                className="h-8 px-4 text-xs bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white"
+              >
+                <Sparkles className="w-3 h-3 mr-1" />
+                Post
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 interface PostCardProps {
