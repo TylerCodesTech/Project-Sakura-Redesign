@@ -124,13 +124,13 @@ export default function Dashboard() {
   });
 
   // Fetch users from signed-in user's department
-  const { data: departmentUsers = [] } = useQuery<{id: string; username: string; department: string; avatar?: string}[]>({
+  const { data: departmentUsers = [] } = useQuery<{ id: string; username: string; department: string; avatar?: string }[]>({
     queryKey: ["/api/users/department", user?.department],
     enabled: !!user?.department,
   });
 
   // Fetch trending topics for user's department
-  const { data: trendingData = [] } = useQuery<{query: string; count: number}[]>({
+  const { data: trendingData = [] } = useQuery<{ query: string; count: number }[]>({
     queryKey: ["/api/trending-topics", user?.department],
     queryFn: async () => {
       const res = await fetch(`/api/trending-topics?departmentId=${user?.department || ''}&limit=5`);
@@ -197,7 +197,7 @@ export default function Dashboard() {
     id: dept.id.toString(),
     name: dept.name,
     color: dept.color || '#7c3aed',
-    memberCount: 12, // TODO: get from backend
+    memberCount: 12, // Mock value, to be connected to backend
     isFavorite: false,
   }));
 
@@ -304,7 +304,7 @@ export default function Dashboard() {
         {announcements.length > 0 && (
           <AnnouncementsBanner
             announcements={announcements}
-            onDismiss={(id) => console.log("Dismissed:", id)}
+            onDismiss={() => { }}
           />
         )}
 
@@ -316,7 +316,7 @@ export default function Dashboard() {
               channels={channels}
               activeChannelId={activeChannel}
               onChannelSelect={setActiveChannel}
-              onToggleFavorite={(id) => console.log("Toggle favorite:", id)}
+              onToggleFavorite={() => { }}
               companyName={companyName}
               userDepartment={user?.department}
             />
@@ -393,8 +393,8 @@ export default function Dashboard() {
                     post={post}
                     onLike={handleLike}
                     onComment={handleComment}
-                    onShare={(id) => console.log("Share:", id)}
-                    onBookmark={(id) => console.log("Bookmark:", id)}
+                    onShare={() => { }}
+                    onBookmark={() => { }}
                     currentUserId={user?.id?.toString()}
                   />
                 ))
@@ -414,18 +414,18 @@ export default function Dashboard() {
           <div className="hidden lg:block lg:col-span-3 space-y-6">
             <OnlineUsers
               users={onlineUsers.length > 0 ? onlineUsers : mockOnlineUsers}
-              onMessageUser={(id) => console.log("Message user:", id)}
+              onMessageUser={() => { }}
             />
 
             <TrendingTopics
               topics={trendingTopics}
-              onTopicClick={(tag) => console.log("Topic clicked:", tag)}
+              onTopicClick={() => { }}
             />
 
             <UpcomingEvents
               events={mockUpcomingEvents}
-              onEventClick={(id) => console.log("Event clicked:", id)}
-              onRSVP={(id) => console.log("RSVP:", id)}
+              onEventClick={() => { }}
+              onRSVP={() => { }}
             />
           </div>
         </div>

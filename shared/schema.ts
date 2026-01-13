@@ -200,6 +200,11 @@ export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
   department: true,
+  displayName: true,
+  email: true,
+  phone: true,
+  bio: true,
+  avatar: true,
 });
 
 export const insertBookSchema = createInsertSchema(books).omit({
@@ -497,7 +502,7 @@ export const AVAILABLE_PERMISSIONS = {
   "helpdesk.settings.manage": { category: "helpdesk", description: "Manage helpdesk settings" },
   "helpdesk.sla.manage": { category: "helpdesk", description: "Manage SLA states and policies" },
   "helpdesk.webhooks.manage": { category: "helpdesk", description: "Manage webhooks" },
-  
+
   // Documentation permissions
   "docs.books.view": { category: "documentation", description: "View books and pages" },
   "docs.books.create": { category: "documentation", description: "Create books" },
@@ -507,14 +512,14 @@ export const AVAILABLE_PERMISSIONS = {
   "docs.pages.edit": { category: "documentation", description: "Edit pages" },
   "docs.pages.delete": { category: "documentation", description: "Delete pages" },
   "docs.pages.publish": { category: "documentation", description: "Publish pages" },
-  
+
   // User management permissions
   "users.view": { category: "users", description: "View users" },
   "users.create": { category: "users", description: "Create users" },
   "users.edit": { category: "users", description: "Edit users" },
   "users.delete": { category: "users", description: "Delete users" },
   "users.roles.assign": { category: "users", description: "Assign roles to users" },
-  
+
   // Settings permissions
   "settings.general.view": { category: "settings", description: "View general settings" },
   "settings.general.manage": { category: "settings", description: "Manage general settings" },
@@ -522,14 +527,14 @@ export const AVAILABLE_PERMISSIONS = {
   "settings.notifications.manage": { category: "settings", description: "Manage notification settings" },
   "settings.security.manage": { category: "settings", description: "Manage security settings" },
   "settings.audit.view": { category: "settings", description: "View audit logs" },
-  
+
   // Department permissions
   "departments.view": { category: "departments", description: "View departments" },
   "departments.create": { category: "departments", description: "Create departments" },
   "departments.edit": { category: "departments", description: "Edit departments" },
   "departments.delete": { category: "departments", description: "Delete departments" },
   "departments.members.manage": { category: "departments", description: "Manage department members" },
-  
+
   // Reports permissions
   "reports.view": { category: "reports", description: "View reports" },
   "reports.export": { category: "reports", description: "Export reports" },
@@ -544,7 +549,7 @@ export const AVAILABLE_PERMISSIONS = {
   "reports.data.users": { category: "reports", description: "Access user data in reports" },
   "reports.data.sla": { category: "reports", description: "Access SLA data in reports" },
   "reports.data.audit": { category: "reports", description: "Access audit log data in reports" },
-  
+
   // AI permissions
   "ai.assistant.use": { category: "ai", description: "Use AI writing assistant in documents" },
   "ai.chat.use": { category: "ai", description: "Use AI chat features" },

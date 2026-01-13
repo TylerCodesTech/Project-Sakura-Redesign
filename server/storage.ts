@@ -1,5 +1,5 @@
-import { 
-  type User, type InsertUser, 
+import {
+  type User, type InsertUser,
   type Book, type InsertBook,
   type Page, type InsertPage,
   type Comment, type InsertComment,
@@ -57,15 +57,16 @@ export interface IStorage {
   getUserByUsername(username: string): Promise<User | undefined>;
   getUsersByDepartment(department: string): Promise<User[]>;
   getUsers(): Promise<User[]>;
+  getUserCount(): Promise<number>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: string, update: Partial<InsertUser>): Promise<User>;
-  
+
   getBooks(): Promise<Book[]>;
   getBook(id: string): Promise<Book | undefined>;
   createBook(book: InsertBook): Promise<Book>;
   updateBook(id: string, update: Partial<InsertBook>): Promise<Book>;
   deleteBook(id: string): Promise<void>;
-  
+
   getPages(bookId: string): Promise<Page[]>;
   getPage(id: string): Promise<Page | undefined>;
   getPageByTitle(bookId: string, title: string): Promise<Page | undefined>;
@@ -96,7 +97,7 @@ export interface IStorage {
 
   getStats(): Promise<Stat[]>;
   updateStat(key: string, update: Partial<InsertStat>): Promise<Stat>;
-  
+
   // Watercooler
   getWatercoolerMessages(): Promise<Comment[]>;
   createWatercoolerMessage(message: InsertComment): Promise<Comment>;
@@ -240,7 +241,7 @@ export interface IStorage {
   createVersionAuditLog(log: InsertVersionAuditLog): Promise<VersionAuditLog>;
 
   // Search versions
-  searchVersions(query: string): Promise<{pageVersions: PageVersion[], bookVersions: BookVersion[]}>;
+  searchVersions(query: string): Promise<{ pageVersions: PageVersion[], bookVersions: BookVersion[] }>;
 
   // Report Definitions
   getReportDefinitions(departmentId?: string): Promise<ReportDefinition[]>;
@@ -301,7 +302,7 @@ export interface IStorage {
 
   // Search History / Trending Topics
   createSearchHistory(search: InsertSearchHistory): Promise<SearchHistory>;
-  getTrendingTopics(departmentId?: string, limit?: number): Promise<{query: string; count: number}[]>;
+  getTrendingTopics(departmentId?: string, limit?: number): Promise<{ query: string; count: number }[]>;
 
   // Intranet Posts
   getPosts(departmentId?: string): Promise<Post[]>;
@@ -459,7 +460,7 @@ export class MemStorage implements IStorage {
     ];
     defaultDepts.forEach(d => {
       const id = randomUUID();
-      this.departments.set(id, { ...d, id, headId: null });
+      this.departments.set(id, { ...d, id, headId: null, parentId: null });
     });
   }
 
@@ -483,12 +484,27 @@ export class MemStorage implements IStorage {
     return Array.from(this.users.values());
   }
 
+  async getUserCount(): Promise<number> {
+    return this.users.size;
+  }
+
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = randomUUID();
-    const user: User = { ...insertUser, id, department: insertUser.department ?? "General" };
+    const user: User = {
+      id,
+      username: insertUser.username,
+      password: insertUser.password,
+      department: insertUser.department ?? "General",
+      avatar: null,
+      displayName: null,
+      email: null,
+      phone: null,
+      bio: null,
+    };
     this.users.set(id, user);
     return user;
   }
+
 
   async updateUser(id: string, update: Partial<InsertUser>): Promise<User> {
     const user = this.users.get(id);
@@ -508,11 +524,11 @@ export class MemStorage implements IStorage {
 
   async createBook(insertBook: InsertBook): Promise<Book> {
     const id = randomUUID();
-    const book: Book = { 
-      ...insertBook, 
+    const book: Book = {
+      ...insertBook,
       id,
       description: insertBook.description ?? null,
-      parentId: insertBook.parentId ?? null 
+      parentId: insertBook.parentId ?? null
     };
     this.books.set(id, book);
     return book;
@@ -558,8 +574,8 @@ export class MemStorage implements IStorage {
 
   async createPage(insertPage: InsertPage): Promise<Page> {
     const id = randomUUID();
-    const page: Page = { 
-      ...insertPage, 
+    const page: Page = {
+      ...insertPage,
       id,
       bookId: insertPage.bookId ?? null,
       type: insertPage.type ?? "page",
@@ -616,7 +632,7 @@ export class MemStorage implements IStorage {
 
   async createNotification(insertNotification: InsertNotification): Promise<Notification> {
     const id = randomUUID();
-    const notification: Notification = { 
+    const notification: Notification = {
       id,
       userId: insertNotification.userId,
       title: insertNotification.title,
@@ -644,7 +660,7 @@ export class MemStorage implements IStorage {
 
   async createExternalLink(insertLink: InsertExternalLink): Promise<ExternalLink> {
     const id = randomUUID();
-    const link: ExternalLink = { 
+    const link: ExternalLink = {
       id,
       title: insertLink.title,
       url: insertLink.url,
@@ -677,11 +693,12 @@ export class MemStorage implements IStorage {
 
   async createDepartment(insertDept: InsertDepartment): Promise<Department> {
     const id = randomUUID();
-    const dept: Department = { 
-      ...insertDept, 
-      id, 
-      description: insertDept.description ?? null, 
+    const dept: Department = {
+      ...insertDept,
+      id,
+      description: insertDept.description ?? null,
       headId: insertDept.headId ?? null,
+      parentId: insertDept.parentId ?? null,
       color: insertDept.color || "#3b82f6"
     };
     this.departments.set(id, dept);
@@ -691,10 +708,10 @@ export class MemStorage implements IStorage {
   async updateDepartment(id: string, update: Partial<InsertDepartment>): Promise<Department> {
     const existing = this.departments.get(id);
     if (!existing) throw new Error("Department not found");
-    const updated = { 
-      ...existing, 
+    const updated = {
+      ...existing,
       ...update,
-      color: update.color ?? existing.color 
+      color: update.color ?? existing.color
     };
     this.departments.set(id, updated);
     return updated;
@@ -710,11 +727,11 @@ export class MemStorage implements IStorage {
 
   async createNews(insertNews: InsertNews): Promise<News> {
     const id = randomUUID();
-    const n: News = { 
-      ...insertNews, 
-      id, 
+    const n: News = {
+      ...insertNews,
+      id,
       category: insertNews.category ?? "General",
-      createdAt: new Date().toISOString() 
+      createdAt: new Date().toISOString()
     };
     this.news.set(id, n);
     return n;
@@ -740,11 +757,11 @@ export class MemStorage implements IStorage {
 
   async createWatercoolerMessage(insertComment: InsertComment): Promise<Comment> {
     const id = randomUUID();
-    const comment: Comment = { 
-      ...insertComment, 
-      id, 
+    const comment: Comment = {
+      ...insertComment,
+      id,
       pageId: "watercooler",
-      createdAt: new Date().toISOString() 
+      createdAt: new Date().toISOString()
     };
     this.comments.set(id, comment);
     return comment;
@@ -810,7 +827,7 @@ export class MemStorage implements IStorage {
       createdAt: new Date().toISOString(),
     };
     this.helpdesks.set(id, helpdesk);
-    
+
     // Create default SLA states for this helpdesk
     const defaultStates = [
       { name: "Open", color: "#3b82f6", order: 0, isDefault: "true", isFinal: "false" },
@@ -822,7 +839,7 @@ export class MemStorage implements IStorage {
     for (const state of defaultStates) {
       await this.createSlaState({ ...state, helpdeskId: id });
     }
-    
+
     return helpdesk;
   }
 
@@ -1328,7 +1345,7 @@ export class MemStorage implements IStorage {
     Array.from(this.rolePermissions.values())
       .filter(rp => rp.roleId === roleId)
       .forEach(rp => this.rolePermissions.delete(rp.id));
-    
+
     // Add new permissions
     const newPermissions: RolePermission[] = [];
     for (const permission of permissions) {
@@ -1629,16 +1646,16 @@ export class MemStorage implements IStorage {
   }
 
   // Search versions
-  async searchVersions(query: string): Promise<{pageVersions: PageVersion[], bookVersions: BookVersion[]}> {
+  async searchVersions(query: string): Promise<{ pageVersions: PageVersion[], bookVersions: BookVersion[] }> {
     const lowerQuery = query.toLowerCase();
     const matchingPageVersions = Array.from(this.pageVersions.values())
-      .filter(v => 
-        v.title.toLowerCase().includes(lowerQuery) || 
+      .filter(v =>
+        v.title.toLowerCase().includes(lowerQuery) ||
         v.content.toLowerCase().includes(lowerQuery)
       );
     const matchingBookVersions = Array.from(this.bookVersions.values())
-      .filter(v => 
-        v.title.toLowerCase().includes(lowerQuery) || 
+      .filter(v =>
+        v.title.toLowerCase().includes(lowerQuery) ||
         (v.description && v.description.toLowerCase().includes(lowerQuery))
       );
     return { pageVersions: matchingPageVersions, bookVersions: matchingBookVersions };
@@ -1651,7 +1668,7 @@ export class MemStorage implements IStorage {
     return { id: randomUUID(), ...insert, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } as ReportDefinition;
   }
   async updateReportDefinition(_id: string, _update: Partial<InsertReportDefinition>): Promise<ReportDefinition> { throw new Error("Not implemented"); }
-  async deleteReportDefinition(_id: string): Promise<void> {}
+  async deleteReportDefinition(_id: string): Promise<void> { }
 
   // Saved Reports
   async getSavedReports(_departmentId?: string): Promise<SavedReport[]> { return []; }
@@ -1659,7 +1676,7 @@ export class MemStorage implements IStorage {
   async createSavedReport(insert: InsertSavedReport): Promise<SavedReport> {
     return { id: randomUUID(), ...insert, generatedAt: new Date().toISOString() } as SavedReport;
   }
-  async deleteSavedReport(_id: string): Promise<void> {}
+  async deleteSavedReport(_id: string): Promise<void> { }
 
   // Report Schedules
   async getReportSchedules(_definitionId?: string): Promise<ReportSchedule[]> { return []; }
@@ -1668,14 +1685,14 @@ export class MemStorage implements IStorage {
     return { id: randomUUID(), ...insert, createdAt: new Date().toISOString() } as ReportSchedule;
   }
   async updateReportSchedule(_id: string, _update: Partial<InsertReportSchedule>): Promise<ReportSchedule> { throw new Error("Not implemented"); }
-  async deleteReportSchedule(_id: string): Promise<void> {}
+  async deleteReportSchedule(_id: string): Promise<void> { }
 
   // Report Shares
   async getReportShares(_reportId: string): Promise<ReportShare[]> { return []; }
   async createReportShare(insert: InsertReportShare): Promise<ReportShare> {
     return { id: randomUUID(), ...insert, createdAt: new Date().toISOString() } as ReportShare;
   }
-  async deleteReportShare(_id: string): Promise<void> {}
+  async deleteReportShare(_id: string): Promise<void> { }
 
   // Report Audit Logs
   async getReportAuditLogs(_departmentId?: string, _limit?: number): Promise<ReportAuditLog[]> { return []; }
@@ -1696,7 +1713,7 @@ export class MemStorage implements IStorage {
     return { id: randomUUID(), ...insert } as ReportField;
   }
   async updateReportField(_id: string, _update: Partial<InsertReportField>): Promise<ReportField> { throw new Error("Not implemented"); }
-  async deleteReportField(_id: string): Promise<void> {}
+  async deleteReportField(_id: string): Promise<void> { }
 
   // AI Model Configurations (in-memory stub implementations)
   private aiModelConfigs: Map<string, AiModelConfig> = new Map();
@@ -1715,7 +1732,16 @@ export class MemStorage implements IStorage {
     const id = randomUUID();
     const config: AiModelConfig = {
       id,
-      ...insert,
+      dimensions: insert.dimensions ?? null,
+      description: insert.description ?? null,
+      maxTokens: insert.maxTokens ?? null,
+      temperature: insert.temperature ?? null,
+      apiKeyEnvVar: insert.apiKeyEnvVar ?? null,
+      baseUrl: insert.baseUrl ?? null,
+      name: insert.name,
+      type: insert.type,
+      provider: insert.provider,
+      model: insert.model,
       isActive: insert.isActive ?? "false",
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -1809,8 +1835,8 @@ export class MemStorage implements IStorage {
     this.searchHistory.push(history);
     return history;
   }
-  async getTrendingTopics(departmentId?: string, limit: number = 10): Promise<{query: string; count: number}[]> {
-    const filtered = departmentId 
+  async getTrendingTopics(departmentId?: string, limit: number = 10): Promise<{ query: string; count: number }[]> {
+    const filtered = departmentId
       ? this.searchHistory.filter(s => s.departmentId === departmentId)
       : this.searchHistory;
     const counts = new Map<string, number>();
@@ -1932,7 +1958,82 @@ export class MemStorage implements IStorage {
     }
     return comment;
   }
+
+  // Infrastructure Monitoring (stub implementations)
+  private monitoredServices: Map<string, MonitoredService> = new Map();
+  private serviceStatusHistory: Map<string, ServiceStatusHistory> = new Map();
+  private serviceAlerts: Map<string, ServiceAlert> = new Map();
+
+  async getMonitoredServices(): Promise<MonitoredService[]> {
+    return Array.from(this.monitoredServices.values());
+  }
+  async getMonitoredServiceById(id: string): Promise<MonitoredService | undefined> {
+    return this.monitoredServices.get(id);
+  }
+  async createMonitoredService(insert: InsertMonitoredService): Promise<MonitoredService> {
+    const id = randomUUID();
+    const service: MonitoredService = {
+      id,
+      name: insert.name,
+      serviceType: insert.serviceType ?? "api",
+      endpoint: insert.endpoint,
+      checkInterval: insert.checkInterval ?? 60,
+      latencyThreshold: insert.latencyThreshold ?? 1000,
+      timeout: insert.timeout ?? 30000,
+      enabled: insert.enabled ?? "true",
+      expectedStatusCode: insert.expectedStatusCode ?? 200,
+      alertOnDown: insert.alertOnDown ?? "true",
+      alertOnLatency: insert.alertOnLatency ?? "true",
+      lastStatus: "unknown",
+      lastCheckedAt: null,
+      lastLatency: null,
+      consecutiveFailures: 0,
+      description: insert.description ?? null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    this.monitoredServices.set(id, service);
+    return service;
+  }
+  async updateMonitoredService(id: string, update: Partial<InsertMonitoredService>): Promise<MonitoredService> {
+    const existing = this.monitoredServices.get(id);
+    if (!existing) throw new Error("Monitored service not found");
+    const updated = { ...existing, ...update, updatedAt: new Date().toISOString() };
+    this.monitoredServices.set(id, updated);
+    return updated;
+  }
+  async deleteMonitoredService(id: string): Promise<void> {
+    this.monitoredServices.delete(id);
+  }
+  async getServiceStatusHistory(serviceId: string): Promise<ServiceStatusHistory[]> {
+    return Array.from(this.serviceStatusHistory.values()).filter(h => h.serviceId === serviceId);
+  }
+  async createServiceStatusHistory(insert: InsertServiceStatusHistory): Promise<ServiceStatusHistory> {
+    const id = randomUUID();
+    const history: ServiceStatusHistory = {
+      id,
+      serviceId: insert.serviceId,
+      status: insert.status,
+      latency: insert.latency ?? null,
+      statusCode: insert.statusCode ?? null,
+      errorMessage: insert.errorMessage ?? null,
+      checkedAt: new Date().toISOString(),
+    };
+    this.serviceStatusHistory.set(id, history);
+    return history;
+  }
+  async getServiceAlerts(): Promise<ServiceAlert[]> {
+    return Array.from(this.serviceAlerts.values());
+  }
+  async acknowledgeServiceAlert(id: string, userId: string): Promise<ServiceAlert> {
+    const existing = this.serviceAlerts.get(id);
+    if (!existing) throw new Error("Service alert not found");
+    const updated = { ...existing, acknowledgedBy: userId, acknowledgedAt: new Date().toISOString() };
+    this.serviceAlerts.set(id, updated);
+    return updated;
+  }
 }
+
 
 import { DatabaseStorage } from "./dbStorage";
 

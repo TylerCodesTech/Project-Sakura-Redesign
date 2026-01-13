@@ -14,7 +14,7 @@ type UserType = typeof users.$inferSelect;
 
 declare global {
   namespace Express {
-    interface User extends UserType {}
+    interface User extends UserType { }
   }
 }
 
@@ -34,19 +34,16 @@ export async function comparePasswords(supplied: string, stored: string) {
   return timingSafeEqual(hashedBuf, suppliedBuf);
 }
 
-async function getUserByUsername(username: string) {
-  return db.select().from(users).where(eq(users.username, username)).limit(1);
-}
+import { storage } from "./storage";
 
 export async function getUserCount() {
-  const result = await db.select({ count: count() }).from(users);
-  return result[0]?.count || 0;
+  return storage.getUserCount();
 }
 
 export function setupAuth(app: Express) {
-  const store = new PostgresSessionStore({ pool, createTableIfMissing: true });
+  const store = pool ? new PostgresSessionStore({ pool, createTableIfMissing: true }) : undefined;
   const sessionSettings: session.SessionOptions = {
-    secret: process.env.SESSION_SECRET!,
+    secret: process.env.SESSION_SECRET || "development-secret",
     resave: false,
     saveUninitialized: false,
     store,
@@ -65,7 +62,7 @@ export function setupAuth(app: Express) {
   passport.use(
     new LocalStrategy(async (username, password, done) => {
       try {
-        const [user] = await getUserByUsername(username);
+        const user = await storage.getUserByUsername(username);
         if (!user || !(await comparePasswords(password, user.password))) {
           return done(null, false, { message: "Invalid username or password" });
         }
@@ -79,11 +76,7 @@ export function setupAuth(app: Express) {
   passport.serializeUser((user, done) => done(null, user.id));
   passport.deserializeUser(async (id: string, done) => {
     try {
-      const [user] = await db
-        .select()
-        .from(users)
-        .where(eq(users.id, id))
-        .limit(1);
+      const user = await storage.getUser(id);
       done(null, user || null);
     } catch (error) {
       done(error, null);
@@ -93,9 +86,9 @@ export function setupAuth(app: Express) {
   app.get("/api/setup-status", async (_req, res) => {
     try {
       const userCount = await getUserCount();
-      res.json({ 
+      res.json({
         needsSetup: userCount === 0,
-        userCount 
+        userCount
       });
     } catch (error) {
       res.status(500).json({ error: "Failed to check setup status" });
@@ -116,84 +109,60 @@ export function setupAuth(app: Express) {
       }
 
       const hashedPassword = await hashPassword(userData.password);
-      const [newUser] = await db
-        .insert(users)
-        .values({
-          username: userData.username,
-          password: hashedPassword,
-          department: department?.name || "General",
-        })
-        .returning();
+      const newUser = await storage.createUser({
+        username: userData.username,
+        password: hashedPassword,
+        department: department?.name || "General",
+        displayName: userData.displayName || userData.username,
+        email: userData.email || null,
+      });
 
-      let superAdminRole = await db
-        .select()
-        .from(roles)
-        .where(eq(roles.name, "Super Admin"))
-        .limit(1);
+      const allRoles = await storage.getRoles();
+      let superAdminRole = allRoles.find(r => r.name === "Super Admin");
 
-      if (superAdminRole.length === 0) {
-        const [createdRole] = await db
-          .insert(roles)
-          .values({
-            name: "Super Admin",
-            description: "Full system access with all permissions",
-            color: "#dc2626",
-            priority: 100,
-            isSystem: "true",
-          })
-          .returning();
-        superAdminRole = [createdRole];
+      if (!superAdminRole) {
+        const createdRole = await storage.createRole({
+          name: "Super Admin",
+          description: "Full system access with all permissions",
+          color: "#dc2626",
+          priority: 100,
+          isSystem: "true",
+        });
+        superAdminRole = { ...createdRole, userCount: 0 };
       }
 
-      await db.insert(userRoles).values({
+      await storage.assignUserRole({
         userId: newUser.id,
-        roleId: superAdminRole[0].id,
+        roleId: superAdminRole.id,
         assignedBy: newUser.id,
       });
 
       if (company?.name) {
-        await db
-          .insert(systemSettings)
-          .values({ key: "companyName", value: company.name })
-          .onConflictDoUpdate({
-            target: systemSettings.key,
-            set: { value: company.name },
-          });
+        await storage.setSystemSetting("companyName", company.name);
       }
 
       if (company?.primaryColor) {
-        await db
-          .insert(systemSettings)
-          .values({ key: "primaryColor", value: company.primaryColor })
-          .onConflictDoUpdate({
-            target: systemSettings.key,
-            set: { value: company.primaryColor },
-          });
+        await storage.setSystemSetting("primaryColor", company.primaryColor);
       }
 
       if (department?.name) {
-        const [dept] = await db
-          .insert(departments)
-          .values({
-            name: department.name,
-            description: department.description || "",
-            color: "#7c3aed",
-          })
-          .returning();
-        
+        const dept = await storage.createDepartment({
+          name: department.name,
+          description: department.description || "",
+          color: "#7c3aed",
+          headId: newUser.id
+        });
+
         if (dept) {
-          await db
-            .update(users)
-            .set({ department: dept.name })
-            .where(eq(users.id, newUser.id));
+          await storage.updateUser(newUser.id, { department: dept.name });
         }
       }
 
       req.login(newUser, (err) => {
         if (err) return next(err);
-        res.status(201).json({ 
+        res.status(201).json({
           user: newUser,
-          message: "Setup completed successfully" 
+          message: "Setup completed successfully"
         });
       });
     } catch (error: any) {
@@ -210,7 +179,7 @@ export function setupAuth(app: Express) {
         return res.status(400).json({ error: error.toString() });
       }
 
-      const [existingUser] = await getUserByUsername(result.data.username);
+      const existingUser = await storage.getUserByUsername(result.data.username);
       if (existingUser) {
         return res.status(400).json({ error: "Username already exists" });
       }

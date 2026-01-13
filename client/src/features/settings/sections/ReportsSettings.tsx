@@ -15,17 +15,17 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { ReportBuilder } from "@/features/reports/ReportBuilder";
-import { 
-  BarChart3, 
-  FileText, 
-  Calendar, 
-  Share2, 
-  Plus, 
-  Settings, 
-  Clock, 
-  Download, 
-  Trash2, 
-  Edit2, 
+import {
+  BarChart3,
+  FileText,
+  Calendar,
+  Share2,
+  Plus,
+  Settings,
+  Clock,
+  Download,
+  Trash2,
+  Edit2,
   Play,
   Eye,
   Lock,
@@ -73,10 +73,14 @@ interface ReportDefinition {
   createdBy: string;
   isTemplate: string;
   isPublic: string;
+  isActive?: boolean;
+  isSystem?: boolean;
+  dataSource?: string;
   configuration: string;
   createdAt: string;
   updatedAt: string;
 }
+
 
 interface DepartmentReportSettings {
   id?: string;
@@ -145,7 +149,7 @@ export function ReportsSettings() {
   const { data: reportDefinitions = [] } = useQuery<ReportDefinition[]>({
     queryKey: ["/api/reports/definitions", selectedDepartment?.id],
     queryFn: async () => {
-      const url = selectedDepartment?.id 
+      const url = selectedDepartment?.id
         ? `/api/reports/definitions?departmentId=${selectedDepartment.id}`
         : "/api/reports/definitions";
       const res = await fetch(url);
@@ -160,7 +164,7 @@ export function ReportsSettings() {
   const { data: auditLogs = [] } = useQuery<ReportAuditLog[]>({
     queryKey: ["/api/reports/audit-logs", selectedDepartment?.id],
     queryFn: async () => {
-      const url = selectedDepartment?.id 
+      const url = selectedDepartment?.id
         ? `/api/reports/audit-logs?departmentId=${selectedDepartment.id}`
         : "/api/reports/audit-logs";
       const res = await fetch(url);
@@ -369,9 +373,9 @@ export function ReportsSettings() {
                           </CardHeader>
                           <CardContent>
                             <p className="text-sm text-muted-foreground">{type.description}</p>
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               className="mt-4 opacity-0 group-hover:opacity-100 transition-opacity"
                               onClick={() => {
                                 setNewReportType(type.value);
@@ -440,8 +444,8 @@ export function ReportsSettings() {
                                   <Edit2 className="h-4 w-4" />
                                 </Button>
                                 {!isSystemTemplate && (
-                                  <Button 
-                                    variant="ghost" 
+                                  <Button
+                                    variant="ghost"
                                     size="icon"
                                     onClick={() => deleteReportMutation.mutate(report.id)}
                                   >

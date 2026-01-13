@@ -5,11 +5,11 @@ import * as schema from "@shared/schema";
 const { Pool } = pg;
 
 if (!process.env.DATABASE_URL) {
-  throw new Error("DATABASE_URL environment variable is required");
+  console.warn("DATABASE_URL environment variable is currently missing. Falling back to memory storage.");
 }
 
-export const pool = new Pool({
+export const pool = process.env.DATABASE_URL ? new Pool({
   connectionString: process.env.DATABASE_URL,
-});
+}) : null;
 
-export const db = drizzle(pool, { schema });
+export const db = (pool ? drizzle(pool, { schema }) : null) as any;

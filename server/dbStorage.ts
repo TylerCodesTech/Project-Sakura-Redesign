@@ -2,8 +2,8 @@ import { db } from "./db";
 import { eq, and, desc, asc, count, sql, or, ilike, gte, lte, isNull } from "drizzle-orm";
 import {
   users, books, pages, comments, notifications, externalLinks, departments, news, stats, systemSettings,
-  helpdesks, slaStates, slaPolicies, departmentHierarchy, departmentManagers, escalationRules, 
-  escalationConditions, inboundEmailConfigs, tickets, ticketComments, helpdeskWebhooks, 
+  helpdesks, slaStates, slaPolicies, departmentHierarchy, departmentManagers, escalationRules,
+  escalationConditions, inboundEmailConfigs, tickets, ticketComments, helpdeskWebhooks,
   ticketFormCategories, ticketFormFields,
   roles, rolePermissions, userRoles, auditLogs, documentActivity,
   pageVersions, bookVersions, versionAuditLogs,
@@ -20,7 +20,7 @@ import {
   type DepartmentManager, type InsertDepartmentManager, type EscalationRule, type InsertEscalationRule,
   type EscalationCondition, type InsertEscalationCondition, type InboundEmailConfig, type InsertInboundEmailConfig,
   type Ticket, type InsertTicket, type TicketComment, type InsertTicketComment,
-  type HelpdeskWebhook, type InsertHelpdeskWebhook, 
+  type HelpdeskWebhook, type InsertHelpdeskWebhook,
   type TicketFormCategory, type InsertTicketFormCategory,
   type TicketFormField, type InsertTicketFormField,
   type Role, type InsertRole, type RolePermission, type InsertRolePermission,
@@ -67,6 +67,11 @@ export class DatabaseStorage implements IStorage {
 
   async getUsers(): Promise<User[]> {
     return db.select().from(users);
+  }
+
+  async getUserCount(): Promise<number> {
+    const [result] = await db.select({ count: count() }).from(users);
+    return result?.count ?? 0;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
@@ -121,7 +126,7 @@ export class DatabaseStorage implements IStorage {
 
   async getStandalonePages(): Promise<Page[]> {
     const result = await db.select().from(pages);
-    return result.filter(p => !p.bookId);
+    return result.filter((p: Page) => !p.bookId);
   }
 
   async createPage(insertPage: InsertPage): Promise<Page> {
@@ -240,7 +245,7 @@ export class DatabaseStorage implements IStorage {
   async getSystemSettings(): Promise<Record<string, string>> {
     const result: Record<string, string> = { ...systemSettingsDefaults };
     const dbSettings = await db.select().from(systemSettings);
-    dbSettings.forEach((setting) => {
+    dbSettings.forEach((setting: SystemSetting) => {
       result[setting.key] = setting.value;
     });
     return result;
@@ -286,7 +291,7 @@ export class DatabaseStorage implements IStorage {
 
   async createHelpdesk(insert: InsertHelpdesk): Promise<Helpdesk> {
     const [helpdesk] = await db.insert(helpdesks).values(insert).returning();
-    
+
     const defaultStates = [
       { name: "Open", color: "#3b82f6", order: 0, isDefault: "true", isFinal: "false" },
       { name: "In Progress", color: "#f59e0b", order: 1, isDefault: "false", isFinal: "false" },
@@ -297,7 +302,7 @@ export class DatabaseStorage implements IStorage {
     for (const state of defaultStates) {
       await this.createSlaState({ ...state, helpdeskId: helpdesk.id });
     }
-    
+
     return helpdesk;
   }
 
@@ -798,7 +803,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Search versions
-  async searchVersions(query: string): Promise<{pageVersions: PageVersion[], bookVersions: BookVersion[]}> {
+  async searchVersions(query: string): Promise<{ pageVersions: PageVersion[], bookVersions: BookVersion[] }> {
     const searchPattern = `%${query}%`;
     const matchingPageVersions = await db.select().from(pageVersions)
       .where(or(
@@ -1053,7 +1058,7 @@ export class DatabaseStorage implements IStorage {
       or(isNull(announcements.startDate), lte(announcements.startDate, now)),
       or(isNull(announcements.endDate), gte(announcements.endDate, now)),
     ];
-    
+
     if (departmentId) {
       return db.select().from(announcements)
         .where(and(
@@ -1096,26 +1101,26 @@ export class DatabaseStorage implements IStorage {
     return history;
   }
 
-  async getTrendingTopics(departmentId?: string, limit: number = 10): Promise<{query: string; count: number}[]> {
+  async getTrendingTopics(departmentId?: string, limit: number = 10): Promise<{ query: string; count: number }[]> {
     const baseQuery = db.select({
       query: searchHistory.query,
       count: count(),
     }).from(searchHistory);
-    
+
     if (departmentId) {
       const results = await baseQuery
         .where(eq(searchHistory.departmentId, departmentId))
         .groupBy(searchHistory.query)
         .orderBy(desc(count()))
         .limit(limit);
-      return results.map(r => ({ query: r.query, count: Number(r.count) }));
+      return results.map((r: { query: string; count: unknown }) => ({ query: r.query, count: Number(r.count) }));
     }
-    
+
     const results = await baseQuery
       .groupBy(searchHistory.query)
       .orderBy(desc(count()))
       .limit(limit);
-    return results.map(r => ({ query: r.query, count: Number(r.count) }));
+    return results.map((r: { query: string; count: unknown }) => ({ query: r.query, count: Number(r.count) }));
   }
 
   // Intranet Posts
@@ -1156,7 +1161,7 @@ export class DatabaseStorage implements IStorage {
   async likePost(postId: string, userId: string): Promise<boolean> {
     const [existing] = await db.select().from(postLikes)
       .where(and(eq(postLikes.postId, postId), eq(postLikes.userId, userId)));
-    
+
     if (existing) {
       await db.delete(postLikes).where(eq(postLikes.id, existing.id));
       await db.update(posts)
@@ -1239,10 +1244,10 @@ export class DatabaseStorage implements IStorage {
 
   async acknowledgeServiceAlert(id: string, userId: string): Promise<ServiceAlert> {
     const [alert] = await db.update(serviceAlerts)
-      .set({ 
-        acknowledged: "true", 
-        acknowledgedBy: userId, 
-        acknowledgedAt: new Date().toISOString() 
+      .set({
+        acknowledged: "true",
+        acknowledgedBy: userId,
+        acknowledgedAt: new Date().toISOString()
       })
       .where(eq(serviceAlerts.id, id))
       .returning();

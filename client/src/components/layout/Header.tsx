@@ -49,6 +49,22 @@ interface SearchResult {
   versionNumber?: number;
 }
 
+interface ExternalLink {
+  id: string;
+  title: string;
+  url: string;
+  departmentId?: string | null;
+}
+
+interface Notification {
+  id: string;
+  title: string;
+  message: string;
+  read: string;
+  link?: string;
+  createdAt: string;
+}
+
 export function Header() {
   const [location] = useLocation();
   const [isLauncherOpen, setIsLauncherOpen] = useState(false);
