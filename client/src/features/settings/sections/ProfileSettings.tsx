@@ -135,33 +135,40 @@ export function ProfileSettings() {
         description="Upload a photo to personalize your account."
         icon={Camera}
       >
-        <div className="flex items-center gap-6">
-          <div className="relative group">
-            <Avatar className="h-24 w-24 border-2 border-primary/20">
-              <AvatarImage src={profile.avatar} />
-              <AvatarFallback className="bg-gradient-to-br from-pink-500 to-purple-600 text-white font-bold text-2xl">
-                {(profile.displayName || user.username).substring(0, 2).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
+        <div className="flex items-center gap-8">
+          <div className="relative">
+            <div 
+              className="relative cursor-pointer group"
+              onClick={() => avatarInputRef.current?.click()}
+            >
+              <Avatar className="h-28 w-28 border-4 border-primary/20 shadow-lg">
+                <AvatarImage src={profile.avatar} className="object-cover" />
+                <AvatarFallback className="bg-gradient-to-br from-pink-500 to-purple-600 text-white font-bold text-3xl">
+                  {(profile.displayName || user.username).substring(0, 2).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <div className="absolute inset-0 rounded-full bg-black/60 opacity-0 group-hover:opacity-100 transition-all duration-200 flex flex-col items-center justify-center cursor-pointer">
+                {isUploading ? (
+                  <Loader2 className="w-8 h-8 text-white animate-spin" />
+                ) : (
+                  <>
+                    <Camera className="w-7 h-7 text-white mb-1" />
+                    <span className="text-white text-xs font-medium">Change</span>
+                  </>
+                )}
+              </div>
+            </div>
             {profile.avatar && (
               <button
-                onClick={() => setProfile(prev => ({ ...prev, avatar: "" }))}
-                className="absolute -top-2 -right-2 w-6 h-6 bg-destructive text-white rounded-full flex items-center justify-center hover:bg-destructive/90 shadow-lg"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setProfile(prev => ({ ...prev, avatar: "" }));
+                }}
+                className="absolute -top-1 -right-1 w-7 h-7 bg-destructive text-white rounded-full flex items-center justify-center hover:bg-destructive/90 shadow-lg z-10 transition-transform hover:scale-110"
               >
-                <X className="w-3 h-3" />
+                <X className="w-4 h-4" />
               </button>
             )}
-            <button
-              onClick={() => avatarInputRef.current?.click()}
-              disabled={isUploading}
-              className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
-            >
-              {isUploading ? (
-                <Loader2 className="w-6 h-6 text-white animate-spin" />
-              ) : (
-                <Camera className="w-6 h-6 text-white" />
-              )}
-            </button>
             <input
               ref={avatarInputRef}
               type="file"
@@ -173,13 +180,29 @@ export function ProfileSettings() {
               }}
             />
           </div>
-          <div className="space-y-1">
-            <h3 className="font-medium">{profile.displayName || user.username}</h3>
-            <p className="text-sm text-muted-foreground">@{user.username}</p>
-            <p className="text-xs text-muted-foreground flex items-center gap-1">
-              <Building2 className="w-3 h-3" />
-              {user.department}
-            </p>
+          <div className="space-y-3">
+            <div>
+              <h3 className="font-semibold text-lg">{profile.displayName || user.username}</h3>
+              <p className="text-sm text-muted-foreground">@{user.username}</p>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Building2 className="w-4 h-4" />
+              <span>{user.department}</span>
+            </div>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => avatarInputRef.current?.click()}
+              disabled={isUploading}
+              className="gap-2"
+            >
+              {isUploading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Camera className="w-4 h-4" />
+              )}
+              {profile.avatar ? "Change Photo" : "Upload Photo"}
+            </Button>
           </div>
         </div>
       </SettingsCard>
