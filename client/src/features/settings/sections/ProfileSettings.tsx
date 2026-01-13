@@ -86,7 +86,7 @@ export function ProfileSettings() {
       queryClient.invalidateQueries({ queryKey: ["/api/user"] });
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/online-users"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users/department"] });
       
       toast({
         title: "Profile updated",

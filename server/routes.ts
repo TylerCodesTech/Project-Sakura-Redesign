@@ -2200,7 +2200,7 @@ export async function registerRoutes(
   // Users by department (for Online Team Members)
   app.get("/api/users/department/:department", async (req, res) => {
     const users = await storage.getUsersByDepartment(req.params.department);
-    res.json(users.map(u => ({ id: u.id, username: u.username, department: u.department })));
+    res.json(users.map(u => ({ id: u.id, username: u.username, department: u.department, avatar: u.avatar })));
   });
 
   // Search tracking and trending topics

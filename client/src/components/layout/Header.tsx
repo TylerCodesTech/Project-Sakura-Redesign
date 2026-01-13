@@ -165,7 +165,7 @@ export function Header() {
       queryClient.invalidateQueries({ queryKey: ["/api/user"] });
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/online-users"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users/department"] });
       toast.success("Profile photo updated!");
     } catch (error) {
       toast.error("Failed to upload photo");

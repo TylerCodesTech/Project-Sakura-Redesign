@@ -124,7 +124,7 @@ export default function Dashboard() {
   });
 
   // Fetch users from signed-in user's department
-  const { data: departmentUsers = [] } = useQuery<{id: string; username: string; department: string}[]>({
+  const { data: departmentUsers = [] } = useQuery<{id: string; username: string; department: string; avatar?: string}[]>({
     queryKey: ["/api/users/department", user?.department],
     enabled: !!user?.department,
   });
@@ -188,6 +188,7 @@ export default function Dashboard() {
     id: u.id,
     name: u.username,
     department: u.department || user?.department || "",
+    avatar: u.avatar,
     status: i % 4 === 0 ? "away" : i % 5 === 0 ? "busy" : "online" as const,
   }));
 
