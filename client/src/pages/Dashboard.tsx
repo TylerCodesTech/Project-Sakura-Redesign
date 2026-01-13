@@ -1,6 +1,7 @@
 import { Layout } from "@/components/layout/Layout";
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
 import { useSystemSettings } from "@/contexts/SystemSettingsContext";
 import { cn } from "@/lib/utils";
@@ -60,79 +61,6 @@ function getTimeGreeting(): string {
 }
 
 
-// Mock data for demonstration - will be replaced with API calls
-const mockPosts: Post[] = [
-  {
-    id: "1",
-    author: {
-      id: "user1",
-      name: "Sarah Chen",
-      department: "Marketing"
-    },
-    content: "Excited to announce that our Q4 campaign exceeded expectations! 📈 Huge thanks to the entire team for their incredible work. Can't wait to share the full results at Friday's all-hands meeting.",
-    visibility: "public",
-    hashtags: ["Q4Results", "TeamWin", "Marketing"],
-    createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-    likesCount: 24,
-    commentsCount: 8,
-    sharesCount: 3,
-    isLiked: true,
-    isPinned: true,
-  },
-  {
-    id: "2",
-    author: {
-      id: "user2",
-      name: "Marcus Johnson",
-      department: "Engineering"
-    },
-    content: "Just pushed the new authentication system to staging! 🚀 If anyone has time to do some exploratory testing before EOD, please reach out. Looking for edge cases we might have missed.",
-    visibility: "public",
-    hashtags: ["Engineering", "Release", "Testing"],
-    createdAt: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
-    likesCount: 18,
-    commentsCount: 12,
-    sharesCount: 1,
-    comments: [
-      {
-        id: "c1",
-        author: { id: "user3", name: "Alex Rivera" },
-        content: "I'll take a look this afternoon! Any specific areas of concern?",
-        createdAt: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
-      }
-    ]
-  },
-  {
-    id: "3",
-    author: {
-      id: "user4",
-      name: "Emily Wang",
-      department: "HR"
-    },
-    content: "📢 Reminder: Open enrollment for benefits ends this Friday! If you haven't reviewed your options yet, please visit the HR portal or reach out to our team with any questions.",
-    visibility: "public",
-    hashtags: ["HR", "Benefits", "Reminder"],
-    createdAt: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
-    likesCount: 5,
-    commentsCount: 2,
-    sharesCount: 0,
-  },
-  {
-    id: "4",
-    author: {
-      id: "user5",
-      name: "David Kim",
-      department: "Sales"
-    },
-    content: "Just closed our biggest enterprise deal of the year! 🎉 This has been 6 months in the making and I couldn't have done it without @Lisa Thompson and the solutions engineering team. Drinks are on me!",
-    visibility: "public",
-    hashtags: ["Sales", "BigWin", "Celebration"],
-    createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-    likesCount: 67,
-    commentsCount: 23,
-    sharesCount: 8,
-  },
-];
 
 const mockOnlineUsers: OnlineUser[] = [
   { id: "1", name: "Sarah Chen", department: "Marketing", status: "online" },
@@ -211,6 +139,42 @@ export default function Dashboard() {
     enabled: !!user,
   });
 
+  // Fetch posts from backend
+  const queryClient = useQueryClient();
+  const { data: posts = [], isLoading: isLoadingPosts } = useQuery<Post[]>({
+    queryKey: ["/api/posts"],
+  });
+
+  // Create post mutation
+  const createPostMutation = useMutation({
+    mutationFn: async (data: { content: string; visibility: string; departmentId?: string; hashtags?: string[] }) => {
+      return apiRequest("POST", "/api/posts", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+    },
+  });
+
+  // Like post mutation
+  const likePostMutation = useMutation({
+    mutationFn: async (postId: string) => {
+      return apiRequest("POST", `/api/posts/${postId}/like`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+    },
+  });
+
+  // Comment on post mutation
+  const commentMutation = useMutation({
+    mutationFn: async ({ postId, content }: { postId: string; content: string }) => {
+      return apiRequest("POST", `/api/posts/${postId}/comments`, { content });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+    },
+  });
+
   // Transform trending data to expected format
   const trendingTopics: TrendingTopic[] = trendingData.map((t, i) => ({
     id: i.toString(),
@@ -242,18 +206,16 @@ export default function Dashboard() {
   }, []);
 
   const handlePost = (content: string, visibility: string, departmentId?: string) => {
-    console.log("New post:", { content, visibility, departmentId });
-    // TODO: Implement post creation via API
+    const hashtags = content.match(/#\w+/g)?.map(tag => tag.slice(1)) || [];
+    createPostMutation.mutate({ content, visibility, departmentId, hashtags });
   };
 
   const handleLike = (postId: string) => {
-    console.log("Like post:", postId);
-    // TODO: Implement like via API
+    likePostMutation.mutate(postId);
   };
 
   const handleComment = (postId: string, content: string) => {
-    console.log("Comment on post:", postId, content);
-    // TODO: Implement comment via API
+    commentMutation.mutate({ postId, content });
   };
 
   const systems = [
@@ -402,24 +364,33 @@ export default function Dashboard() {
 
             {/* Posts Feed */}
             <div className="space-y-4">
-              {mockPosts.map((post) => (
-                <PostCard
-                  key={post.id}
-                  post={post}
-                  onLike={handleLike}
-                  onComment={handleComment}
-                  onShare={(id) => console.log("Share:", id)}
-                  onBookmark={(id) => console.log("Bookmark:", id)}
-                  currentUserId={user?.id?.toString()}
-                />
-              ))}
+              {isLoadingPosts ? (
+                <div className="text-center py-8 text-muted-foreground">Loading posts...</div>
+              ) : posts.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  No posts yet. Be the first to share something!
+                </div>
+              ) : (
+                posts.map((post) => (
+                  <PostCard
+                    key={post.id}
+                    post={post}
+                    onLike={handleLike}
+                    onComment={handleComment}
+                    onShare={(id) => console.log("Share:", id)}
+                    onBookmark={(id) => console.log("Bookmark:", id)}
+                    currentUserId={user?.id?.toString()}
+                  />
+                ))
+              )}
 
-              {/* Load More */}
-              <div className="flex justify-center py-8">
-                <Button variant="outline" className="rounded-full px-6">
-                  Load more posts
-                </Button>
-              </div>
+              {posts.length > 0 && (
+                <div className="flex justify-center py-8">
+                  <Button variant="outline" className="rounded-full px-6">
+                    Load more posts
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
 
