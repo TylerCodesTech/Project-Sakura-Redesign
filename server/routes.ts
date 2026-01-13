@@ -103,6 +103,47 @@ export async function registerRoutes(
     })));
   });
 
+  // Admin endpoint to create users (doesn't auto-login)
+  app.post("/api/users", async (req, res) => {
+    try {
+      // Require authentication for admin user creation
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const { username, password, department } = req.body;
+      
+      if (!username || !password) {
+        return res.status(400).json({ error: "Username and password are required" });
+      }
+      
+      if (password.length < 8) {
+        return res.status(400).json({ error: "Password must be at least 8 characters" });
+      }
+
+      // Check if username already exists
+      const existingUser = await storage.getUserByUsername(username);
+      if (existingUser) {
+        return res.status(400).json({ error: "Username already exists" });
+      }
+
+      const { hashPassword } = await import("./auth");
+      const hashedPassword = await hashPassword(password);
+
+      const newUser = await storage.createUser({
+        username,
+        password: hashedPassword,
+        department: department || "General",
+      });
+
+      // Return user without password - DON'T auto-login
+      res.status(201).json({ ...newUser, password: undefined });
+    } catch (error: any) {
+      console.error("Create user error:", error);
+      res.status(500).json({ error: error.message || "Failed to create user" });
+    }
+  });
+
   app.get("/api/users/:id", async (req, res) => {
     const user = await storage.getUser(req.params.id);
     if (!user) {

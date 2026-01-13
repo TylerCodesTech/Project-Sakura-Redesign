@@ -65,7 +65,7 @@ export function UsersSettings({ subsection }: UsersSettingsProps) {
 
   const createUserMutation = useMutation({
     mutationFn: async (data: { username: string; password: string; department: string }) => {
-      return apiRequest("POST", "/api/register", data);
+      return apiRequest("POST", "/api/users", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
