@@ -45,6 +45,10 @@ Preferred communication style: Simple, everyday language.
 - **AI Indexing Statistics**: API endpoint `/api/ai/indexing-stats` provides real-time stats on documents indexed (pages and tickets), showing total, indexed, and pending counts.
 - **AI Writing Assistant**: In the documentation editor, an AI-powered writing assistant helps users improve, expand, summarize, fix grammar, make professional, or simplify selected text. The AI Assistant button and sidebar panel are only visible when: (1) AI is configured in system settings, and (2) the user has the `ai.assistant.use` permission. The assistant uses the configured chat model (OpenAI, Ollama, or Google) from system settings.
 - **AI Permissions**: New RBAC permissions for AI features: `ai.assistant.use` (use AI writing assistant in documents), `ai.chat.use` (use AI chat features), and `ai.settings.manage` (manage AI configuration settings).
+- **Intranet Dashboard**: Corporate intranet social feed with 3-column layout featuring department channels (left), social feed with post composer (center), and online team members/trending topics/upcoming events (right). Header includes greeting, weather, time, and system status indicator with tooltip showing infrastructure health.
+- **System Maintenance Announcements**: Administrators can create, edit, and manage system announcements (info, warning, success, error types) via the Maintenance section in Settings. Announcements can be company-wide or department-specific with optional date ranges. Active announcements are displayed in a dismissible banner on the Dashboard.
+- **Trending Topics**: Search history tracking and trending topics API that aggregates popular searches within a user's department. Displays top searched terms in the Dashboard sidebar.
+- **Online Team Members**: Shows users from the signed-in user's department in the Dashboard sidebar with online/away/busy status indicators.
 
 ## External Dependencies
 
