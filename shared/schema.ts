@@ -161,6 +161,7 @@ export const departments = pgTable("departments", {
   name: text("name").notNull(),
   description: text("description"),
   headId: varchar("head_id"),
+  parentId: varchar("parent_id"),
   color: text("color").notNull().default("#3b82f6"),
 });
 
