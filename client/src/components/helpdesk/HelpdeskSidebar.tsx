@@ -9,6 +9,7 @@ import {
   ChevronRight,
   ChevronDown,
   Ticket,
+  BarChart3,
 } from "lucide-react";
 import { type Department, type DepartmentHierarchy, type Ticket as TicketType } from "@shared/schema";
 
@@ -78,48 +79,61 @@ export function HelpdeskSidebar({
     const ticketCount = getTicketCount(dept.id);
 
     return (
-      <div key={dept.id}>
+      <div key={dept.id} className="space-y-1">
         <div
           className={cn(
-            "flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-all group",
+            "flex items-center gap-3 px-4 py-3 rounded-2xl cursor-pointer transition-all duration-200 group",
             isSelected
-              ? "bg-primary/10 text-primary border border-primary/20"
-              : "hover:bg-secondary/50 border border-transparent"
+              ? "bg-primary/10 text-primary border border-primary/20 shadow-md"
+              : "hover:bg-secondary/50 border border-transparent text-foreground",
+            level > 0 && "ml-4"
           )}
-          style={{ paddingLeft: `${12 + level * 16}px` }}
           onClick={() => handleDepartmentClick(dept)}
         >
           {hasChildren && (
             <Button
               variant="ghost"
               size="icon"
-              className="h-5 w-5 p-0 hover:bg-transparent"
+              className="h-6 w-6 p-0 hover:bg-transparent rounded-lg"
               onClick={(e) => {
                 e.stopPropagation();
                 toggleExpanded(dept.id);
               }}
             >
               {isExpanded ? (
-                <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+                <ChevronDown className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" />
               ) : (
-                <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
+                <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" />
               )}
             </Button>
           )}
-          {!hasChildren && <div className="w-5" />}
-          <div
-            className="w-2.5 h-2.5 rounded-full shrink-0"
-            style={{ backgroundColor: dept.color || "#6b7280" }}
-          />
-          <span className="text-sm font-medium truncate flex-1">{dept.name}</span>
+          {!hasChildren && <div className="w-6" />}
+
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <div
+              className="w-3 h-3 rounded-full shadow-sm border border-white/20 flex-shrink-0"
+              style={{ backgroundColor: dept.color || "#6b7280" }}
+            />
+            <span className="font-medium truncate text-sm">{dept.name}</span>
+          </div>
+
           {ticketCount > 0 && (
-            <Badge variant="secondary" className="h-5 px-1.5 text-[10px] font-medium">
+            <Badge 
+              variant="secondary" 
+              className={cn(
+                "h-6 px-2 text-xs font-semibold rounded-xl",
+                isSelected 
+                  ? "bg-primary/20 text-primary border-primary/30" 
+                  : "bg-background/80 text-foreground"
+              )}
+            >
               {ticketCount}
             </Badge>
           )}
         </div>
+
         {hasChildren && isExpanded && (
-          <div className="mt-0.5">
+          <div className="space-y-1 pl-4">
             {children.map((child) => renderDepartment(child, level + 1))}
           </div>
         )}
@@ -128,42 +142,101 @@ export function HelpdeskSidebar({
   };
 
   return (
-    <div className="w-64 border-r border-border bg-card/50 flex flex-col h-full">
-      <div className="p-4 border-b border-border">
-        <h2 className="font-semibold text-lg flex items-center gap-2">
-          <Ticket className="w-5 h-5 text-primary" />
-          Helpdesk
-        </h2>
+    <div className="w-80 border-r border-border/30 bg-background/95 backdrop-blur-xl flex flex-col h-full shadow-lg">
+      {/* Enhanced Header */}
+      <div className="p-6 border-b border-border/30 bg-gradient-to-r from-background/80 to-secondary/10">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center border border-primary/20 shadow-lg">
+            <Ticket className="w-6 h-6 text-primary" />
+          </div>
+          <div>
+            <h2 className="font-bold text-xl text-foreground">Helpdesk</h2>
+            <p className="text-sm text-muted-foreground">Support & Tickets</p>
+          </div>
+        </div>
       </div>
 
       <ScrollArea className="flex-1">
-        <div className="p-3 space-y-1">
-          <Button
-            variant="ghost"
-            className={cn(
-              "w-full justify-start gap-3 h-10 px-3 rounded-lg font-medium",
-              selectedView === "dashboard"
-                ? "bg-primary/10 text-primary hover:bg-primary/15"
-                : "hover:bg-secondary/50"
-            )}
-            onClick={() => {
-              onSelectView("dashboard");
-              onSelectDepartment(null);
-            }}
-          >
-            <LayoutDashboard className="w-4 h-4" />
-            Dashboard
-          </Button>
+        <div className="p-6 space-y-6">
+          {/* Dashboard Navigation */}
+          <div className="space-y-2">
+            <Button
+              variant="ghost"
+              className={cn(
+                "w-full justify-start gap-4 h-14 px-4 rounded-2xl font-medium text-left transition-all duration-200",
+                selectedView === "dashboard"
+                  ? "bg-primary/10 text-primary hover:bg-primary/15 shadow-md border border-primary/20"
+                  : "hover:bg-secondary/60 text-foreground"
+              )}
+              onClick={() => {
+                onSelectView("dashboard");
+                onSelectDepartment(null);
+              }}
+            >
+              <div className={cn(
+                "w-10 h-10 rounded-xl flex items-center justify-center transition-colors",
+                selectedView === "dashboard" 
+                  ? "bg-primary/20 text-primary" 
+                  : "bg-secondary/40 text-muted-foreground"
+              )}>
+                <LayoutDashboard className="w-5 h-5" />
+              </div>
+              <div className="flex-1">
+                <div className="font-semibold">Dashboard</div>
+                <div className="text-xs text-muted-foreground">Overview & Analytics</div>
+              </div>
+            </Button>
+          </div>
 
-          <div className="pt-4 pb-2">
-            <div className="flex items-center gap-2 px-3 mb-2">
-              <Building2 className="w-4 h-4 text-muted-foreground" />
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Departments
-              </span>
+          {/* Departments Section */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 px-2">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500/10 to-blue-600/20 flex items-center justify-center">
+                <Building2 className="w-4 h-4 text-blue-600" />
+              </div>
+              <div>
+                <span className="font-semibold text-foreground">Departments</span>
+                <p className="text-xs text-muted-foreground">Browse by department</p>
+              </div>
             </div>
-            <div className="space-y-0.5">
+
+            <div className="space-y-2">
               {topLevelDepartments.map((dept) => renderDepartment(dept))}
+            </div>
+          </div>
+
+          {/* Quick Stats */}
+          <div className="bg-gradient-to-br from-secondary/40 to-secondary/20 rounded-2xl p-4 border border-border/40">
+            <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2">
+              <div className="w-6 h-6 rounded-lg bg-primary/20 flex items-center justify-center">
+                <BarChart3 className="w-3 h-3 text-primary" />
+              </div>
+              Quick Stats
+            </h3>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Total Tickets</span>
+                <Badge variant="secondary" className="bg-background/80 font-semibold">
+                  {tickets.length}
+                </Badge>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Open Tickets</span>
+                <Badge className="bg-orange-500/10 text-orange-600 border-orange-500/30 font-semibold">
+                  {tickets.filter(t => {
+                    // This is a simplified check - you might want to use your SLA states here
+                    return !t.stateId || t.stateId !== "closed";
+                  }).length}
+                </Badge>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">My Dept</span>
+                <Badge className="bg-primary/10 text-primary border-primary/30 font-semibold">
+                  {selectedView === "department" && selectedDepartmentId
+                    ? getTicketCount(selectedDepartmentId)
+                    : 0}
+                </Badge>
+              </div>
             </div>
           </div>
         </div>
