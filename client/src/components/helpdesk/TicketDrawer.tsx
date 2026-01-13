@@ -377,14 +377,14 @@ export function TicketDrawer({ ticketId, open, onOpenChange, onOpenFull }: Ticke
                           </Select>
 
                           <Select
-                            value={ticket.assignedTo || ""}
-                            onValueChange={(value) => updateTicketMutation.mutate({ assignedTo: value })}
+                            value={ticket.assignedTo || "__unassigned__"}
+                            onValueChange={(value) => updateTicketMutation.mutate({ assignedTo: value === "__unassigned__" ? null : value })}
                           >
                             <SelectTrigger className="rounded-2xl border-border/40 bg-background/60 h-12">
                               <SelectValue placeholder="Assign to..." />
                             </SelectTrigger>
                             <SelectContent className="rounded-2xl border-border/40 bg-background/95 backdrop-blur-xl">
-                              <SelectItem value="" className="rounded-xl">Unassigned</SelectItem>
+                              <SelectItem value="__unassigned__" className="rounded-xl">Unassigned</SelectItem>
                               {users.map((user) => (
                                 <SelectItem key={user.id} value={user.id} className="rounded-xl">
                                   <div className="flex items-center gap-2">

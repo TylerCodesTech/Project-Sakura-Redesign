@@ -558,15 +558,15 @@ export function QuickTicketModal({ open, onOpenChange, onSuccess }: QuickTicketM
                     Assignee (Optional)
                   </Label>
                   <Select
-                    value={selectedAssigneeId || ""}
-                    onValueChange={setSelectedAssigneeId}
+                    value={selectedAssigneeId || "__auto__"}
+                    onValueChange={(value) => setSelectedAssigneeId(value === "__auto__" ? null : value)}
                     disabled={availableAssignees.length === 0}
                   >
                     <SelectTrigger className="rounded-2xl border-border/40 bg-background/60 backdrop-blur-sm h-12">
                       <SelectValue placeholder={availableAssignees.length === 0 ? "No users available" : "Auto-assign"} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Auto-assign</SelectItem>
+                      <SelectItem value="__auto__">Auto-assign</SelectItem>
                       {availableAssignees.map((user) => (
                         <SelectItem key={user.id} value={user.id}>
                           {user.displayName || user.username}
