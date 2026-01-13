@@ -317,8 +317,8 @@ export function UsersSettings({ subsection }: UsersSettingsProps) {
               >
                 <div className="flex items-center gap-3 sm:gap-4 min-w-0">
                   <Avatar className="h-10 w-10">
-                    <AvatarImage src="" />
-                    <AvatarFallback className="bg-primary/10 text-primary font-medium text-sm">
+                    <AvatarImage src={user.avatar || ""} className="object-cover" />
+                    <AvatarFallback className="bg-gradient-to-br from-pink-500 to-purple-600 text-white font-medium text-sm">
                       {user.username.substring(0, 2).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
@@ -379,8 +379,8 @@ export function UsersSettings({ subsection }: UsersSettingsProps) {
             <div className="space-y-6 py-4">
               <div className="flex items-center gap-4">
                 <Avatar className="h-16 w-16">
-                  <AvatarImage src="" />
-                  <AvatarFallback className="bg-primary/10 text-primary font-bold text-xl">
+                  <AvatarImage src={viewProfileUser.avatar || ""} className="object-cover" />
+                  <AvatarFallback className="bg-gradient-to-br from-pink-500 to-purple-600 text-white font-bold text-xl">
                     {viewProfileUser.username.substring(0, 2).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
