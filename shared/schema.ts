@@ -334,6 +334,57 @@ export const emailThreads = pgTable("email_threads", {
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
+// Helpdesk Routing Configuration - first point of contact and routing method per helpdesk
+export const helpdeskRoutingConfig = pgTable("helpdesk_routing_config", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  helpdeskId: varchar("helpdesk_id").notNull().unique(),
+  firstContactType: text("first_contact_type").notNull().default("round_robin"), // 'user', 'subdepartment', 'round_robin', 'ai_routed'
+  firstContactId: varchar("first_contact_id"), // user ID or subdepartment ID depending on type
+  routingMethod: text("routing_method").notNull().default("ai_semantic"), // 'ai_semantic', 'manual', 'form_based'
+  autoAssignEnabled: text("auto_assign_enabled").notNull().default("true"),
+  loadBalancingEnabled: text("load_balancing_enabled").notNull().default("true"), // re-route when assignee overloaded
+  maxTicketsPerUser: integer("max_tickets_per_user").default(20),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+// Helpdesk Escalation Configuration - escalation rules and timers
+export const helpdeskEscalationConfig = pgTable("helpdesk_escalation_config", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  helpdeskId: varchar("helpdesk_id").notNull().unique(),
+  escalationMethod: text("escalation_method").notNull().default("workflow"), // 'historical', 'workflow', 'round_robin'
+  reminderEnabled: text("reminder_enabled").notNull().default("true"),
+  reminderHours: integer("reminder_hours").default(2), // hours before escalation to send reminder
+  escalationHours: integer("escalation_hours").default(4), // hours before auto-escalation
+  notifyManagerOnEscalation: text("notify_manager_on_escalation").notNull().default("true"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+// Escalation Path - ordered list of users/subdepartments for workflow-based escalation
+export const escalationPath = pgTable("escalation_path", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  helpdeskId: varchar("helpdesk_id").notNull(),
+  stepOrder: integer("step_order").notNull().default(0),
+  targetType: text("target_type").notNull().default("user"), // 'user', 'subdepartment'
+  targetId: varchar("target_id").notNull(),
+  waitHours: integer("wait_hours").default(4), // hours to wait before escalating to next step
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+// Ticket Activity - audit trail for all ticket actions
+export const ticketActivity = pgTable("ticket_activity", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ticketId: varchar("ticket_id").notNull(),
+  userId: varchar("user_id"), // who performed the action (null for system actions)
+  action: text("action").notNull(), // 'created', 'assigned', 'reassigned', 'escalated', 'reminder_sent', 'status_changed', 'commented', 'resolved', 'closed'
+  previousValue: text("previous_value"), // JSON string of previous state
+  newValue: text("new_value"), // JSON string of new state
+  reason: text("reason"), // reason for the action (e.g., 'AI routing', 'SLA escalation', 'Manual reassign')
+  metadata: text("metadata"), // additional JSON data (AI confidence score, routing details, etc.)
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
 // Tickets table for helpdesk
 export const tickets = pgTable("tickets", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -345,8 +396,18 @@ export const tickets = pgTable("tickets", {
   assignedTo: varchar("assigned_to"),
   createdBy: varchar("created_by").notNull(),
   departmentId: varchar("department_id"),
+  subDepartmentId: varchar("sub_department_id"), // sub-department the ticket is routed to
   ticketType: text("ticket_type").notNull().default("request"),
   source: text("source").notNull().default("web"),
+  formCategoryId: varchar("form_category_id"), // which form category was used to create this ticket
+  responseReminderSent: text("response_reminder_sent").notNull().default("false"), // whether reminder was sent
+  escalationWarningSent: text("escalation_warning_sent").notNull().default("false"), // whether escalation warning was shown
+  currentEscalationStep: integer("current_escalation_step").default(0), // current step in escalation path
+  lastActivityAt: text("last_activity_at").notNull().default(sql`CURRENT_TIMESTAMP`), // for SLA tracking
+  firstResponseAt: text("first_response_at"), // when assignee first responded
+  resolvedAt: text("resolved_at"), // when ticket was resolved
+  aiRoutingConfidence: text("ai_routing_confidence"), // confidence score from AI routing (0-1)
+  aiSuggestedAssignee: varchar("ai_suggested_assignee"), // who AI suggested before manual override
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   embedding: vector("embedding", { dimensions: 1536 }), // OpenAI text-embedding-3-small
@@ -433,6 +494,10 @@ export const insertEscalationRuleSchema = createInsertSchema(escalationRules).om
 export const insertEscalationConditionSchema = createInsertSchema(escalationConditions).omit({ id: true });
 export const insertInboundEmailConfigSchema = createInsertSchema(inboundEmailConfigs).omit({ id: true });
 export const insertEmailThreadSchema = createInsertSchema(emailThreads).omit({ id: true });
+export const insertHelpdeskRoutingConfigSchema = createInsertSchema(helpdeskRoutingConfig).omit({ id: true });
+export const insertHelpdeskEscalationConfigSchema = createInsertSchema(helpdeskEscalationConfig).omit({ id: true });
+export const insertEscalationPathSchema = createInsertSchema(escalationPath).omit({ id: true });
+export const insertTicketActivitySchema = createInsertSchema(ticketActivity).omit({ id: true });
 export const insertTicketSchema = createInsertSchema(tickets).omit({ id: true });
 export const insertTicketCommentSchema = createInsertSchema(ticketComments).omit({ id: true });
 export const insertHelpdeskWebhookSchema = createInsertSchema(helpdeskWebhooks).omit({ id: true });
@@ -442,6 +507,14 @@ export const insertTicketFormFieldSchema = createInsertSchema(ticketFormFields).
 // Types
 export type Helpdesk = typeof helpdesks.$inferSelect;
 export type InsertHelpdesk = z.infer<typeof insertHelpdeskSchema>;
+export type HelpdeskRoutingConfig = typeof helpdeskRoutingConfig.$inferSelect;
+export type InsertHelpdeskRoutingConfig = z.infer<typeof insertHelpdeskRoutingConfigSchema>;
+export type HelpdeskEscalationConfig = typeof helpdeskEscalationConfig.$inferSelect;
+export type InsertHelpdeskEscalationConfig = z.infer<typeof insertHelpdeskEscalationConfigSchema>;
+export type EscalationPath = typeof escalationPath.$inferSelect;
+export type InsertEscalationPath = z.infer<typeof insertEscalationPathSchema>;
+export type TicketActivity = typeof ticketActivity.$inferSelect;
+export type InsertTicketActivity = z.infer<typeof insertTicketActivitySchema>;
 export type SlaState = typeof slaStates.$inferSelect;
 export type InsertSlaState = z.infer<typeof insertSlaStateSchema>;
 export type SlaPolicy = typeof slaPolicies.$inferSelect;
