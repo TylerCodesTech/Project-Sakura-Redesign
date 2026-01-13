@@ -2168,8 +2168,17 @@ export async function registerRoutes(
     
     const postsWithAuthor = postsList.map(post => {
       const author = userMap.get(post.authorId);
+      let hashtags: string[] = [];
+      if (post.hashtags) {
+        try {
+          hashtags = JSON.parse(post.hashtags);
+        } catch {
+          hashtags = [];
+        }
+      }
       return {
         ...post,
+        hashtags,
         author: author ? {
           id: author.id,
           name: author.username,

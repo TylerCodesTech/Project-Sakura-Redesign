@@ -206,7 +206,8 @@ export default function Dashboard() {
   }, []);
 
   const handlePost = (content: string, visibility: string, departmentId?: string) => {
-    const hashtags = content.match(/#\w+/g)?.map(tag => tag.slice(1)) || [];
+    const hashtagsArray = content.match(/#\w+/g)?.map(tag => tag.slice(1)) || [];
+    const hashtags = hashtagsArray.length > 0 ? JSON.stringify(hashtagsArray) : undefined;
     createPostMutation.mutate({ content, visibility, departmentId, hashtags });
   };
 
