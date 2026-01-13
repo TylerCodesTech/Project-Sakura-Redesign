@@ -882,6 +882,49 @@ export const insertAiModelConfigSchema = createInsertSchema(aiModelConfigs).omit
 export type AiModelConfig = typeof aiModelConfigs.$inferSelect;
 export type InsertAiModelConfig = z.infer<typeof insertAiModelConfigSchema>;
 
+// Maintenance Announcements
+export const announcements = pgTable("announcements", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  type: text("type").notNull().default("info"), // info, warning, success, error
+  link: text("link"),
+  isActive: boolean("is_active").notNull().default(true),
+  departmentId: varchar("department_id"), // null = company-wide
+  startDate: text("start_date"),
+  endDate: text("end_date"),
+  createdBy: varchar("created_by").notNull(),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const insertAnnouncementSchema = createInsertSchema(announcements).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type Announcement = typeof announcements.$inferSelect;
+export type InsertAnnouncement = z.infer<typeof insertAnnouncementSchema>;
+
+// Search tracking for trending topics
+export const searchHistory = pgTable("search_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  query: text("query").notNull(),
+  userId: varchar("user_id").notNull(),
+  departmentId: varchar("department_id"),
+  resultCount: integer("result_count").default(0),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const insertSearchHistorySchema = createInsertSchema(searchHistory).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type SearchHistory = typeof searchHistory.$inferSelect;
+export type InsertSearchHistory = z.infer<typeof insertSearchHistorySchema>;
+
 // Report configuration type for the JSON field
 export interface ReportConfiguration {
   dataSource: ReportDataSource;

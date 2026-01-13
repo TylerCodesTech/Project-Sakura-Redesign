@@ -39,6 +39,8 @@ import {
   type ReportAuditLog, type InsertReportAuditLog,
   type DepartmentReportSettings, type InsertDepartmentReportSettings,
   type AiModelConfig, type InsertAiModelConfig,
+  type Announcement, type InsertAnnouncement,
+  type SearchHistory, type InsertSearchHistory,
   AVAILABLE_PERMISSIONS,
   systemSettingsDefaults
 } from "@shared/schema";
@@ -282,6 +284,18 @@ export interface IStorage {
   updateAiModelConfig(id: string, update: Partial<InsertAiModelConfig>): Promise<AiModelConfig>;
   deleteAiModelConfig(id: string): Promise<void>;
   setActiveAiModelConfig(id: string, type: string): Promise<AiModelConfig>;
+
+  // Announcements
+  getAnnouncements(departmentId?: string): Promise<Announcement[]>;
+  getActiveAnnouncements(departmentId?: string): Promise<Announcement[]>;
+  getAnnouncement(id: string): Promise<Announcement | undefined>;
+  createAnnouncement(announcement: InsertAnnouncement): Promise<Announcement>;
+  updateAnnouncement(id: string, update: Partial<InsertAnnouncement>): Promise<Announcement>;
+  deleteAnnouncement(id: string): Promise<void>;
+
+  // Search History / Trending Topics
+  createSearchHistory(search: InsertSearchHistory): Promise<SearchHistory>;
+  getTrendingTopics(departmentId?: string, limit?: number): Promise<{query: string; count: number}[]>;
 }
 
 export class MemStorage implements IStorage {
@@ -1700,6 +1714,76 @@ export class MemStorage implements IStorage {
     const config = this.aiModelConfigs.get(id);
     if (!config) throw new Error("AI Model Config not found");
     return config;
+  }
+
+  // Announcements (in-memory stub implementations)
+  private announcements: Map<string, Announcement> = new Map();
+  async getAnnouncements(departmentId?: string): Promise<Announcement[]> {
+    const all = Array.from(this.announcements.values());
+    if (departmentId) return all.filter(a => a.departmentId === departmentId || !a.departmentId);
+    return all;
+  }
+  async getActiveAnnouncements(departmentId?: string): Promise<Announcement[]> {
+    const now = new Date().toISOString();
+    const all = Array.from(this.announcements.values()).filter(a => {
+      if (!a.isActive) return false;
+      if (a.startDate && a.startDate > now) return false;
+      if (a.endDate && a.endDate < now) return false;
+      return true;
+    });
+    if (departmentId) return all.filter(a => a.departmentId === departmentId || !a.departmentId);
+    return all;
+  }
+  async getAnnouncement(id: string): Promise<Announcement | undefined> {
+    return this.announcements.get(id);
+  }
+  async createAnnouncement(insert: InsertAnnouncement): Promise<Announcement> {
+    const id = randomUUID();
+    const announcement: Announcement = {
+      id,
+      ...insert,
+      isActive: insert.isActive ?? true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    this.announcements.set(id, announcement);
+    return announcement;
+  }
+  async updateAnnouncement(id: string, update: Partial<InsertAnnouncement>): Promise<Announcement> {
+    const existing = this.announcements.get(id);
+    if (!existing) throw new Error("Announcement not found");
+    const updated = { ...existing, ...update, updatedAt: new Date().toISOString() };
+    this.announcements.set(id, updated);
+    return updated;
+  }
+  async deleteAnnouncement(id: string): Promise<void> {
+    this.announcements.delete(id);
+  }
+
+  // Search History / Trending Topics (in-memory stub implementations)
+  private searchHistory: SearchHistory[] = [];
+  async createSearchHistory(insert: InsertSearchHistory): Promise<SearchHistory> {
+    const history: SearchHistory = {
+      id: randomUUID(),
+      ...insert,
+      resultCount: insert.resultCount ?? 0,
+      createdAt: new Date().toISOString(),
+    };
+    this.searchHistory.push(history);
+    return history;
+  }
+  async getTrendingTopics(departmentId?: string, limit: number = 10): Promise<{query: string; count: number}[]> {
+    const filtered = departmentId 
+      ? this.searchHistory.filter(s => s.departmentId === departmentId)
+      : this.searchHistory;
+    const counts = new Map<string, number>();
+    filtered.forEach(s => {
+      counts.set(s.query, (counts.get(s.query) || 0) + 1);
+    });
+    return Array.from(counts.entries())
+      .map(([query, count]) => ({ query, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, limit);
   }
 }
 

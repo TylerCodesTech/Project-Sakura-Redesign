@@ -23,6 +23,8 @@ import {
   FileBarChart,
   Calendar,
   Share2,
+  Construction,
+  Megaphone,
 } from "lucide-react";
 import { SettingsNavItem } from "./types";
 
@@ -115,6 +117,15 @@ export const settingsNavigation: SettingsNavItem[] = [
     label: "Custom Links",
     icon: Globe,
     description: "External tools and integrations",
+  },
+  {
+    id: "maintenance",
+    label: "Maintenance",
+    icon: Construction,
+    description: "System announcements and maintenance notices",
+    children: [
+      { id: "maintenance-announcements", label: "Announcements", icon: Megaphone },
+    ],
   },
 ];
 

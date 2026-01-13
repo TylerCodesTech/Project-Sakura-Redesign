@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { eq, and, desc, asc, count, sql, or, ilike } from "drizzle-orm";
+import { eq, and, desc, asc, count, sql, or, ilike, gte, lte, isNull } from "drizzle-orm";
 import {
   users, books, pages, comments, notifications, externalLinks, departments, news, stats, systemSettings,
   helpdesks, slaStates, slaPolicies, departmentHierarchy, departmentManagers, escalationRules, 
@@ -8,7 +8,7 @@ import {
   roles, rolePermissions, userRoles, auditLogs, documentActivity,
   pageVersions, bookVersions, versionAuditLogs,
   reportDefinitions, reportFields, savedReports, reportSchedules, reportShares, reportAuditLogs, departmentReportSettings,
-  aiModelConfigs,
+  aiModelConfigs, announcements, searchHistory,
   type User, type InsertUser, type Book, type InsertBook, type Page, type InsertPage,
   type Comment, type InsertComment, type Notification, type InsertNotification,
   type ExternalLink, type InsertExternalLink, type Department, type InsertDepartment,
@@ -35,6 +35,8 @@ import {
   type ReportAuditLog, type InsertReportAuditLog,
   type DepartmentReportSettings, type InsertDepartmentReportSettings,
   type AiModelConfig, type InsertAiModelConfig,
+  type Announcement, type InsertAnnouncement,
+  type SearchHistory, type InsertSearchHistory,
   type RoleWithUserCount, type RoleWithPermissions,
   systemSettingsDefaults
 } from "@shared/schema";
@@ -1024,5 +1026,87 @@ export class DatabaseStorage implements IStorage {
       .returning();
     if (!config) throw new Error("AI Model Config not found");
     return config;
+  }
+
+  // Announcements
+  async getAnnouncements(departmentId?: string): Promise<Announcement[]> {
+    if (departmentId) {
+      return db.select().from(announcements)
+        .where(or(eq(announcements.departmentId, departmentId), isNull(announcements.departmentId)))
+        .orderBy(desc(announcements.createdAt));
+    }
+    return db.select().from(announcements).orderBy(desc(announcements.createdAt));
+  }
+
+  async getActiveAnnouncements(departmentId?: string): Promise<Announcement[]> {
+    const now = new Date().toISOString();
+    const baseConditions = [
+      eq(announcements.isActive, true),
+      or(isNull(announcements.startDate), lte(announcements.startDate, now)),
+      or(isNull(announcements.endDate), gte(announcements.endDate, now)),
+    ];
+    
+    if (departmentId) {
+      return db.select().from(announcements)
+        .where(and(
+          ...baseConditions,
+          or(eq(announcements.departmentId, departmentId), isNull(announcements.departmentId))
+        ))
+        .orderBy(desc(announcements.createdAt));
+    }
+    return db.select().from(announcements)
+      .where(and(...baseConditions))
+      .orderBy(desc(announcements.createdAt));
+  }
+
+  async getAnnouncement(id: string): Promise<Announcement | undefined> {
+    const [announcement] = await db.select().from(announcements).where(eq(announcements.id, id));
+    return announcement;
+  }
+
+  async createAnnouncement(insert: InsertAnnouncement): Promise<Announcement> {
+    const [announcement] = await db.insert(announcements).values(insert).returning();
+    return announcement;
+  }
+
+  async updateAnnouncement(id: string, update: Partial<InsertAnnouncement>): Promise<Announcement> {
+    const [announcement] = await db.update(announcements)
+      .set({ ...update, updatedAt: new Date().toISOString() })
+      .where(eq(announcements.id, id))
+      .returning();
+    if (!announcement) throw new Error("Announcement not found");
+    return announcement;
+  }
+
+  async deleteAnnouncement(id: string): Promise<void> {
+    await db.delete(announcements).where(eq(announcements.id, id));
+  }
+
+  // Search History / Trending Topics
+  async createSearchHistory(insert: InsertSearchHistory): Promise<SearchHistory> {
+    const [history] = await db.insert(searchHistory).values(insert).returning();
+    return history;
+  }
+
+  async getTrendingTopics(departmentId?: string, limit: number = 10): Promise<{query: string; count: number}[]> {
+    const baseQuery = db.select({
+      query: searchHistory.query,
+      count: count(),
+    }).from(searchHistory);
+    
+    if (departmentId) {
+      const results = await baseQuery
+        .where(eq(searchHistory.departmentId, departmentId))
+        .groupBy(searchHistory.query)
+        .orderBy(desc(count()))
+        .limit(limit);
+      return results.map(r => ({ query: r.query, count: Number(r.count) }));
+    }
+    
+    const results = await baseQuery
+      .groupBy(searchHistory.query)
+      .orderBy(desc(count()))
+      .limit(limit);
+    return results.map(r => ({ query: r.query, count: Number(r.count) }));
   }
 }
