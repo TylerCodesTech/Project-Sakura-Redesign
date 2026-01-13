@@ -192,7 +192,7 @@ export function PostCard({
 
             {/* Post Content */}
             <div className="p-4 pt-3">
-                <p className="text-sm leading-relaxed whitespace-pre-wrap">{post.content}</p>
+                <div className="text-sm leading-relaxed" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{post.content}</div>
 
                 {/* Hashtags */}
                 {post.hashtags && post.hashtags.length > 0 && (
