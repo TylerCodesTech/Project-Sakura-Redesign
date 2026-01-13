@@ -327,18 +327,28 @@ interface TrendingTopicsProps {
 export function TrendingTopics({ topics, onTopicClick }: TrendingTopicsProps) {
   return (
     <div className="bg-card/60 dark:bg-card/40 backdrop-blur-sm rounded-2xl border border-border/50 p-4">
-      <h3 className="text-sm font-bold mb-4">Trending Topics</h3>
-      <div className="space-y-2">
-        {topics.slice(0, 5).map((topic) => (
-          <button
-            key={topic.id}
-            onClick={() => onTopicClick(topic.tag)}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-secondary/30 hover:bg-secondary/50 transition-colors text-left"
-          >
-            <span className="text-primary font-medium text-sm">#{topic.tag}</span>
-          </button>
-        ))}
-      </div>
+      <h3 className="text-sm font-bold mb-4 flex items-center gap-2">
+        <TrendingUp className="w-4 h-4 text-primary" />
+        Trending in Your Department
+      </h3>
+      {topics.length === 0 ? (
+        <p className="text-xs text-muted-foreground text-center py-4">
+          No trending searches yet. Start searching to see what's popular!
+        </p>
+      ) : (
+        <div className="space-y-2">
+          {topics.slice(0, 5).map((topic) => (
+            <button
+              key={topic.id}
+              onClick={() => onTopicClick(topic.tag)}
+              className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-secondary/30 hover:bg-secondary/50 transition-colors text-left"
+            >
+              <span className="text-primary font-medium text-sm">#{topic.tag}</span>
+              <span className="text-xs text-muted-foreground">{topic.postCount} searches</span>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

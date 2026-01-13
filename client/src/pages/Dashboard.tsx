@@ -145,13 +145,6 @@ const mockOnlineUsers: OnlineUser[] = [
   { id: "8", name: "Rachel Green", department: "Design", status: "online" },
 ];
 
-const mockTrendingTopics: TrendingTopic[] = [
-  { id: "1", tag: "Q4Results", postCount: 45, trend: "up" },
-  { id: "2", tag: "NewProduct", postCount: 32, trend: "up" },
-  { id: "3", tag: "TeamBuilding", postCount: 28, trend: "stable" },
-  { id: "4", tag: "RemoteWork", postCount: 21, trend: "stable" },
-  { id: "5", tag: "Innovation", postCount: 18, trend: "new" },
-];
 
 const mockUpcomingEvents: UpcomingEvent[] = [
   {
@@ -447,7 +440,7 @@ export default function Dashboard() {
             />
 
             <TrendingTopics
-              topics={trendingTopics.length > 0 ? trendingTopics : mockTrendingTopics}
+              topics={trendingTopics}
               onTopicClick={(tag) => console.log("Topic clicked:", tag)}
             />
 
