@@ -36,7 +36,7 @@ interface PostComposerProps {
 
 export function PostComposer({ onPost, isPosting = false, departments = [] }: PostComposerProps) {
     const [content, setContent] = useState("");
-    const [visibility, setVisibility] = useState<"public" | "department">("public");
+    const [visibility, setVisibility] = useState<"company" | "department">("company");
     const [selectedDepartment, setSelectedDepartment] = useState<string>("");
     const [isFocused, setIsFocused] = useState(false);
     const { user } = useAuth();
@@ -124,12 +124,12 @@ export function PostComposer({ onPost, isPosting = false, departments = [] }: Po
                             <div className="flex items-center gap-3">
                                 <Select
                                     value={visibility}
-                                    onValueChange={(v: "public" | "department") => setVisibility(v)}
+                                    onValueChange={(v: "company" | "department") => setVisibility(v)}
                                 >
                                     <SelectTrigger className="w-[140px] h-9 rounded-xl border-border/50 bg-secondary/30">
                                         <SelectValue>
                                             <div className="flex items-center gap-2">
-                                                {visibility === "public" ? (
+                                                {visibility === "company" ? (
                                                     <>
                                                         <Globe className="w-4 h-4" />
                                                         <span>Everyone</span>
@@ -144,7 +144,7 @@ export function PostComposer({ onPost, isPosting = false, departments = [] }: Po
                                         </SelectValue>
                                     </SelectTrigger>
                                     <SelectContent className="rounded-xl">
-                                        <SelectItem value="public" className="rounded-lg">
+                                        <SelectItem value="company" className="rounded-lg">
                                             <div className="flex items-center gap-2">
                                                 <Globe className="w-4 h-4" />
                                                 <span>Everyone</span>
