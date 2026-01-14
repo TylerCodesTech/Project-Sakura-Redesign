@@ -1,19 +1,17 @@
 import { Layout } from "@/components/layout/Layout";
 import { Card, CardContent } from "@/components/ui/card";
-import { 
-  Plus, 
-  Search, 
-  FileText, 
-  BookOpen, 
-  MoreHorizontal, 
-  Clock, 
+import {
+  Plus,
+  Search,
+  FileText,
+  BookOpen,
+  MoreHorizontal,
+  Clock,
   ChevronRight,
   Sparkles,
   Folder,
   LayoutGrid,
   List,
-  Filter,
-  Upload,
   History,
   Trash2,
   AlertTriangle,
@@ -37,7 +35,6 @@ import {
   DialogHeader,
   DialogTitle
 } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -213,12 +210,6 @@ export default function Documents() {
     setDraggedItemId(null);
     setDropTargetId(null);
   };
-
-  const allItems = [
-    ...filteredBooks.map(b => ({ ...b, itemType: 'book' as const })),
-    ...standalonePages.map(p => ({ ...p, itemType: p.type as 'page' | 'folder' }))
-  ];
-
 
   return (
     <Layout>
