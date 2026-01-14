@@ -1,13 +1,21 @@
 import { useState } from "react";
-import { Shield, Plus, ShieldCheck, Users, Trash2, Edit, Lock, ChevronRight, AlertTriangle, Save, X, History } from "lucide-react";
+import { Shield, Plus, ShieldCheck, Users, Trash2, Edit, Lock, ChevronRight, AlertTriangle, Save, X, History, Key, Eye, EyeOff, Copy, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Separator } from "@/components/ui/separator";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   Dialog,
   DialogContent,
@@ -27,20 +35,24 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { SettingsHeader, SettingsCard, SettingsSection } from "../components";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { SettingsCard, SettingsRow } from "../components";
 import { cn } from "@/lib/utils";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 interface Permission {
   key: string;
   category: string;
   description: string;
-}
-
-interface PermissionCatalog {
-  permissions: Permission[];
-  categories: string[];
+  scope: 'global' | 'department' | 'both';
 }
 
 interface Role {
@@ -48,595 +60,676 @@ interface Role {
   name: string;
   description: string | null;
   color: string;
-  isSystem: string;
+  isSystem: boolean;
   priority: number;
-  userCount: number;
+  userCount?: number;
+  permissions?: string[];
   createdAt: string;
   updatedAt: string;
 }
-
-interface RoleWithPermissions extends Role {
-  permissions: { id: string; roleId: string; permission: string }[];
-}
-
-interface AuditLog {
-  id: string;
-  actorId: string | null;
-  actorName: string | null;
-  actionType: string;
-  targetType: string;
-  targetId: string | null;
-  targetName: string | null;
-  description: string;
-  metadata: string | null;
-  createdAt: string;
-}
-
-const categoryLabels: Record<string, string> = {
-  helpdesk: "Helpdesk & Tickets",
-  documentation: "Documentation",
-  users: "User Management",
-  settings: "Settings",
-  departments: "Departments",
-  reports: "Reports & Analytics",
-};
-
-const categoryIcons: Record<string, string> = {
-  helpdesk: "🎫",
-  documentation: "📄",
-  users: "👥",
-  settings: "⚙️",
-  departments: "🏢",
-  reports: "📊",
-};
 
 interface RolesSettingsProps {
   subsection?: string;
 }
 
-export function RolesSettings({ subsection }: RolesSettingsProps) {
-  const queryClient = useQueryClient();
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<Role | null>(null);
-  const [deleteRoleId, setDeleteRoleId] = useState<string | null>(null);
-  const [activeCategory, setActiveCategory] = useState<string>("helpdesk");
+const PERMISSION_CATEGORIES = {
+  helpdesk: {
+    label: "Helpdesk & Tickets",
+    icon: "🎫",
+    description: "Manage tickets, SLA policies, and helpdesk configuration"
+  },
+  documentation: {
+    label: "Documentation",
+    icon: "📄", 
+    description: "Create, edit, and manage knowledge base content"
+  },
+  users: {
+    label: "User Management",
+    icon: "👥",
+    description: "Manage user accounts, profiles, and authentication"
+  },
+  settings: {
+    label: "System Settings",
+    icon: "⚙️",
+    description: "Configure platform settings and preferences"
+  },
+  departments: {
+    label: "Departments",
+    icon: "🏢",
+    description: "Organize and manage departmental structure"
+  },
+  reports: {
+    label: "Reports & Analytics",
+    icon: "📊",
+    description: "Generate reports and view analytics data"
+  },
+  ai: {
+    label: "AI Configuration",
+    icon: "🤖",
+    description: "Configure AI models and settings"
+  }
+};
+
+const SAMPLE_PERMISSIONS: Permission[] = [
+  // Helpdesk permissions
+  { key: "helpdesk.tickets.view", category: "helpdesk", description: "View tickets", scope: "both" },
+  { key: "helpdesk.tickets.create", category: "helpdesk", description: "Create tickets", scope: "both" },
+  { key: "helpdesk.tickets.edit", category: "helpdesk", description: "Edit tickets", scope: "both" },
+  { key: "helpdesk.tickets.delete", category: "helpdesk", description: "Delete tickets", scope: "both" },
+  { key: "helpdesk.tickets.assign", category: "helpdesk", description: "Assign tickets to users", scope: "both" },
+  { key: "helpdesk.settings.manage", category: "helpdesk", description: "Manage helpdesk settings", scope: "department" },
   
-  const [newRoleName, setNewRoleName] = useState("");
-  const [newRoleDescription, setNewRoleDescription] = useState("");
-  const [newRoleColor, setNewRoleColor] = useState("#6366f1");
-  const [selectedPermissions, setSelectedPermissions] = useState<Set<string>>(new Set());
+  // Documentation permissions
+  { key: "docs.books.view", category: "documentation", description: "View documentation", scope: "both" },
+  { key: "docs.books.create", category: "documentation", description: "Create books", scope: "both" },
+  { key: "docs.pages.edit", category: "documentation", description: "Edit pages", scope: "both" },
+  { key: "docs.settings.manage", category: "documentation", description: "Manage docs settings", scope: "department" },
+  
+  // User management permissions
+  { key: "users.view", category: "users", description: "View user list", scope: "global" },
+  { key: "users.create", category: "users", description: "Create new users", scope: "global" },
+  { key: "users.edit", category: "users", description: "Edit user profiles", scope: "global" },
+  { key: "users.delete", category: "users", description: "Delete users", scope: "global" },
+  { key: "users.roles.assign", category: "users", description: "Assign roles to users", scope: "global" },
+  
+  // Settings permissions
+  { key: "settings.general.manage", category: "settings", description: "Manage general settings", scope: "global" },
+  { key: "settings.branding.manage", category: "settings", description: "Manage branding", scope: "global" },
+  { key: "settings.security.manage", category: "settings", description: "Manage security settings", scope: "global" },
+  
+  // Department permissions
+  { key: "departments.view", category: "departments", description: "View departments", scope: "global" },
+  { key: "departments.create", category: "departments", description: "Create departments", scope: "global" },
+  { key: "departments.edit", category: "departments", description: "Edit departments", scope: "global" },
+  
+  // Reports permissions
+  { key: "reports.view", category: "reports", description: "View reports", scope: "both" },
+  { key: "reports.create", category: "reports", description: "Create reports", scope: "both" },
+  { key: "reports.settings.manage", category: "reports", description: "Manage report settings", scope: "department" },
+  
+  // AI permissions
+  { key: "ai.settings.manage", category: "ai", description: "Manage AI configuration", scope: "global" },
+];
 
-  const { data: roles = [], isLoading: rolesLoading } = useQuery<Role[]>({
+export function RolesSettings({ subsection }: RolesSettingsProps) {
+  const { toast } = useToast();
+  const [selectedRole, setSelectedRole] = useState<Role | null>(null);
+  const [showCreateRole, setShowCreateRole] = useState(false);
+  const [showPermissionMatrix, setShowPermissionMatrix] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [roleToDelete, setRoleToDelete] = useState<Role | null>(null);
+
+  const [newRole, setNewRole] = useState({
+    name: "",
+    description: "",
+    color: "#7c3aed",
+    permissions: [] as string[],
+  });
+
+  const { data: roles = [], isLoading } = useQuery<Role[]>({
     queryKey: ["/api/roles"],
-    queryFn: async () => {
-      const res = await fetch("/api/roles");
-      if (!res.ok) throw new Error("Failed to fetch roles");
-      return res.json();
-    },
-  });
-
-  const { data: permissionCatalog } = useQuery<PermissionCatalog>({
-    queryKey: ["/api/permissions"],
-    queryFn: async () => {
-      const res = await fetch("/api/permissions");
-      if (!res.ok) throw new Error("Failed to fetch permissions");
-      return res.json();
-    },
-  });
-
-  const { data: auditData } = useQuery<{ logs: AuditLog[]; total: number }>({
-    queryKey: ["/api/audit-logs", 10, 0],
-    queryFn: async () => {
-      const res = await fetch("/api/audit-logs?limit=10&offset=0");
-      if (!res.ok) throw new Error("Failed to fetch audit logs");
-      return res.json();
-    },
   });
 
   const createRoleMutation = useMutation({
-    mutationFn: async (data: { name: string; description: string; color: string; permissions: string[] }) => {
-      const roleRes = await fetch("/api/roles", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: data.name, description: data.description, color: data.color }),
-      });
-      if (!roleRes.ok) throw new Error("Failed to create role");
-      const role = await roleRes.json();
-      
-      if (data.permissions.length > 0) {
-        const permRes = await fetch(`/api/roles/${role.id}/permissions`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ permissions: data.permissions }),
-        });
-        if (!permRes.ok) throw new Error("Failed to set permissions");
-      }
-      
-      return role;
+    mutationFn: async (data: typeof newRole) => {
+      return apiRequest("POST", "/api/roles", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/roles"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/audit-logs"] });
-      setIsCreateModalOpen(false);
-      resetForm();
-      toast.success("Role created successfully");
-    },
-    onError: (error: Error) => {
-      toast.error(error.message);
-    },
-  });
-
-  const updateRoleMutation = useMutation({
-    mutationFn: async (data: { id: string; name: string; description: string; color: string; permissions: string[] }) => {
-      const roleRes = await fetch(`/api/roles/${data.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: data.name, description: data.description, color: data.color }),
+      setShowCreateRole(false);
+      setNewRole({
+        name: "",
+        description: "",
+        color: "#7c3aed",
+        permissions: [],
       });
-      if (!roleRes.ok) {
-        const err = await roleRes.json();
-        throw new Error(err.error || "Failed to update role");
-      }
-      
-      const permRes = await fetch(`/api/roles/${data.id}/permissions`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ permissions: data.permissions }),
+      toast({
+        title: "Role created",
+        description: "The new role has been created successfully.",
       });
-      if (!permRes.ok) throw new Error("Failed to update permissions");
-      
-      return roleRes.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/roles"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/audit-logs"] });
-      setIsEditModalOpen(false);
-      setSelectedRole(null);
-      resetForm();
-      toast.success("Role updated successfully");
-    },
-    onError: (error: Error) => {
-      toast.error(error.message);
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create role",
+        variant: "destructive",
+      });
     },
   });
 
   const deleteRoleMutation = useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(`/api/roles/${id}`, { method: "DELETE" });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Failed to delete role");
-      }
+      return apiRequest("DELETE", `/api/roles/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/roles"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/audit-logs"] });
-      setDeleteRoleId(null);
-      toast.success("Role deleted successfully");
+      setShowDeleteConfirm(false);
+      setRoleToDelete(null);
+      toast({
+        title: "Role deleted",
+        description: "The role has been deleted successfully.",
+      });
     },
-    onError: (error: Error) => {
-      toast.error(error.message);
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete role",
+        variant: "destructive",
+      });
     },
   });
 
-  const resetForm = () => {
-    setNewRoleName("");
-    setNewRoleDescription("");
-    setNewRoleColor("#6366f1");
-    setSelectedPermissions(new Set());
-    setActiveCategory("helpdesk");
-  };
+  const isSecurityPolicies = subsection === "roles-policies";
 
-  const openEditModal = async (role: Role) => {
-    setSelectedRole(role);
-    setNewRoleName(role.name);
-    setNewRoleDescription(role.description || "");
-    setNewRoleColor(role.color);
-    
-    try {
-      const res = await fetch(`/api/roles/${role.id}`);
-      if (res.ok) {
-        const roleWithPerms: RoleWithPermissions = await res.json();
-        setSelectedPermissions(new Set(roleWithPerms.permissions.map(p => p.permission)));
-      }
-    } catch (e) {
-      console.error("Failed to fetch role permissions", e);
-    }
-    
-    setIsEditModalOpen(true);
-  };
-
-  const togglePermission = (permKey: string) => {
-    const newSet = new Set(selectedPermissions);
-    if (newSet.has(permKey)) {
-      newSet.delete(permKey);
-    } else {
-      newSet.add(permKey);
-    }
-    setSelectedPermissions(newSet);
-  };
-
-  const selectAllInCategory = (category: string) => {
-    if (!permissionCatalog) return;
-    const categoryPerms = permissionCatalog.permissions.filter(p => p.category === category);
-    const newSet = new Set(selectedPermissions);
-    categoryPerms.forEach(p => newSet.add(p.key));
-    setSelectedPermissions(newSet);
-  };
-
-  const deselectAllInCategory = (category: string) => {
-    if (!permissionCatalog) return;
-    const categoryPerms = permissionCatalog.permissions.filter(p => p.category === category);
-    const newSet = new Set(selectedPermissions);
-    categoryPerms.forEach(p => newSet.delete(p.key));
-    setSelectedPermissions(newSet);
-  };
-
-  const handleCreateRole = () => {
-    if (!newRoleName.trim()) {
-      toast.error("Role name is required");
-      return;
-    }
-    createRoleMutation.mutate({
-      name: newRoleName,
-      description: newRoleDescription,
-      color: newRoleColor,
-      permissions: Array.from(selectedPermissions),
-    });
-  };
-
-  const handleUpdateRole = () => {
-    if (!selectedRole || !newRoleName.trim()) return;
-    updateRoleMutation.mutate({
-      id: selectedRole.id,
-      name: newRoleName,
-      description: newRoleDescription,
-      color: newRoleColor,
-      permissions: Array.from(selectedPermissions),
-    });
-  };
-
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleString();
-  };
-
-  const getActionBadgeColor = (actionType: string) => {
-    if (actionType.includes("created")) return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
-    if (actionType.includes("updated")) return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200";
-    if (actionType.includes("deleted")) return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200";
-    return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200";
-  };
-
-  const RoleBuilderContent = ({ isEditing = false }: { isEditing?: boolean }) => {
-    const isSystemRole = isEditing && selectedRole?.isSystem === "true";
-    const categories = permissionCatalog?.categories || [];
-    const permissions = permissionCatalog?.permissions || [];
-    const currentCategoryPerms = permissions.filter(p => p.category === activeCategory);
-    const allSelected = currentCategoryPerms.every(p => selectedPermissions.has(p.key));
-
+  if (isSecurityPolicies) {
     return (
-      <div className="flex flex-col h-full">
-        <div className="p-6 border-b space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Role Name</Label>
-              <Input 
-                value={newRoleName} 
-                onChange={(e) => setNewRoleName(e.target.value)}
-                placeholder="e.g., Senior Editor"
-                disabled={isSystemRole}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Color</Label>
-              <div className="flex gap-2">
-                <Input 
-                  type="color" 
-                  value={newRoleColor} 
-                  onChange={(e) => setNewRoleColor(e.target.value)}
-                  className="w-12 h-9 p-1 cursor-pointer"
-                  disabled={isSystemRole}
-                />
-                <Input 
-                  value={newRoleColor} 
-                  onChange={(e) => setNewRoleColor(e.target.value)}
-                  className="flex-1"
-                  disabled={isSystemRole}
-                />
-              </div>
-            </div>
+      <div className="space-y-6">
+        <SettingsCard
+          title="Security Policies"
+          description="Configure security policies and access control rules"
+          icon={Shield}
+          scope="global"
+        >
+          <div className="space-y-6">
+            <SettingsRow 
+              label="Default Role for New Users" 
+              description="Automatically assign this role to new users"
+            >
+              <Select>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Select default role" />
+                </SelectTrigger>
+                <SelectContent>
+                  {roles.filter(role => !role.isSystem).map((role) => (
+                    <SelectItem key={role.id} value={role.id}>
+                      <div className="flex items-center gap-2">
+                        <div 
+                          className="w-3 h-3 rounded-full" 
+                          style={{ backgroundColor: role.color }}
+                        />
+                        {role.name}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </SettingsRow>
+
+            <SettingsRow 
+              label="Require Role for Features" 
+              description="Require users to have specific permissions to access features"
+            >
+              <Switch defaultChecked />
+            </SettingsRow>
+
+            <SettingsRow 
+              label="Department-based Auto-assignment" 
+              description="Automatically assign roles based on user's department"
+            >
+              <Switch />
+            </SettingsRow>
           </div>
-          <div className="space-y-2">
-            <Label>Description</Label>
-            <Textarea 
-              value={newRoleDescription}
-              onChange={(e) => setNewRoleDescription(e.target.value)}
-              placeholder="Describe what this role is for..."
-              rows={2}
-              disabled={isSystemRole}
-            />
+        </SettingsCard>
+
+        <SettingsCard
+          title="Audit & Compliance"
+          description="Security monitoring and compliance settings"
+          icon={History}
+          scope="global"
+        >
+          <div className="space-y-4">
+            <SettingsRow 
+              label="Enable Audit Logging" 
+              description="Log all role and permission changes"
+            >
+              <Switch defaultChecked />
+            </SettingsRow>
+
+            <SettingsRow 
+              label="Log Retention Period" 
+              description="How long to keep audit logs"
+            >
+              <Select defaultValue="365">
+                <SelectTrigger className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="30">30 days</SelectItem>
+                  <SelectItem value="90">90 days</SelectItem>
+                  <SelectItem value="180">180 days</SelectItem>
+                  <SelectItem value="365">1 year</SelectItem>
+                  <SelectItem value="1095">3 years</SelectItem>
+                </SelectContent>
+              </Select>
+            </SettingsRow>
+
+            <SettingsRow 
+              label="Sensitive Action Alerts" 
+              description="Send alerts for critical permission changes"
+            >
+              <Switch defaultChecked />
+            </SettingsRow>
+
+            <SettingsRow 
+              label="Failed Login Attempt Threshold" 
+              description="Lock accounts after this many failed attempts"
+            >
+              <Select defaultValue="5">
+                <SelectTrigger className="w-20">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="3">3</SelectItem>
+                  <SelectItem value="5">5</SelectItem>
+                  <SelectItem value="10">10</SelectItem>
+                  <SelectItem value="0">Disabled</SelectItem>
+                </SelectContent>
+              </Select>
+            </SettingsRow>
+
+            <SettingsRow 
+              label="Account Lockout Duration" 
+              description="How long to lock accounts after failed attempts"
+            >
+              <Select defaultValue="15">
+                <SelectTrigger className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="5">5 minutes</SelectItem>
+                  <SelectItem value="15">15 minutes</SelectItem>
+                  <SelectItem value="30">30 minutes</SelectItem>
+                  <SelectItem value="60">1 hour</SelectItem>
+                </SelectContent>
+              </Select>
+            </SettingsRow>
           </div>
-          {isEditing && selectedRole && (
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50">
-              <Users className="w-4 h-4 text-muted-foreground" />
-              <span className="text-sm">
-                <strong>{selectedRole.userCount}</strong> user{selectedRole.userCount !== 1 ? "s" : ""} will be affected by changes to this role
-              </span>
-            </div>
-          )}
-          {isSystemRole && (
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800">
-              <Lock className="w-4 h-4 text-amber-600" />
-              <span className="text-sm text-amber-700 dark:text-amber-300">
-                This is a system role and cannot be modified.
-              </span>
-            </div>
-          )}
-        </div>
-        
-        <div className="flex flex-1 overflow-hidden">
-          <div className="w-56 border-r bg-muted/20 p-3 space-y-1">
-            <p className="text-xs font-bold text-muted-foreground px-3 py-2 uppercase tracking-wider">Permission Categories</p>
-            {categories.map((cat) => {
-              const catPerms = permissions.filter(p => p.category === cat);
-              const selectedCount = catPerms.filter(p => selectedPermissions.has(p.key)).length;
-              return (
-                <button
-                  key={cat}
-                  onClick={() => setActiveCategory(cat)}
-                  className={cn(
-                    "w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm",
-                    activeCategory === cat
-                      ? "bg-primary text-primary-foreground font-medium"
-                      : "hover:bg-secondary text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  <span className="flex items-center gap-2">
-                    <span>{categoryIcons[cat] || "📋"}</span>
-                    <span>{categoryLabels[cat] || cat}</span>
-                  </span>
-                  {selectedCount > 0 && (
-                    <Badge variant={activeCategory === cat ? "secondary" : "outline"} className="text-xs">
-                      {selectedCount}
-                    </Badge>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-          
-          <ScrollArea className="flex-1">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider">
-                  {categoryLabels[activeCategory] || activeCategory}
-                </h3>
-                {!isSystemRole && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => allSelected ? deselectAllInCategory(activeCategory) : selectAllInCategory(activeCategory)}
-                  >
-                    {allSelected ? "Deselect All" : "Select All"}
-                  </Button>
-                )}
-              </div>
-              <div className="space-y-3">
-                {currentCategoryPerms.map((perm) => (
-                  <div 
-                    key={perm.key} 
-                    className={cn(
-                      "flex items-center justify-between p-3 rounded-lg border transition-colors",
-                      selectedPermissions.has(perm.key) 
-                        ? "bg-primary/5 border-primary/30" 
-                        : "bg-card hover:bg-secondary/20"
-                    )}
-                  >
-                    <div className="space-y-0.5 flex-1 min-w-0">
-                      <Label className="font-medium cursor-pointer" onClick={() => !isSystemRole && togglePermission(perm.key)}>
-                        {perm.description}
-                      </Label>
-                      <p className="text-xs text-muted-foreground font-mono">{perm.key}</p>
-                    </div>
-                    <Switch 
-                      checked={selectedPermissions.has(perm.key)}
-                      onCheckedChange={() => togglePermission(perm.key)}
-                      disabled={isSystemRole}
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-          </ScrollArea>
-        </div>
+        </SettingsCard>
       </div>
     );
-  };
+  }
 
   return (
     <div className="space-y-6">
-      <SettingsHeader
-        sectionId={subsection || "roles"}
-        title="Roles & Permissions"
-        description="Define access control and manage security policies."
-      />
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <SettingsCard
-          title="Roles"
-          description="Manage user roles and permissions."
-          icon={Shield}
-          className="lg:col-span-1"
-          actions={
-            <Dialog open={isCreateModalOpen} onOpenChange={(open) => { setIsCreateModalOpen(open); if (!open) resetForm(); }}>
-              <DialogTrigger asChild>
-                <Button size="sm">
-                  <Plus className="w-4 h-4 mr-2" /> New Role
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-[900px] h-[85vh] p-0 flex flex-col rounded-2xl overflow-hidden">
-                <DialogHeader className="px-6 py-4 border-b">
-                  <DialogTitle>Create New Role</DialogTitle>
-                  <DialogDescription>
-                    Create a custom role with granular permissions.
-                  </DialogDescription>
-                </DialogHeader>
-                <RoleBuilderContent />
-                <DialogFooter className="p-4 border-t">
-                  <Button variant="ghost" onClick={() => { setIsCreateModalOpen(false); resetForm(); }}>
-                    Cancel
-                  </Button>
-                  <Button onClick={handleCreateRole} disabled={createRoleMutation.isPending}>
-                    {createRoleMutation.isPending ? "Creating..." : "Create Role"}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          }
-        >
-          {rolesLoading ? (
-            <div className="text-center py-8 text-muted-foreground">Loading roles...</div>
-          ) : (
-            <div className="space-y-2">
-              {roles.map((role) => (
-                <div
-                  key={role.id}
-                  className={cn(
-                    "flex items-center justify-between p-3 rounded-lg border transition-colors",
-                    "border-transparent bg-secondary/20 hover:bg-secondary/40"
-                  )}
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
+      <SettingsCard
+        title="System Roles"
+        description="Manage roles and their permissions to control access throughout your organization"
+        icon={Shield}
+        scope="global"
+        helpText="Roles define what users can do in the system. Assign permissions carefully to maintain security."
+        actions={
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setShowPermissionMatrix(true)}
+            >
+              <Eye className="w-4 h-4 mr-2" />
+              Permission Matrix
+            </Button>
+            <Button 
+              size="sm"
+              onClick={() => setShowCreateRole(true)}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Create Role
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <div className="grid gap-4">
+            {roles.map((role) => (
+              <Card key={role.id} className={cn(
+                "transition-all duration-200",
+                selectedRole?.id === role.id ? "ring-2 ring-primary" : "hover:shadow-md"
+              )}>
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
                       <div 
-                        className="w-3 h-3 rounded-full shrink-0" 
+                        className="w-4 h-4 rounded-full shadow-sm" 
                         style={{ backgroundColor: role.color }}
                       />
-                      <span className="font-medium text-sm truncate">{role.name}</span>
-                      {role.isSystem === "true" && (
-                        <Badge variant="outline" className="text-[10px] shrink-0">System</Badge>
-                      )}
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <CardTitle className="text-base">{role.name}</CardTitle>
+                          {role.isSystem && (
+                            <Badge variant="secondary" className="text-xs">
+                              <Lock className="w-3 h-3 mr-1" />
+                              System
+                            </Badge>
+                          )}
+                        </div>
+                        {role.description && (
+                          <CardDescription className="text-sm mt-1">
+                            {role.description}
+                          </CardDescription>
+                        )}
+                      </div>
                     </div>
-                    <p className="text-xs text-muted-foreground truncate pl-5">
-                      {role.description || "No description"}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0 ml-2">
-                    <Badge variant="secondary" className="text-xs">
-                      <Users className="w-3 h-3 mr-1" />
-                      {role.userCount}
-                    </Badge>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="h-7 w-7"
-                      onClick={() => openEditModal(role)}
-                    >
-                      <Edit className="w-3.5 h-3.5" />
-                    </Button>
-                    {role.isSystem !== "true" && (
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="h-7 w-7 text-destructive hover:text-destructive"
-                        onClick={() => setDeleteRoleId(role.id)}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              ))}
-              {roles.length === 0 && (
-                <div className="text-center py-8 text-muted-foreground">
-                  No roles found. Create your first role.
-                </div>
-              )}
-            </div>
-          )}
-        </SettingsCard>
-
-        <SettingsCard
-          title="Recent Activity"
-          description="Audit log of role and permission changes."
-          icon={History}
-          className="lg:col-span-2"
-        >
-          <ScrollArea className="h-[400px]">
-            <div className="space-y-3">
-              {auditData?.logs.map((log) => (
-                <div key={log.id} className="flex items-start gap-3 p-3 rounded-lg bg-muted/30">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Badge className={cn("text-xs", getActionBadgeColor(log.actionType))}>
-                        {log.actionType.replace(".", " ").replace("_", " ")}
-                      </Badge>
-                      <span className="text-xs text-muted-foreground">
-                        {formatDate(log.createdAt)}
-                      </span>
+                    <div className="flex items-center gap-2">
+                      <div className="text-right text-sm text-muted-foreground">
+                        <div className="flex items-center gap-1">
+                          <Users className="w-3 h-3" />
+                          {role.userCount || 0} users
+                        </div>
+                        <div className="text-xs">Priority: {role.priority}</div>
+                      </div>
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setSelectedRole(role)}
+                        >
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                        {!role.isSystem && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setRoleToDelete(role);
+                              setShowDeleteConfirm(true);
+                            }}
+                          >
+                            <Trash2 className="w-4 h-4 text-red-500" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
-                    <p className="text-sm">{log.description}</p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      by {log.actorName || "System"}
-                    </p>
                   </div>
-                </div>
-              ))}
-              {(!auditData?.logs || auditData.logs.length === 0) && (
-                <div className="text-center py-8 text-muted-foreground">
-                  No audit logs yet. Changes to roles and permissions will appear here.
-                </div>
-              )}
-            </div>
-          </ScrollArea>
-        </SettingsCard>
-      </div>
+                </CardHeader>
+                {selectedRole?.id === role.id && (
+                  <CardContent className="pt-0">
+                    <div className="border-t pt-4">
+                      <div className="text-sm font-medium mb-3">Permissions</div>
+                      <div className="grid gap-3">
+                        {Object.entries(PERMISSION_CATEGORIES).map(([key, category]) => {
+                          const categoryPermissions = SAMPLE_PERMISSIONS.filter(p => p.category === key);
+                          const rolePermissions = role.permissions || [];
+                          const hasPermissions = categoryPermissions.some(p => 
+                            rolePermissions.includes(p.key)
+                          );
+                          
+                          return (
+                            <div key={key} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm">{category.icon}</span>
+                                <div>
+                                  <div className="font-medium text-sm">{category.label}</div>
+                                  <div className="text-xs text-muted-foreground">
+                                    {categoryPermissions.length} permissions available
+                                  </div>
+                                </div>
+                              </div>
+                              <Badge variant={hasPermissions ? "default" : "secondary"}>
+                                {hasPermissions ? "Granted" : "No Access"}
+                              </Badge>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </CardContent>
+                )}
+              </Card>
+            ))}
+          </div>
+        </div>
+      </SettingsCard>
 
-      <Dialog open={isEditModalOpen} onOpenChange={(open) => { setIsEditModalOpen(open); if (!open) { setSelectedRole(null); resetForm(); } }}>
-        <DialogContent className="sm:max-w-[900px] h-[85vh] p-0 flex flex-col rounded-2xl overflow-hidden">
-          <DialogHeader className="px-6 py-4 border-b">
-            <DialogTitle>Edit Role: {selectedRole?.name}</DialogTitle>
+      <SettingsCard
+        title="Role Templates"
+        description="Pre-configured role templates for common use cases"
+        icon={Copy}
+        scope="global"
+      >
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[
+            {
+              name: "Viewer",
+              description: "Read-only access to most content",
+              permissions: ["View tickets", "View documentation"],
+              color: "#64748b"
+            },
+            {
+              name: "Editor", 
+              description: "Can create and edit content",
+              permissions: ["Create tickets", "Edit documentation"],
+              color: "#059669"
+            },
+            {
+              name: "Admin",
+              description: "Full administrative access",
+              permissions: ["All permissions", "User management"],
+              color: "#dc2626"
+            }
+          ].map((template) => (
+            <Card key={template.name} className="p-4">
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <div 
+                    className="w-3 h-3 rounded-full" 
+                    style={{ backgroundColor: template.color }}
+                  />
+                  <div className="font-medium text-sm">{template.name}</div>
+                </div>
+              </div>
+              <div className="text-xs text-muted-foreground mb-3">
+                {template.description}
+              </div>
+              <div className="space-y-1 mb-3">
+                {template.permissions.map((permission) => (
+                  <div key={permission} className="text-xs text-muted-foreground">
+                    • {permission}
+                  </div>
+                ))}
+              </div>
+              <Button variant="outline" size="sm" className="w-full">
+                <Copy className="w-3 h-3 mr-2" />
+                Use Template
+              </Button>
+            </Card>
+          ))}
+        </div>
+      </SettingsCard>
+
+      {/* Create Role Dialog */}
+      <Dialog open={showCreateRole} onOpenChange={setShowCreateRole}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Create New Role</DialogTitle>
             <DialogDescription>
-              Modify role settings and permissions.
+              Define a new role with specific permissions and access levels.
             </DialogDescription>
           </DialogHeader>
-          <RoleBuilderContent isEditing />
-          <DialogFooter className="p-4 border-t">
-            <Button variant="ghost" onClick={() => { setIsEditModalOpen(false); setSelectedRole(null); resetForm(); }}>
+          <div className="space-y-6">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Role Name *</Label>
+                <Input
+                  placeholder="e.g., Support Agent"
+                  value={newRole.name}
+                  onChange={(e) => setNewRole(prev => ({ ...prev, name: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Color</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="color"
+                    value={newRole.color}
+                    onChange={(e) => setNewRole(prev => ({ ...prev, color: e.target.value }))}
+                    className="w-12 h-10 p-1 rounded"
+                  />
+                  <Input
+                    type="text"
+                    value={newRole.color}
+                    onChange={(e) => setNewRole(prev => ({ ...prev, color: e.target.value }))}
+                    className="font-mono text-sm"
+                    placeholder="#7c3aed"
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Description</Label>
+              <Textarea
+                placeholder="Describe what this role can do..."
+                value={newRole.description}
+                onChange={(e) => setNewRole(prev => ({ ...prev, description: e.target.value }))}
+                rows={3}
+              />
+            </div>
+            <div className="space-y-4">
+              <Label>Permissions</Label>
+              <div className="space-y-4 max-h-96 overflow-y-auto">
+                {Object.entries(PERMISSION_CATEGORIES).map(([categoryKey, category]) => {
+                  const categoryPermissions = SAMPLE_PERMISSIONS.filter(p => p.category === categoryKey);
+                  
+                  return (
+                    <div key={categoryKey} className="space-y-3">
+                      <div className="flex items-center gap-2 font-medium text-sm">
+                        <span>{category.icon}</span>
+                        {category.label}
+                      </div>
+                      <div className="ml-6 space-y-2">
+                        {categoryPermissions.map((permission) => (
+                          <div key={permission.key} className="flex items-start gap-2">
+                            <Checkbox
+                              checked={newRole.permissions.includes(permission.key)}
+                              onCheckedChange={(checked) => {
+                                setNewRole(prev => ({
+                                  ...prev,
+                                  permissions: checked
+                                    ? [...prev.permissions, permission.key]
+                                    : prev.permissions.filter(p => p !== permission.key)
+                                }));
+                              }}
+                              className="mt-0.5"
+                            />
+                            <div>
+                              <div className="text-sm">{permission.description}</div>
+                              <div className="text-xs text-muted-foreground flex items-center gap-1">
+                                <Badge variant="outline" className="text-xs">
+                                  {permission.scope}
+                                </Badge>
+                                {permission.key}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreateRole(false)}>
               Cancel
             </Button>
-            {selectedRole?.isSystem !== "true" && (
-              <Button onClick={handleUpdateRole} disabled={updateRoleMutation.isPending}>
-                <Save className="w-4 h-4 mr-2" />
-                {updateRoleMutation.isPending ? "Saving..." : "Save Changes"}
-              </Button>
-            )}
+            <Button 
+              onClick={() => createRoleMutation.mutate(newRole)}
+              disabled={createRoleMutation.isPending || !newRole.name}
+            >
+              {createRoleMutation.isPending ? "Creating..." : "Create Role"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={!!deleteRoleId} onOpenChange={(open) => !open && setDeleteRoleId(null)}>
+      {/* Permission Matrix Dialog */}
+      <Dialog open={showPermissionMatrix} onOpenChange={setShowPermissionMatrix}>
+        <DialogContent className="sm:max-w-6xl">
+          <DialogHeader>
+            <DialogTitle>Permission Matrix</DialogTitle>
+            <DialogDescription>
+              Overview of all roles and their permissions
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex justify-end">
+              <Button variant="outline" size="sm">
+                <Download className="w-4 h-4 mr-2" />
+                Export CSV
+              </Button>
+            </div>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-48">Permission</TableHead>
+                    <TableHead className="w-24">Scope</TableHead>
+                    {roles.map((role) => (
+                      <TableHead key={role.id} className="text-center min-w-24">
+                        <div className="flex flex-col items-center gap-1">
+                          <div 
+                            className="w-3 h-3 rounded-full" 
+                            style={{ backgroundColor: role.color }}
+                          />
+                          <span className="text-xs">{role.name}</span>
+                        </div>
+                      </TableHead>
+                    ))}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {Object.entries(PERMISSION_CATEGORIES).map(([categoryKey, category]) => {
+                    const categoryPermissions = SAMPLE_PERMISSIONS.filter(p => p.category === categoryKey);
+                    
+                    return categoryPermissions.map((permission, index) => (
+                      <TableRow key={permission.key}>
+                        <TableCell>
+                          {index === 0 && (
+                            <div className="text-sm font-medium text-muted-foreground mb-1 flex items-center gap-2">
+                              <span>{category.icon}</span>
+                              {category.label}
+                            </div>
+                          )}
+                          <div className="ml-6">{permission.description}</div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="text-xs">
+                            {permission.scope}
+                          </Badge>
+                        </TableCell>
+                        {roles.map((role) => (
+                          <TableCell key={role.id} className="text-center">
+                            {(role.permissions || []).includes(permission.key) ? (
+                              <ShieldCheck className="w-4 h-4 text-green-600 mx-auto" />
+                            ) : (
+                              <X className="w-4 h-4 text-muted-foreground mx-auto" />
+                            )}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ));
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-destructive" />
-              Delete Role
-            </AlertDialogTitle>
+            <AlertDialogTitle>Delete Role</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this role? This action cannot be undone.
-              {deleteRoleId && roles.find(r => r.id === deleteRoleId)?.userCount ? (
-                <span className="block mt-2 font-medium text-destructive">
-                  Warning: {roles.find(r => r.id === deleteRoleId)?.userCount} user(s) are assigned to this role and will lose these permissions.
-                </span>
-              ) : null}
+              Are you sure you want to delete the "{roleToDelete?.name}" role? 
+              This action cannot be undone and will affect {roleToDelete?.userCount || 0} users.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => deleteRoleId && deleteRoleMutation.mutate(deleteRoleId)}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => roleToDelete && deleteRoleMutation.mutate(roleToDelete.id)}
+              className="bg-red-600 hover:bg-red-700"
             >
               Delete Role
             </AlertDialogAction>

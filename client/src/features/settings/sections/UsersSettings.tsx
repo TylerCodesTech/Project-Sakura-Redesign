@@ -1,11 +1,13 @@
 import { useState } from "react";
-import { Users, Search, UserPlus, Mail, MoreVertical, Eye, EyeOff, Loader2, Key, UserCircle, Pencil } from "lucide-react";
+import { Users, Search, UserPlus, Mail, MoreVertical, Eye, EyeOff, Loader2, Key, UserCircle, Pencil, Download, Upload, Filter, Shield, Calendar } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -20,36 +22,55 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { SettingsHeader, SettingsCard } from "../components";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { SettingsCard, SettingsRow } from "../components";
 import { cn } from "@/lib/utils";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { type User, type Role, type Department } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { toast } from "sonner";
+import { useToast } from "@/hooks/use-toast";
 
 interface UsersSettingsProps {
   subsection?: string;
 }
 
 export function UsersSettings({ subsection }: UsersSettingsProps) {
+  const { toast } = useToast();
   const [userSearch, setUserSearch] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [isCreateUserModalOpen, setIsCreateUserModalOpen] = useState(false);
-  const [viewProfileUser, setViewProfileUser] = useState<User | null>(null);
-  const [editUser, setEditUser] = useState<User | null>(null);
-  const [resetPasswordUser, setResetPasswordUser] = useState<User | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [roleFilter, setRoleFilter] = useState<string>("all");
+  const [departmentFilter, setDepartmentFilter] = useState<string>("all");
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   
-  const [newUsername, setNewUsername] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [newRole, setNewRole] = useState("");
-  const [newDepartment, setNewDepartment] = useState("");
+  const [showCreateUser, setShowCreateUser] = useState(false);
+  const [showInviteUser, setShowInviteUser] = useState(false);
+  const [showBulkImport, setShowBulkImport] = useState(false);
   
-  const [editUsername, setEditUsername] = useState("");
-  const [editDepartment, setEditDepartment] = useState("");
-  
-  const [resetPassword, setResetPassword] = useState("");
+  // Form states
+  const [newUser, setNewUser] = useState({
+    username: "",
+    email: "",
+    password: "",
+    role: "",
+    department: "",
+    sendInvite: true,
+  });
+
+  const [invitation, setInvitation] = useState({
+    email: "",
+    role: "",
+    department: "",
+    message: "",
+  });
 
   const { data: users = [], isLoading } = useQuery<User[]>({
     queryKey: ["/api/users"],
@@ -64,476 +85,622 @@ export function UsersSettings({ subsection }: UsersSettingsProps) {
   });
 
   const createUserMutation = useMutation({
-    mutationFn: async (data: { username: string; password: string; department: string }) => {
+    mutationFn: async (data: typeof newUser) => {
       return apiRequest("POST", "/api/users", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
-      setIsCreateUserModalOpen(false);
-      setNewUsername("");
-      setNewPassword("");
-      setNewRole("");
-      setNewDepartment("");
-      toast.success("User created successfully");
+      setShowCreateUser(false);
+      setNewUser({
+        username: "",
+        email: "",
+        password: "",
+        role: "",
+        department: "",
+        sendInvite: true,
+      });
+      toast({
+        title: "User created",
+        description: "The new user has been created successfully.",
+      });
     },
-    onError: (error: Error) => {
-      toast.error(error.message || "Failed to create user");
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create user",
+        variant: "destructive",
+      });
     },
   });
 
-  const updateUserMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: { username?: string; department?: string } }) => {
-      return apiRequest("PATCH", `/api/users/${id}`, data);
+  const inviteUserMutation = useMutation({
+    mutationFn: async (data: typeof invitation) => {
+      return apiRequest("POST", "/api/users/invite", data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
-      setEditUser(null);
-      setEditUsername("");
-      setEditDepartment("");
-      toast.success("User updated successfully");
+      queryClient.invalidateQueries({ queryKey: ["/api/users/invitations"] });
+      setShowInviteUser(false);
+      setInvitation({
+        email: "",
+        role: "",
+        department: "",
+        message: "",
+      });
+      toast({
+        title: "Invitation sent",
+        description: "The invitation has been sent successfully.",
+      });
     },
-    onError: (error: Error) => {
-      toast.error(error.message || "Failed to update user");
-    },
-  });
-
-  const resetPasswordMutation = useMutation({
-    mutationFn: async ({ id, password }: { id: string; password: string }) => {
-      return apiRequest("POST", `/api/users/${id}/reset-password`, { password });
-    },
-    onSuccess: () => {
-      setResetPasswordUser(null);
-      setResetPassword("");
-      toast.success("Password reset successfully");
-    },
-    onError: (error: Error) => {
-      toast.error(error.message || "Failed to reset password");
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to send invitation",
+        variant: "destructive",
+      });
     },
   });
 
-  const filteredUsers = users.filter(
-    (user) =>
-      user.username.toLowerCase().includes(userSearch.toLowerCase()) ||
-      (user.department && user.department.toLowerCase().includes(userSearch.toLowerCase()))
-  );
+  const filteredUsers = users.filter((user) => {
+    const matchesSearch = user.username.toLowerCase().includes(userSearch.toLowerCase()) ||
+                         user.email?.toLowerCase().includes(userSearch.toLowerCase()) ||
+                         user.department?.toLowerCase().includes(userSearch.toLowerCase());
+    
+    const matchesStatus = statusFilter === "all" || 
+                         (statusFilter === "active" && user.status === "active") ||
+                         (statusFilter === "inactive" && user.status !== "active");
+    
+    const matchesRole = roleFilter === "all" || user.role === roleFilter;
+    const matchesDepartment = departmentFilter === "all" || user.department === departmentFilter;
+    
+    return matchesSearch && matchesStatus && matchesRole && matchesDepartment;
+  });
 
-  const handleCreateUser = () => {
-    if (!newUsername || !newPassword) {
-      toast.error("Username and password are required");
-      return;
-    }
-    createUserMutation.mutate({
-      username: newUsername,
-      password: newPassword,
-      department: newDepartment || "General",
-    });
-  };
+  const isInvitesView = subsection === "users-invites";
 
-  const handleEditUser = () => {
-    if (!editUser) return;
-    updateUserMutation.mutate({
-      id: editUser.id,
-      data: {
-        username: editUsername || undefined,
-        department: editDepartment || undefined,
-      },
-    });
-  };
+  if (isInvitesView) {
+    return (
+      <div className="space-y-6">
+        <SettingsCard
+          title="Invitation Management"
+          description="Send invitations to new users and manage pending invites"
+          icon={Mail}
+          scope="global"
+          actions={
+            <Button onClick={() => setShowInviteUser(true)} size="sm">
+              <Mail className="w-4 h-4 mr-2" />
+              Send Invitation
+            </Button>
+          }
+        >
+          <div className="space-y-4">
+            <SettingsRow 
+              label="Email Template" 
+              description="Customize the invitation email template"
+            >
+              <Button variant="outline" size="sm">
+                <Pencil className="w-4 h-4 mr-2" />
+                Edit Template
+              </Button>
+            </SettingsRow>
 
-  const handleResetPassword = () => {
-    if (!resetPasswordUser) return;
-    if (resetPassword.length < 8) {
-      toast.error("Password must be at least 8 characters");
-      return;
-    }
-    resetPasswordMutation.mutate({
-      id: resetPasswordUser.id,
-      password: resetPassword,
-    });
-  };
+            <SettingsRow 
+              label="Invitation Expiry" 
+              description="How long invitations remain valid"
+            >
+              <Select defaultValue="7">
+                <SelectTrigger className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">1 day</SelectItem>
+                  <SelectItem value="3">3 days</SelectItem>
+                  <SelectItem value="7">7 days</SelectItem>
+                  <SelectItem value="14">14 days</SelectItem>
+                  <SelectItem value="30">30 days</SelectItem>
+                </SelectContent>
+              </Select>
+            </SettingsRow>
 
-  const openEditDialog = (user: User) => {
-    setEditUser(user);
-    setEditUsername(user.username);
-    setEditDepartment(user.department || "");
-  };
+            <SettingsRow 
+              label="Auto-assign Role" 
+              description="Default role for invited users"
+            >
+              <Select defaultValue="">
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  {roles.map((role) => (
+                    <SelectItem key={role.id} value={role.id}>
+                      {role.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </SettingsRow>
+
+            <SettingsRow 
+              label="Require Email Verification" 
+              description="Users must verify their email before activation"
+            >
+              <Switch defaultChecked />
+            </SettingsRow>
+          </div>
+        </SettingsCard>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      <SettingsHeader
-        sectionId={subsection || "users"}
-        title="User Directory"
-        description="Manage and monitor all users in your organization."
-        actions={
-          <Dialog open={isCreateUserModalOpen} onOpenChange={setIsCreateUserModalOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm" className="gap-2">
-                <UserPlus className="w-4 h-4" /> Add User
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
-              <DialogHeader>
-                <DialogTitle>Create New User</DialogTitle>
-                <DialogDescription>
-                  Add a new team member to your organization.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label>Username</Label>
-                  <Input 
-                    placeholder="jdoe" 
-                    value={newUsername}
-                    onChange={(e) => setNewUsername(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Password</Label>
-                  <div className="relative">
-                    <Input 
-                      type={showPassword ? "text" : "password"} 
-                      placeholder="Min 8 characters" 
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
-                      onClick={() => setShowPassword(!showPassword)}
-                    >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </Button>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label>Role</Label>
-                  <Select value={newRole} onValueChange={setNewRole}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {isLoadingRoles ? (
-                        <div className="p-2 text-center text-sm text-muted-foreground">Loading...</div>
-                      ) : roles.length === 0 ? (
-                        <div className="p-2 text-center text-sm text-muted-foreground">No roles available</div>
-                      ) : (
-                        roles.map((role) => (
-                          <SelectItem key={role.id} value={role.id}>
-                            <div className="flex items-center gap-2">
-                              <div 
-                                className="w-2 h-2 rounded-full" 
-                                style={{ backgroundColor: role.color || '#6b7280' }}
-                              />
-                              {role.name}
-                            </div>
-                          </SelectItem>
-                        ))
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Department</Label>
-                  <Select value={newDepartment} onValueChange={setNewDepartment}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a department" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {isLoadingDepartments ? (
-                        <div className="p-2 text-center text-sm text-muted-foreground">Loading...</div>
-                      ) : departments.length === 0 ? (
-                        <div className="p-2 text-center text-sm text-muted-foreground">No departments available</div>
-                      ) : (
-                        departments.map((dept) => (
-                          <SelectItem key={dept.id} value={dept.name}>
-                            <div className="flex items-center gap-2">
-                              <div 
-                                className="w-2 h-2 rounded-full" 
-                                style={{ backgroundColor: dept.color || '#6b7280' }}
-                              />
-                              {dept.name}
-                            </div>
-                          </SelectItem>
-                        ))
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsCreateUserModalOpen(false)}>
-                  Cancel
-                </Button>
-                <Button 
-                  className="gap-2" 
-                  onClick={handleCreateUser}
-                  disabled={createUserMutation.isPending}
-                >
-                  {createUserMutation.isPending ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <UserPlus className="w-4 h-4" />
-                  )}
-                  Create User
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        }
-      />
-
       <SettingsCard
-        title="All Users"
-        description="View and manage user accounts."
+        title="User Directory"
+        description="Manage users and their access to your organization"
         icon={Users}
+        scope="global"
+        helpText="Control user accounts, roles, and department assignments"
         actions={
-          <div className="relative w-full sm:w-64">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="Search users..."
-              className="pl-9 h-9 bg-secondary/20 border-transparent focus-visible:bg-background"
-              value={userSearch}
-              onChange={(e) => setUserSearch(e.target.value)}
-            />
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setShowBulkImport(true)}
+            >
+              <Upload className="w-4 h-4 mr-2" />
+              Import
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Export
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm">
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  Add User
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={() => setShowCreateUser(true)}>
+                  <UserCircle className="w-4 h-4 mr-2" />
+                  Create User
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setShowInviteUser(true)}>
+                  <Mail className="w-4 h-4 mr-2" />
+                  Send Invitation
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         }
       >
-        <div className="space-y-2">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-6 h-6 animate-spin text-primary/50" />
-            </div>
-          ) : filteredUsers.length === 0 ? (
-            <div className="py-8 text-center text-muted-foreground">
-              {userSearch ? `No users found matching "${userSearch}"` : "No users in the system yet."}
-            </div>
-          ) : (
-            filteredUsers.map((user) => (
-              <div
-                key={user.id}
-                className="flex items-center justify-between p-3 sm:p-4 rounded-xl bg-secondary/10 border border-transparent hover:border-border/50 transition-colors"
-              >
-                <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-                  <Avatar className="h-10 w-10">
-                    <AvatarImage src={user.avatar || ""} className="object-cover" />
-                    <AvatarFallback className="bg-gradient-to-br from-pink-500 to-purple-600 text-white font-medium text-sm">
-                      {user.username.substring(0, 2).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-medium text-sm truncate">{user.username}</span>
-                      <Badge
-                        variant="outline"
-                        className="text-[10px] border-green-500/50 text-green-600"
-                      >
-                        Active
-                      </Badge>
-                    </div>
-                    <p className="text-xs text-muted-foreground truncate">{user.department || "General"}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 sm:gap-4 shrink-0">
-                  <div className="hidden sm:block text-right">
-                    <p className="text-xs font-medium">Team Member</p>
-                    <p className="text-[10px] text-muted-foreground">{user.department || "General"}</p>
-                  </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <MoreVertical className="w-4 h-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => setViewProfileUser(user)}>
-                        <UserCircle className="w-4 h-4 mr-2" />
-                        View Profile
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => openEditDialog(user)}>
-                        <Pencil className="w-4 h-4 mr-2" />
-                        Edit User
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setResetPasswordUser(user)}>
-                        <Key className="w-4 h-4 mr-2" />
-                        Reset Password
-                      </DropdownMenuItem>
-                      <DropdownMenuItem className="text-destructive">Deactivate</DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
+        <div className="space-y-4">
+          {/* Search and Filters */}
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search users..."
+                  value={userSearch}
+                  onChange={(e) => setUserSearch(e.target.value)}
+                  className="pl-10"
+                />
               </div>
-            ))
+            </div>
+            <div className="flex gap-2">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
+              
+              <Select value={roleFilter} onValueChange={setRoleFilter}>
+                <SelectTrigger className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Roles</SelectItem>
+                  {roles.map((role) => (
+                    <SelectItem key={role.id} value={role.id}>
+                      {role.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
+                <SelectTrigger className="w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Departments</SelectItem>
+                  {departments.map((dept) => (
+                    <SelectItem key={dept.id} value={dept.id}>
+                      {dept.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Bulk Actions */}
+          {selectedUsers.length > 0 && (
+            <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+              <span className="text-sm text-muted-foreground">
+                {selectedUsers.length} user{selectedUsers.length > 1 ? 's' : ''} selected
+              </span>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm">
+                  <Shield className="w-4 h-4 mr-2" />
+                  Assign Role
+                </Button>
+                <Button variant="outline" size="sm">
+                  <Users className="w-4 h-4 mr-2" />
+                  Move Department
+                </Button>
+                <Button variant="destructive" size="sm">
+                  Suspend
+                </Button>
+              </div>
+            </div>
           )}
+
+          {/* Users Table */}
+          <div className="rounded-lg border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-12">
+                    <Checkbox
+                      checked={selectedUsers.length === filteredUsers.length}
+                      onCheckedChange={(checked) => {
+                        setSelectedUsers(checked ? filteredUsers.map(u => u.id) : []);
+                      }}
+                    />
+                  </TableHead>
+                  <TableHead>User</TableHead>
+                  <TableHead>Role</TableHead>
+                  <TableHead>Department</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Last Login</TableHead>
+                  <TableHead className="w-12"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-8">
+                      <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
+                      Loading users...
+                    </TableCell>
+                  </TableRow>
+                ) : filteredUsers.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                      No users found matching your criteria
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredUsers.map((user) => (
+                    <TableRow key={user.id}>
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedUsers.includes(user.id)}
+                          onCheckedChange={(checked) => {
+                            setSelectedUsers(prev => 
+                              checked 
+                                ? [...prev, user.id]
+                                : prev.filter(id => id !== user.id)
+                            );
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-8 w-8">
+                            <AvatarImage src={user.avatar} />
+                            <AvatarFallback>
+                              {user.username.substring(0, 2).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <div className="font-medium">{user.username}</div>
+                            <div className="text-sm text-muted-foreground">{user.email}</div>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">
+                          {roles.find(r => r.id === user.role)?.name || 'No Role'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {departments.find(d => d.id === user.department)?.name || 'No Department'}
+                      </TableCell>
+                      <TableCell>
+                        <Badge 
+                          variant={user.status === 'active' ? 'default' : 'secondary'}
+                          className={user.status === 'active' ? 'bg-green-100 text-green-800' : ''}
+                        >
+                          {user.status || 'active'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {user.lastLogin ? new Date(user.lastLogin).toLocaleDateString() : 'Never'}
+                      </TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem>
+                              <Eye className="w-4 h-4 mr-2" />
+                              View Profile
+                            </DropdownMenuItem>
+                            <DropdownMenuItem>
+                              <Pencil className="w-4 h-4 mr-2" />
+                              Edit User
+                            </DropdownMenuItem>
+                            <DropdownMenuItem>
+                              <Key className="w-4 h-4 mr-2" />
+                              Reset Password
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem className="text-red-600">
+                              Suspend User
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </div>
       </SettingsCard>
 
-      <Dialog open={!!viewProfileUser} onOpenChange={(open) => !open && setViewProfileUser(null)}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>User Profile</DialogTitle>
-            <DialogDescription>View user details and information.</DialogDescription>
-          </DialogHeader>
-          {viewProfileUser && (
-            <div className="space-y-6 py-4">
-              <div className="flex items-center gap-4">
-                <Avatar className="h-16 w-16">
-                  <AvatarImage src={viewProfileUser.avatar || ""} className="object-cover" />
-                  <AvatarFallback className="bg-gradient-to-br from-pink-500 to-purple-600 text-white font-bold text-xl">
-                    {viewProfileUser.username.substring(0, 2).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <h3 className="font-bold text-lg">{viewProfileUser.username}</h3>
-                  <p className="text-sm text-muted-foreground">{viewProfileUser.department || "General"}</p>
-                </div>
+      <SettingsCard
+        title="User Profile Fields"
+        description="Define custom fields for user profiles"
+        icon={UserCircle}
+        scope="global"
+      >
+        <div className="space-y-4">
+          <SettingsRow 
+            label="Required Fields" 
+            description="Fields that must be completed during user creation"
+          >
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Checkbox defaultChecked disabled />
+                <span className="text-sm">Username</span>
               </div>
-              <div className="space-y-3">
-                <div className="flex justify-between py-2 border-b border-border/50">
-                  <span className="text-sm text-muted-foreground">User ID</span>
-                  <span className="text-sm font-mono">{viewProfileUser.id.substring(0, 8)}...</span>
-                </div>
-                <div className="flex justify-between py-2 border-b border-border/50">
-                  <span className="text-sm text-muted-foreground">Username</span>
-                  <span className="text-sm font-medium">{viewProfileUser.username}</span>
-                </div>
-                <div className="flex justify-between py-2 border-b border-border/50">
-                  <span className="text-sm text-muted-foreground">Department</span>
-                  <span className="text-sm font-medium">{viewProfileUser.department || "General"}</span>
-                </div>
-                <div className="flex justify-between py-2">
-                  <span className="text-sm text-muted-foreground">Status</span>
-                  <Badge variant="outline" className="text-[10px] border-green-500/50 text-green-600">
-                    Active
-                  </Badge>
-                </div>
+              <div className="flex items-center gap-2">
+                <Checkbox defaultChecked disabled />
+                <span className="text-sm">Email</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Checkbox defaultChecked />
+                <span className="text-sm">Full Name</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Checkbox />
+                <span className="text-sm">Phone Number</span>
               </div>
             </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setViewProfileUser(null)}>
-              Close
-            </Button>
-            <Button onClick={() => {
-              if (viewProfileUser) {
-                openEditDialog(viewProfileUser);
-                setViewProfileUser(null);
-              }
-            }}>
-              <Pencil className="w-4 h-4 mr-2" />
-              Edit User
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </SettingsRow>
 
-      <Dialog open={!!editUser} onOpenChange={(open) => !open && setEditUser(null)}>
-        <DialogContent className="sm:max-w-[425px]">
+          <SettingsRow 
+            label="Profile Visibility" 
+            description="Control what information is visible to other users"
+          >
+            <Select defaultValue="internal">
+              <SelectTrigger className="w-48">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="public">Public (All)</SelectItem>
+                <SelectItem value="internal">Internal Only</SelectItem>
+                <SelectItem value="private">Private</SelectItem>
+              </SelectContent>
+            </Select>
+          </SettingsRow>
+        </div>
+      </SettingsCard>
+
+      {/* Create User Dialog */}
+      <Dialog open={showCreateUser} onOpenChange={setShowCreateUser}>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Edit User</DialogTitle>
-            <DialogDescription>Update user information.</DialogDescription>
+            <DialogTitle>Create New User</DialogTitle>
+            <DialogDescription>
+              Add a new user to your organization.
+            </DialogDescription>
           </DialogHeader>
-          {editUser && (
-            <div className="space-y-4 py-4">
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Username *</Label>
+              <Input
+                placeholder="johndoe"
+                value={newUser.username}
+                onChange={(e) => setNewUser(prev => ({ ...prev, username: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Email *</Label>
+              <Input
+                type="email"
+                placeholder="john@company.com"
+                value={newUser.email}
+                onChange={(e) => setNewUser(prev => ({ ...prev, email: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Password *</Label>
+              <Input
+                type="password"
+                placeholder="Minimum 8 characters"
+                value={newUser.password}
+                onChange={(e) => setNewUser(prev => ({ ...prev, password: e.target.value }))}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Username</Label>
-                <Input 
-                  value={editUsername}
-                  onChange={(e) => setEditUsername(e.target.value)}
-                />
+                <Label>Role</Label>
+                <Select 
+                  value={newUser.role} 
+                  onValueChange={(value) => setNewUser(prev => ({ ...prev, role: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {roles.map((role) => (
+                      <SelectItem key={role.id} value={role.id}>
+                        {role.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label>Department</Label>
-                <Select value={editDepartment} onValueChange={setEditDepartment}>
+                <Select 
+                  value={newUser.department} 
+                  onValueChange={(value) => setNewUser(prev => ({ ...prev, department: value }))}
+                >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select a department" />
+                    <SelectValue placeholder="Select department" />
                   </SelectTrigger>
                   <SelectContent>
-                    {isLoadingDepartments ? (
-                      <div className="p-2 text-center text-sm text-muted-foreground">Loading...</div>
-                    ) : departments.length === 0 ? (
-                      <div className="p-2 text-center text-sm text-muted-foreground">No departments available</div>
-                    ) : (
-                      departments.map((dept) => (
-                        <SelectItem key={dept.id} value={dept.name}>
-                          <div className="flex items-center gap-2">
-                            <div 
-                              className="w-2 h-2 rounded-full" 
-                              style={{ backgroundColor: dept.color || '#6b7280' }}
-                            />
-                            {dept.name}
-                          </div>
-                        </SelectItem>
-                      ))
-                    )}
+                    {departments.map((dept) => (
+                      <SelectItem key={dept.id} value={dept.id}>
+                        {dept.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
             </div>
-          )}
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="send-invite"
+                checked={newUser.sendInvite}
+                onCheckedChange={(checked) => 
+                  setNewUser(prev => ({ ...prev, sendInvite: checked as boolean }))
+                }
+              />
+              <Label htmlFor="send-invite" className="text-sm">
+                Send welcome email
+              </Label>
+            </div>
+          </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditUser(null)}>
+            <Button variant="outline" onClick={() => setShowCreateUser(false)}>
               Cancel
             </Button>
             <Button 
-              onClick={handleEditUser}
-              disabled={updateUserMutation.isPending}
+              onClick={() => createUserMutation.mutate(newUser)}
+              disabled={createUserMutation.isPending}
             >
-              {updateUserMutation.isPending ? (
-                <Loader2 className="w-4 h-4 animate-spin mr-2" />
-              ) : null}
-              Save Changes
+              {createUserMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Create User
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!resetPasswordUser} onOpenChange={(open) => !open && setResetPasswordUser(null)}>
-        <DialogContent className="sm:max-w-[425px]">
+      {/* Invite User Dialog */}
+      <Dialog open={showInviteUser} onOpenChange={setShowInviteUser}>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Reset Password</DialogTitle>
+            <DialogTitle>Send Invitation</DialogTitle>
             <DialogDescription>
-              Set a new password for {resetPasswordUser?.username}.
+              Invite someone to join your organization.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <div className="space-y-4">
             <div className="space-y-2">
-              <Label>New Password</Label>
-              <div className="relative">
-                <Input 
-                  type={showNewPassword ? "text" : "password"} 
-                  placeholder="Min 8 characters"
-                  value={resetPassword}
-                  onChange={(e) => setResetPassword(e.target.value)}
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
-                  onClick={() => setShowNewPassword(!showNewPassword)}
+              <Label>Email Address *</Label>
+              <Input
+                type="email"
+                placeholder="user@company.com"
+                value={invitation.email}
+                onChange={(e) => setInvitation(prev => ({ ...prev, email: e.target.value }))}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Role</Label>
+                <Select 
+                  value={invitation.role} 
+                  onValueChange={(value) => setInvitation(prev => ({ ...prev, role: value }))}
                 >
-                  {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </Button>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {roles.map((role) => (
+                      <SelectItem key={role.id} value={role.id}>
+                        {role.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-              <p className="text-xs text-muted-foreground">Password must be at least 8 characters long.</p>
+              <div className="space-y-2">
+                <Label>Department</Label>
+                <Select 
+                  value={invitation.department} 
+                  onValueChange={(value) => setInvitation(prev => ({ ...prev, department: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select department" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {departments.map((dept) => (
+                      <SelectItem key={dept.id} value={dept.id}>
+                        {dept.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Personal Message (Optional)</Label>
+              <Input
+                placeholder="Welcome to our team!"
+                value={invitation.message}
+                onChange={(e) => setInvitation(prev => ({ ...prev, message: e.target.value }))}
+              />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setResetPasswordUser(null)}>
+            <Button variant="outline" onClick={() => setShowInviteUser(false)}>
               Cancel
             </Button>
             <Button 
-              onClick={handleResetPassword}
-              disabled={resetPasswordMutation.isPending}
+              onClick={() => inviteUserMutation.mutate(invitation)}
+              disabled={inviteUserMutation.isPending}
             >
-              {resetPasswordMutation.isPending ? (
-                <Loader2 className="w-4 h-4 animate-spin mr-2" />
-              ) : (
-                <Key className="w-4 h-4 mr-2" />
-              )}
-              Reset Password
+              {inviteUserMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Send Invitation
             </Button>
           </DialogFooter>
         </DialogContent>

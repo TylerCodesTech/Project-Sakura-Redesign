@@ -149,4 +149,50 @@ export function registerAIRoutes(app: Express) {
     await updatePageEmbedding(req.params.pageId);
     res.json({ success: true });
   }));
+
+  // Semantic Search
+  app.post("/api/search/semantic", handleAsync(async (req, res) => {
+    const { isAIConfigured, semanticSearch } = await import("../ai-chat");
+
+    const status = await isAIConfigured();
+    if (!status.configured) {
+      throw badRequest(status.reason || "AI is not configured");
+    }
+
+    const { query, limit = 10, minSimilarity = 0.3 } = req.body;
+    if (!query) {
+      throw badRequest("Query is required");
+    }
+
+    const results = await semanticSearch(query, limit, minSimilarity);
+    res.json(results);
+  }));
+
+  // Generate RAG response for ticket
+  app.post("/api/tickets/:ticketId/generate-response", handleAsync(async (req, res) => {
+    const { isAIConfigured, generateTicketResponseWithRAG } = await import("../ai-chat");
+
+    const status = await isAIConfigured();
+    if (!status.configured) {
+      throw badRequest(status.reason || "AI is not configured");
+    }
+
+    const { prompt } = req.body;
+    const result = await generateTicketResponseWithRAG(req.params.ticketId, prompt);
+    res.json(result);
+  }));
+
+  // Get embedding queue status
+  app.get("/api/embeddings/queue-status", handleAsync(async (_req, res) => {
+    const { embeddingQueue } = await import("../embedding-queue");
+    const status = embeddingQueue.getStatus();
+    res.json(status);
+  }));
+
+  // Clear embedding queue (admin only - add auth as needed)
+  app.post("/api/embeddings/queue-clear", handleAsync(async (_req, res) => {
+    const { embeddingQueue } = await import("../embedding-queue");
+    embeddingQueue.clear();
+    res.json({ success: true, message: "Queue cleared" });
+  }));
 }

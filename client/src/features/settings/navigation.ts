@@ -25,7 +25,6 @@ import {
   Share2,
   Construction,
   Megaphone,
-  User,
   Server,
   Activity,
   AlertTriangle,
@@ -37,19 +36,36 @@ export type { SettingsNavItem };
 
 export const settingsNavigation: SettingsNavItem[] = [
   {
-    id: "profile",
-    label: "My Profile",
-    icon: User,
-    description: "Manage your personal information",
-  },
-  {
     id: "general",
     label: "General",
     icon: Settings2,
     description: "Platform-wide settings and preferences",
     children: [
-      { id: "branding", label: "Branding", icon: Palette },
-      { id: "notifications", label: "Notifications", icon: Bell },
+      { id: "general-company", label: "Company Information", icon: Building2 },
+      { id: "general-datetime", label: "Date & Time", icon: Clock },
+      { id: "general-defaults", label: "User Defaults", icon: Users },
+    ],
+  },
+  {
+    id: "branding",
+    label: "Branding",
+    icon: Palette,
+    description: "Logo, colors, and visual identity",
+    children: [
+      { id: "branding-logo", label: "Logo & Favicon", icon: Palette },
+      { id: "branding-colors", label: "Colors & Themes", icon: Palette },
+      { id: "branding-css", label: "Custom CSS", icon: Settings2 },
+    ],
+  },
+  {
+    id: "notifications",
+    label: "Notifications",
+    icon: Bell,
+    description: "Email and in-app notification settings",
+    children: [
+      { id: "notifications-email", label: "Email Defaults", icon: Mail },
+      { id: "notifications-inapp", label: "In-App Defaults", icon: Bell },
+      { id: "notifications-channels", label: "Notification Channels", icon: Share2 },
     ],
   },
   {
@@ -57,15 +73,21 @@ export const settingsNavigation: SettingsNavItem[] = [
     label: "AI Configuration",
     icon: Bot,
     description: "Configure AI models and providers",
+    children: [
+      { id: "ai-embeddings", label: "Embedding Models", icon: Database },
+      { id: "ai-chat", label: "Chat Models", icon: Bot },
+      { id: "ai-safety", label: "Safety & Compliance", icon: Shield },
+    ],
   },
   {
     id: "users",
-    label: "User Directory",
+    label: "User Management",
     icon: Users,
     description: "Manage users and accounts",
     children: [
-      { id: "users-list", label: "All Users", icon: Users },
-      { id: "users-invites", label: "Invitations", icon: Mail },
+      { id: "users-directory", label: "User Directory", icon: Users },
+      { id: "users-invitations", label: "Invitations", icon: Mail },
+      { id: "users-auth", label: "Authentication", icon: Key },
     ],
   },
   {
@@ -74,8 +96,9 @@ export const settingsNavigation: SettingsNavItem[] = [
     icon: Shield,
     description: "Define access control and permissions",
     children: [
-      { id: "roles-list", label: "System Roles", icon: Shield },
-      { id: "roles-policies", label: "Security Policies", icon: Key },
+      { id: "roles-management", label: "System Roles", icon: Shield },
+      { id: "roles-permissions", label: "Permission Matrix", icon: UserCog },
+      { id: "roles-security", label: "Security Policies", icon: Key },
     ],
   },
   {
@@ -83,20 +106,25 @@ export const settingsNavigation: SettingsNavItem[] = [
     label: "Departments",
     icon: Building2,
     description: "Organize teams and department settings",
+    children: [
+      { id: "departments-list", label: "Department List", icon: Building2 },
+      { id: "departments-hierarchy", label: "Hierarchy", icon: FolderKanban },
+      { id: "departments-settings", label: "Department Settings", icon: Settings2 },
+    ],
   },
   {
     id: "helpdesk",
     label: "Helpdesk",
-    icon: Clock,
+    icon: Ticket,
     description: "Configure helpdesk per department",
     badge: "Pro",
     children: [
       { id: "helpdesk-overview", label: "Overview", icon: FolderKanban },
       { id: "helpdesk-tickets", label: "Ticket Settings", icon: Ticket },
       { id: "helpdesk-sla", label: "SLA Policies", icon: Clock },
-      { id: "helpdesk-emails", label: "Email Templates", icon: Mail },
+      { id: "helpdesk-email", label: "Email Integration", icon: Mail },
       { id: "helpdesk-webhooks", label: "Webhooks", icon: Webhook },
-      { id: "helpdesk-rules", label: "Interaction Rules", icon: MessagesSquare },
+      { id: "helpdesk-escalation", label: "Escalation Rules", icon: AlertTriangle },
     ],
   },
   {
@@ -106,7 +134,7 @@ export const settingsNavigation: SettingsNavItem[] = [
     description: "Knowledge base settings per department",
     children: [
       { id: "docs-overview", label: "Overview", icon: BookOpen },
-      { id: "docs-versions", label: "Version History", icon: History },
+      { id: "docs-versioning", label: "Version History", icon: History },
       { id: "docs-access", label: "Access Control", icon: UserCog },
     ],
   },
@@ -118,27 +146,29 @@ export const settingsNavigation: SettingsNavItem[] = [
     badge: "Pro",
     children: [
       { id: "reports-overview", label: "Overview", icon: FileBarChart },
-      { id: "reports-builder", label: "Report Builder", icon: BarChart3 },
+      { id: "reports-defaults", label: "Report Defaults", icon: BarChart3 },
       { id: "reports-scheduled", label: "Scheduled Reports", icon: Calendar },
-      { id: "reports-sharing", label: "Sharing & Access", icon: Share2 },
     ],
   },
   {
     id: "integrations",
-    label: "Custom Links",
+    label: "Integrations & Links",
     icon: Globe,
     description: "External tools and integrations",
+    children: [
+      { id: "integrations-links", label: "External Links", icon: Globe },
+      { id: "integrations-api", label: "API Settings", icon: Key },
+    ],
   },
   {
     id: "maintenance",
     label: "Maintenance",
     icon: Construction,
-    description: "System announcements and maintenance notices",
+    description: "System management and infrastructure",
     children: [
       { id: "maintenance-announcements", label: "Announcements", icon: Megaphone },
       { id: "maintenance-infrastructure", label: "Infrastructure", icon: Server },
-      { id: "maintenance-services", label: "Monitored Services", icon: Activity },
-      { id: "maintenance-alerts", label: "Service Alerts", icon: AlertTriangle },
+      { id: "maintenance-system", label: "System Maintenance", icon: Construction },
     ],
   },
 ];

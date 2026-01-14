@@ -53,10 +53,90 @@ export const systemSettingsDefaults: Record<string, string> = {
   aiAutoVectorization: "true",
   aiEnableRag: "true",
   aiChunkSize: "1000",
+  aiSemanticSearchThreshold: "0.3",
+  aiRagContextDocs: "5",
+  aiRagSimilarityThreshold: "0.25",
   // AI Configuration - Chat
   aiChatProvider: "openai",
   aiChatModel: "gpt-4",
   aiChatTemperature: "0.7",
+  aiChatMaxTokens: "2000",
+  aiChatTopP: "1.0",
+  aiChatFrequencyPenalty: "0.0",
+  aiChatPresencePenalty: "0.0",
+  // AI Safety & Compliance
+  aiContentSafetyEnabled: "true",
+  aiPiiDetectionEnabled: "false",
+  aiAuditLoggingEnabled: "true",
+  aiAuditRetentionDays: "90",
+  // AI Assistant Features
+  aiAssistantDocEditorEnabled: "true",
+  aiAssistantTicketResponseEnabled: "true",
+  aiAssistantChatbotEnabled: "false",
+  aiAssistantSystemPrompt: "",
+  aiAssistantTone: "professional",
+  // Authentication Settings
+  authAllowUsernamePassword: "true",
+  authAllowEmailPassword: "true",
+  authPasswordMinLength: "8",
+  authPasswordRequireUppercase: "true",
+  authPasswordRequireLowercase: "true",
+  authPasswordRequireNumbers: "true",
+  authPasswordRequireSpecialChars: "false",
+  authPasswordExpiryDays: "0",
+  authSessionTimeoutMinutes: "480",
+  authMaxConcurrentSessions: "3",
+  authFailedLoginThreshold: "5",
+  authAccountLockoutMinutes: "30",
+  // Branding Settings
+  logoUrlDark: "",
+  secondaryColor: "#8b5cf6",
+  customCSS: "",
+  // Notification Settings - Additional
+  emailDocumentPublished: "true",
+  emailMentions: "true",
+  emailEventReminders: "true",
+  inAppRealtimeUpdates: "true",
+  // Helpdesk Defaults (global, overridden per department)
+  helpdeskTicketIdPrefix: "TICKET",
+  helpdeskDefaultPriority: "medium",
+  helpdeskDefaultAssignee: "unassigned",
+  helpdeskAllowComments: "true",
+  helpdeskAllowInternalNotes: "true",
+  helpdeskAllowAttachments: "true",
+  helpdeskMaxAttachmentSize: "10",
+  helpdeskUseRichTextEditor: "true",
+  // Documentation Defaults
+  docsDefaultVisibility: "department",
+  docsAllowUserCreatedBooks: "true",
+  docsRequireApprovalToPublish: "false",
+  docsSearchIndexingEnabled: "true",
+  // Reports Defaults
+  reportsEnabled: "true",
+  reportsAllowCustomReports: "true",
+  reportsAllowScheduledReports: "true",
+  reportsAllowExport: "true",
+  reportsDefaultExportFormat: "pdf",
+  reportsPdfPageSize: "a4",
+  reportsIncludeLogo: "true",
+  reportsIncludeTimestamp: "true",
+  reportsSavedRetentionDays: "90",
+  reportsMaxScheduledPerUser: "5",
+  reportsQueryTimeoutSeconds: "30",
+  reportsMaxRowsPerReport: "10000",
+  reportsCacheDurationMinutes: "15",
+  // Maintenance & Infrastructure
+  maintenanceModeEnabled: "false",
+  maintenanceModeMessage: "The system is currently undergoing maintenance. Please check back soon.",
+  maintenanceModeAllowAdminAccess: "true",
+  logLevel: "info",
+  logRetentionDays: "30",
+  // SLA Defaults
+  slaBusinessHoursEnabled: "true",
+  slaBusinessHoursStart: "09:00",
+  slaBusinessHoursEnd: "17:00",
+  slaBusinessDaysOnly: "true",
+  slaWarningThresholdPercent: "80",
 };
 
 export type SystemSettingsKeys = keyof typeof systemSettingsDefaults;
@@ -1105,3 +1185,65 @@ export type ServiceStatusHistory = typeof serviceStatusHistory.$inferSelect;
 export type InsertServiceStatusHistory = z.infer<typeof insertServiceStatusHistorySchema>;
 export type ServiceAlert = typeof serviceAlerts.$inferSelect;
 export type InsertServiceAlert = z.infer<typeof insertServiceAlertSchema>;
+
+// Department-specific settings
+export const departmentSettings = pgTable("department_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  departmentId: varchar("department_id").notNull(),
+  key: text("key").notNull(),
+  value: text("value").notNull(),
+  category: text("category").notNull().default("general"),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  index("dept_settings_dept_idx").on(table.departmentId),
+  index("dept_settings_category_idx").on(table.category),
+]);
+
+// User preferences (overrides)
+export const userPreferences = pgTable("user_preferences", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  key: text("key").notNull(),
+  value: text("value").notNull(),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  index("user_preferences_user_idx").on(table.userId),
+]);
+
+// Settings change audit
+export const settingsAudit = pgTable("settings_audit", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  actorId: varchar("actor_id"),
+  settingKey: text("setting_key").notNull(),
+  oldValue: text("old_value"),
+  newValue: text("new_value"),
+  scopeType: text("scope_type").notNull(), // 'global', 'department', 'user'
+  scopeId: varchar("scope_id"), // department_id or user_id
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  index("settings_audit_actor_idx").on(table.actorId),
+  index("settings_audit_scope_idx").on(table.scopeType, table.scopeId),
+  index("settings_audit_created_idx").on(table.createdAt),
+]);
+
+export const insertDepartmentSettingSchema = createInsertSchema(departmentSettings).omit({
+  id: true,
+  updatedAt: true,
+});
+
+export const insertUserPreferenceSchema = createInsertSchema(userPreferences).omit({
+  id: true,
+  updatedAt: true,
+});
+
+export const insertSettingsAuditSchema = createInsertSchema(settingsAudit).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type DepartmentSetting = typeof departmentSettings.$inferSelect;
+export type InsertDepartmentSetting = z.infer<typeof insertDepartmentSettingSchema>;
+export type UserPreference = typeof userPreferences.$inferSelect;
+export type InsertUserPreference = z.infer<typeof insertUserPreferenceSchema>;
+export type SettingsAudit = typeof settingsAudit.$inferSelect;
+export type InsertSettingsAudit = z.infer<typeof insertSettingsAuditSchema>;

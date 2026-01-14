@@ -225,12 +225,24 @@ export class DatabaseHelpdeskStorage {
 
   async createTicket(insert: InsertTicket): Promise<Ticket> {
     const [ticket] = await this.db.insert(tickets).values(insert).returning();
+
+    // Automatically generate embedding in the background using queue
+    const { embeddingQueue } = await import("../../embedding-queue");
+    embeddingQueue.enqueue('ticket', ticket.id);
+
     return ticket;
   }
 
   async updateTicket(id: string, update: Partial<InsertTicket>): Promise<Ticket> {
     const [ticket] = await this.db.update(tickets).set({ ...update, updatedAt: new Date().toISOString() }).where(eq(tickets.id, id)).returning();
     if (!ticket) throw new Error("Ticket not found");
+
+    // Regenerate embedding if title or description changed using queue
+    if (update.title !== undefined || update.description !== undefined) {
+      const { embeddingQueue } = await import("../../embedding-queue");
+      embeddingQueue.enqueue('ticket', ticket.id);
+    }
+
     return ticket;
   }
 

@@ -149,7 +149,7 @@ export async function generateWritingAssistance(
   };
 
   const systemPrompt = systemPrompts[action || "improve"] || systemPrompts.improve;
-  
+
   const messages: ChatMessage[] = [
     { role: "system", content: systemPrompt },
   ];
@@ -161,4 +161,92 @@ export async function generateWritingAssistance(
   messages.push({ role: "user", content: prompt });
 
   return generateAIResponse(messages);
+}
+
+/**
+ * Generate an AI response for a ticket using RAG (Retrieval Augmented Generation)
+ * This finds relevant documentation and uses it to provide contextual responses
+ */
+export async function generateTicketResponseWithRAG(
+  ticketId: string,
+  userPrompt?: string
+): Promise<{ response: string; sources: Array<{ id: string; title: string; similarity: number }> }> {
+  const { findRelatedDocumentsForTicket } = await import("./embeddings");
+  const { db } = await import("./db");
+  const { tickets } = await import("@shared/schema");
+  const { eq } = await import("drizzle-orm");
+
+  // Get the ticket details
+  const [ticket] = await db.select().from(tickets).where(eq(tickets.id, ticketId));
+  if (!ticket) {
+    throw new Error("Ticket not found");
+  }
+
+  // Find related documentation
+  const relatedDocs = await findRelatedDocumentsForTicket(ticketId);
+
+  // Build context from related documents
+  let context = "";
+  if (relatedDocs.length > 0) {
+    context = "Relevant documentation:\n\n";
+    relatedDocs.forEach((doc, idx) => {
+      context += `[${idx + 1}] ${doc.title}\n${doc.content}\n\n`;
+    });
+  }
+
+  // Build the system prompt
+  const systemPrompt = `You are a helpful support assistant. Use the provided documentation to help answer the user's question.
+If the documentation contains relevant information, reference it in your response.
+If the documentation doesn't contain enough information, acknowledge that and provide the best answer you can.
+Be concise, helpful, and professional.`;
+
+  // Build the messages
+  const messages: ChatMessage[] = [
+    { role: "system", content: systemPrompt },
+  ];
+
+  if (context) {
+    messages.push({ role: "user", content: context });
+  }
+
+  // Add the ticket information
+  const ticketInfo = `Ticket: ${ticket.title}\nDescription: ${ticket.description || "No description provided"}`;
+  messages.push({ role: "user", content: ticketInfo });
+
+  // Add the user's specific prompt if provided
+  if (userPrompt) {
+    messages.push({ role: "user", content: userPrompt });
+  } else {
+    messages.push({ role: "user", content: "Please provide a helpful response to address this ticket." });
+  }
+
+  const response = await generateAIResponse(messages);
+
+  return {
+    response,
+    sources: relatedDocs.map(doc => ({
+      id: doc.id,
+      title: doc.title,
+      similarity: doc.similarity,
+    })),
+  };
+}
+
+/**
+ * Perform semantic search across documentation
+ */
+export async function semanticSearch(
+  query: string,
+  limit: number = 10,
+  minSimilarity: number = 0.3
+): Promise<Array<{ id: string; title: string; content: string; similarity: number; type: string }>> {
+  const { generateEmbedding, findSimilarDocuments } = await import("./embeddings");
+
+  // Generate embedding for the search query
+  const queryEmbedding = await generateEmbedding(query);
+
+  // Find similar documents
+  const results = await findSimilarDocuments(queryEmbedding, limit, minSimilarity);
+
+  return results;
 }

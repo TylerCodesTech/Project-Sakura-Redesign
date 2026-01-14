@@ -2,10 +2,14 @@ import { eq, and, desc, asc, count, isNull, or, gte, lte } from "drizzle-orm";
 import {
   aiModelConfigs, searchHistory, notifications, systemSettings, comments,
   monitoredServices, serviceStatusHistory, serviceAlerts,
+  departmentSettings, userPreferences, settingsAudit,
   type AiModelConfig, type InsertAiModelConfig,
   type SearchHistory, type InsertSearchHistory,
   type Notification, type InsertNotification,
   type SystemSetting,
+  type DepartmentSetting,
+  type UserPreference,
+  type SettingsAudit,
   type Comment, type InsertComment,
   type MonitoredService, type InsertMonitoredService,
   type ServiceStatusHistory, type InsertServiceStatusHistory,
@@ -198,6 +202,147 @@ export class DatabaseAIStorage {
       category: category || this.getSettingCategory(key),
     }).returning();
     return setting;
+  }
+
+  // Department Settings
+  async getDepartmentSettings(departmentId: string): Promise<Record<string, string>> {
+    const result: Record<string, string> = {};
+    const dbSettings = await this.db.select().from(departmentSettings).where(eq(departmentSettings.departmentId, departmentId));
+    dbSettings.forEach((setting: DepartmentSetting) => {
+      result[setting.key] = setting.value;
+    });
+    return result;
+  }
+
+  async getDepartmentSetting(departmentId: string, key: string): Promise<string | undefined> {
+    const [setting] = await this.db.select().from(departmentSettings)
+      .where(and(eq(departmentSettings.departmentId, departmentId), eq(departmentSettings.key, key)));
+    return setting?.value;
+  }
+
+  async setDepartmentSetting(departmentId: string, key: string, value: string, category?: string): Promise<DepartmentSetting> {
+    const existing = await this.db.select().from(departmentSettings)
+      .where(and(eq(departmentSettings.departmentId, departmentId), eq(departmentSettings.key, key)));
+
+    if (existing.length > 0) {
+      const [updated] = await this.db.update(departmentSettings)
+        .set({ value, updatedAt: new Date().toISOString() })
+        .where(and(eq(departmentSettings.departmentId, departmentId), eq(departmentSettings.key, key)))
+        .returning();
+      return updated;
+    }
+
+    const [setting] = await this.db.insert(departmentSettings).values({
+      departmentId,
+      key,
+      value,
+      category: category || 'general',
+    }).returning();
+    return setting;
+  }
+
+  async setDepartmentSettings(departmentId: string, settings: Record<string, string>): Promise<void> {
+    await Promise.all(
+      Object.entries(settings).map(([key, value]) => this.setDepartmentSetting(departmentId, key, value))
+    );
+  }
+
+  // User Preferences
+  async getUserPreferences(userId: string): Promise<Record<string, string>> {
+    const result: Record<string, string> = {};
+    const dbPrefs = await this.db.select().from(userPreferences).where(eq(userPreferences.userId, userId));
+    dbPrefs.forEach((pref: UserPreference) => {
+      result[pref.key] = pref.value;
+    });
+    return result;
+  }
+
+  async getUserPreference(userId: string, key: string): Promise<string | undefined> {
+    const [pref] = await this.db.select().from(userPreferences)
+      .where(and(eq(userPreferences.userId, userId), eq(userPreferences.key, key)));
+    return pref?.value;
+  }
+
+  async setUserPreference(userId: string, key: string, value: string): Promise<UserPreference> {
+    const existing = await this.db.select().from(userPreferences)
+      .where(and(eq(userPreferences.userId, userId), eq(userPreferences.key, key)));
+
+    if (existing.length > 0) {
+      const [updated] = await this.db.update(userPreferences)
+        .set({ value, updatedAt: new Date().toISOString() })
+        .where(and(eq(userPreferences.userId, userId), eq(userPreferences.key, key)))
+        .returning();
+      return updated;
+    }
+
+    const [pref] = await this.db.insert(userPreferences).values({
+      userId,
+      key,
+      value,
+    }).returning();
+    return pref;
+  }
+
+  async setUserPreferences(userId: string, preferences: Record<string, string>): Promise<void> {
+    await Promise.all(
+      Object.entries(preferences).map(([key, value]) => this.setUserPreference(userId, key, value))
+    );
+  }
+
+  // Settings Audit
+  async logSettingChange(
+    actorId: string | null,
+    settingKey: string,
+    oldValue: string | null,
+    newValue: string,
+    scopeType: 'global' | 'department' | 'user',
+    scopeId?: string
+  ): Promise<SettingsAudit> {
+    const [audit] = await this.db.insert(settingsAudit).values({
+      actorId,
+      settingKey,
+      oldValue,
+      newValue,
+      scopeType,
+      scopeId,
+    }).returning();
+    return audit;
+  }
+
+  async getSettingsAuditLog(filters?: {
+    actorId?: string;
+    scopeType?: 'global' | 'department' | 'user';
+    scopeId?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<SettingsAudit[]> {
+    let query = this.db.select().from(settingsAudit);
+
+    const conditions = [];
+    if (filters?.actorId) {
+      conditions.push(eq(settingsAudit.actorId, filters.actorId));
+    }
+    if (filters?.scopeType) {
+      conditions.push(eq(settingsAudit.scopeType, filters.scopeType));
+    }
+    if (filters?.scopeId) {
+      conditions.push(eq(settingsAudit.scopeId, filters.scopeId));
+    }
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions));
+    }
+
+    query = query.orderBy(desc(settingsAudit.createdAt));
+
+    if (filters?.limit) {
+      query = query.limit(filters.limit);
+    }
+    if (filters?.offset) {
+      query = query.offset(filters.offset);
+    }
+
+    return query;
   }
 
   // Infrastructure Monitoring

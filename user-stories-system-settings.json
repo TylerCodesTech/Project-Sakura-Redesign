@@ -1,0 +1,703 @@
+{
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "As a Super Admin, I want to navigate the settings page efficiently so I can quickly find and configure any system setting",
+      "featureArea": "Navigation & Layout",
+      "acceptanceCriteria": [
+        "Left sidebar displays all 11 main sections with icons and labels",
+        "Sections are expandable/collapsible for child sections",
+        "Active section is highlighted",
+        "Navigation state persists across sessions",
+        "Responsive design works on mobile (hamburger menu)",
+        "Badge indicators show important information"
+      ],
+      "priority": "High",
+      "estimatedEffort": "3-5 days",
+      "dependencies": ["FR-1.1"]
+    },
+    {
+      "id": "US-002",
+      "title": "As a Department Head, I want to switch between department contexts so I can manage settings for different departments",
+      "featureArea": "Navigation & Layout",
+      "acceptanceCriteria": [
+        "Department selector dropdown shows all departments I have access to",
+        "Global Settings option is available for platform-wide configuration",
+        "Department selection persists across navigation",
+        "Department color and hierarchy are visible",
+        "Quick switching between departments is supported",
+        "Only departments I have permission to manage are shown"
+      ],
+      "priority": "High",
+      "estimatedEffort": "2-3 days",
+      "dependencies": ["FR-1.2"]
+    },
+    {
+      "id": "US-003",
+      "title": "As a System Manager, I want to see the current section and save status so I can track my changes",
+      "featureArea": "Navigation & Layout",
+      "acceptanceCriteria": [
+        "Header shows current section and subsection with breadcrumbs",
+        "Last saved timestamp is displayed",
+        "Quick search functionality works for finding settings",
+        "Help/documentation link is available for current section",
+        "Reset to defaults button has confirmation dialog",
+        "Unsaved changes are indicated with visual cues"
+      ],
+      "priority": "Medium",
+      "estimatedEffort": "2 days",
+      "dependencies": ["FR-1.3"]
+    },
+    {
+      "id": "US-004",
+      "title": "As any user, I want to manage my personal profile settings so I can customize my experience",
+      "featureArea": "Profile Settings",
+      "acceptanceCriteria": [
+        "Can update username, display name, and email",
+        "Avatar upload functionality works",
+        "Bio and contact information can be edited",
+        "Password change functionality is secure",
+        "Two-factor authentication can be enabled/disabled",
+        "Personal notification preferences can be customized",
+        "Theme preference (light/dark/auto) can be set",
+        "Timezone, language, and date/time format can be configured"
+      ],
+      "priority": "High",
+      "estimatedEffort": "3 days",
+      "dependencies": ["FR-2.1"]
+    },
+    {
+      "id": "US-005",
+      "title": "As a Super Admin, I want to configure company information and defaults so the platform reflects our brand",
+      "featureArea": "General Settings",
+      "acceptanceCriteria": [
+        "Company name, platform name, and support email can be set",
+        "Company timezone and default language can be configured",
+        "Date and time formats can be customized",
+        "Default theme for new users can be set",
+        "User theme override permission can be toggled",
+        "Default landing page can be configured"
+      ],
+      "priority": "High",
+      "estimatedEffort": "2 days",
+      "dependencies": ["FR-2.2"]
+    },
+    {
+      "id": "US-006",
+      "title": "As a Super Admin, I want to customize the platform branding so it matches our corporate identity",
+      "featureArea": "Branding Settings",
+      "acceptanceCriteria": [
+        "Logo URLs for light and dark modes can be uploaded",
+        "Favicon URL can be set",
+        "Primary and secondary brand colors can be selected with color picker",
+        "Custom CSS can be added for advanced styling",
+        "Login page can be customized",
+        "Email template branding can be configured"
+      ],
+      "priority": "Medium",
+      "estimatedEffort": "2 days",
+      "dependencies": ["FR-2.3"]
+    },
+    {
+      "id": "US-007",
+      "title": "As a Super Admin, I want to set global notification defaults so users have appropriate notifications",
+      "featureArea": "Notification Settings",
+      "acceptanceCriteria": [
+        "Email notification defaults can be configured for various events",
+        "In-app notification defaults can be set",
+        "Notification channels (email, SMS, etc.) can be enabled",
+        "Users can override global defaults with personal preferences"
+      ],
+      "priority": "Medium",
+      "estimatedEffort": "2 days",
+      "dependencies": ["FR-2.4"]
+    },
+    {
+      "id": "US-008",
+      "title": "As a System Manager, I want to configure AI embedding models so our search and RAG functionality works properly",
+      "featureArea": "AI Configuration",
+      "acceptanceCriteria": [
+        "Can select embedding provider (OpenAI, Ollama, Google)",
+        "Model configuration (name, dimensions) can be set",
+        "API key can be securely stored (masked in UI)",
+        "Base URL can be configured for self-hosted models",
+        "Vectorization settings (auto-vectorization, RAG, chunk size) can be adjusted",
+        "Cost management (token budget, alerts) can be configured",
+        "Usage dashboard shows AI consumption"
+      ],
+      "priority": "High",
+      "estimatedEffort": "3 days",
+      "dependencies": ["FR-3.1"]
+    },
+    {
+      "id": "US-009",
+      "title": "As a System Manager, I want to configure AI chat models so our AI assistant provides helpful responses",
+      "featureArea": "AI Configuration",
+      "acceptanceCriteria": [
+        "Can select chat provider (OpenAI, Ollama, Google)",
+        "Model configuration (name, temperature, max tokens) can be set",
+        "AI assistant can be enabled in document editor and ticket responses",
+        "Chatbot functionality can be toggled",
+        "System prompt can be customized",
+        "Tone settings (professional, casual, technical) can be configured"
+      ],
+      "priority": "High",
+      "estimatedEffort": "2 days",
+      "dependencies": ["FR-3.2"]
+    },
+    {
+      "id": "US-010",
+      "title": "As a System Manager, I want to configure AI safety and compliance settings so our AI usage is secure",
+      "featureArea": "AI Configuration",
+      "acceptanceCriteria": [
+        "Content safety filters can be enabled",
+        "Blocked topics can be defined",
+        "PII detection and redaction can be configured",
+        "All AI interactions are logged",
+        "Retention period for AI logs can be set",
+        "AI usage reports can be exported"
+      ],
+      "priority": "High",
+      "estimatedEffort": "2 days",
+      "dependencies": ["FR-3.3"]
+    },
+    {
+      "id": "US-011",
+      "title": "As an HR Administrator, I want to manage the user directory so I can onboard and maintain user accounts",
+      "featureArea": "User Management",
+      "acceptanceCriteria": [
+        "User list can be searched and filtered",
+        "Bulk actions (export, delete, assign roles) are available",
+        "User status (active, suspended, archived) is visible",
+        "Last login timestamp is displayed",
+        "Department assignment can be managed",
+        "Manual user creation form works",
+        "Bulk import from CSV is supported",
+        "Invitation emails can be sent",
+        "Custom profile fields can be defined"
+      ],
+      "priority": "High",
+      "estimatedEffort": "5 days",
+      "dependencies": ["FR-4.1"]
+    },
+    {
+      "id": "US-012",
+      "title": "As an HR Administrator, I want to manage user invitations so new users can join the platform",
+      "featureArea": "User Management",
+      "acceptanceCriteria": [
+        "Invitation email template can be customized",
+        "Invitation expiry duration can be set (1-30 days)",
+        "Auto-assign role on signup can be configured",
+        "Email verification can be required",
+        "Pending invitations can be viewed",
+        "Invitations can be resent or revoked",
+        "Invitation link is copyable"
+      ],
+      "priority": "Medium",
+      "estimatedEffort": "2 days",
+      "dependencies": ["FR-4.2"]
+    },
+    {
+      "id": "US-013",
+      "title": "As a Super Admin, I want to configure authentication settings so our platform is secure",
+      "featureArea": "User Management",
+      "acceptanceCriteria": [
+        "Login options (username/password, email/password, SSO) can be configured",
+        "SSO providers (Google, Microsoft, Okta) can be set up",
+        "SAML configuration is available",
+        "OAuth configuration is available",
+        "Security policies (password requirements, expiry, session timeout) can be set",
+        "IP whitelist/blacklist can be configured"
+      ],
+      "priority": "High",
+      "estimatedEffort": "3 days",
+      "dependencies": ["FR-4.3"]
+    },
+    {
+      "id": "US-014",
+      "title": "As a Super Admin, I want to manage system roles so I can control what users can do",
+      "featureArea": "Roles & Permissions",
+      "acceptanceCriteria": [
+        "Roles can be created, edited, and deleted",
+        "Role colors can be assigned",
+        "Role priority can be set for conflict resolution",
+        "System roles (Super Admin) cannot be deleted",
+        "Visual permission matrix is available",
+        "Permissions can be grouped by category",
+        "Global vs scoped permissions are distinguishable",
+        "Quick presets (Viewer, Editor, Admin) are available",
+        "Role templates can be saved and imported/exported",
+        "Existing roles can be cloned"
+      ],
+      "priority": "High",
+      "estimatedEffort": "5 days",
+      "dependencies": ["FR-5.1"]
+    },
+    {
+      "id": "US-015",
+      "title": "As a Super Admin, I want to configure security policies so our platform is compliant",
+      "featureArea": "Roles & Permissions",
+      "acceptanceCriteria": [
+        "Default role for new users can be set",
+        "Required roles for specific features can be configured",
+        "Department-based auto-assignment is available",
+        "Audit logging can be enabled",
+        "Log retention period can be set (30-365 days)",
+        "Sensitive action alerts can be configured",
+        "Failed login attempt threshold can be set",
+        "Account lockout duration can be configured"
+      ],
+      "priority": "High",
+      "estimatedEffort": "2 days",
+      "dependencies": ["FR-5.2"]
+    },
+    {
+      "id": "US-016",
+      "title": "As a Super Admin, I want to manage departments so I can organize our company structure",
+      "featureArea": "Department Management",
+      "acceptanceCriteria": [
+        "Hierarchical tree view of departments is available",
+        "Departments can be reorganized with drag-and-drop",
+        "Department color coding is visible",
+        "Member count is displayed",
+        "Departments can be created with name, description, parent, head assignment",
+        "Department color and managers can be assigned",
+        "Department hierarchy types can be defined",
+        "Inheritance settings can be configured",
+        "Cross-department permissions can be set"
+      ],
+      "priority": "High",
+      "estimatedEffort": "3 days",
+      "dependencies": ["FR-6.1"]
+    },
+    {
+      "id": "US-017",
+      "title": "As a Department Head, I want to configure department-specific settings so my team has the right configuration",
+      "featureArea": "Department Management",
+      "acceptanceCriteria": [
+        "Helpdesk configuration can be set for the department",
+        "Documentation access policies can be configured",
+        "Report access can be managed",
+        "Custom workflows can be defined",
+        "Department-specific external links can be added",
+        "Department announcements can be created"
+      ],
+      "priority": "Medium",
+      "estimatedEffort": "2 days",
+      "dependencies": ["FR-6.2"]
+    },
+    {
+      "id": "US-018",
+      "title": "As a Department Head, I want to configure helpdesk settings so my team can manage support requests",
+      "featureArea": "Helpdesk Settings",
+      "acceptanceCriteria": [
+        "Helpdesk can be enabled/disabled for the department",
+        "Helpdesk name, description, and public access can be configured",
+        "Ticket ID prefix and numbering format can be set",
+        "Default priority and assignee can be configured",
+        "Ticket creation form can be customized with drag-and-drop builder",
+        "Custom fields (text, dropdown, etc.) can be added",
+        "Field validation rules and conditional logic can be set",
+        "Ticket types with icons and colors can be defined",
+        "Ticket workflow settings (comments, attachments, editor) can be configured"
+      ],
+      "priority": "High",
+      "estimatedEffort": "5 days",
+      "dependencies": ["FR-7.1", "FR-7.2"]
+    },
+    {
+      "id": "US-019",
+      "title": "As a Department Head, I want to configure SLA policies so we meet our service commitments",
+      "featureArea": "Helpdesk Settings",
+      "acceptanceCriteria": [
+        "Custom SLA states can be defined with colors and order",
+        "States can be marked as final (closing states)",
+        "Default state can be set",
+        "Target hours per state can be configured",
+        "SLA policies can be created by priority",
+        "First response and resolution time targets can be set",
+        "Business hours vs 24/7 can be configured",
+        "SLA warning thresholds can be set",
+        "Breach notifications can be configured"
+      ],
+      "priority": "High",
+      "estimatedEffort": "3 days",
+      "dependencies": ["FR-7.3"]
+    },
+    {
+      "id": "US-020",
+      "title": "As a Department Head, I want to configure email integration so tickets can be created via email",
+      "featureArea": "Helpdesk Settings",
+      "acceptanceCriteria": [
+        "Email address for ticket creation can be set",
+        "Email provider (custom, Mailgun, SendGrid) can be selected",
+        "Auto-create tickets from email can be enabled",
+        "Default priority for email tickets can be set",
+        "Reply-to address can be configured",
+        "Email templates for ticket events can be customized",
+        "Template variables are available",
+        "HTML editor with preview works"
+      ],
+      "priority": "Medium",
+      "estimatedEffort": "2 days",
+      "dependencies": ["FR-7.4"]
+    },
+    {
+      "id": "US-021",
+      "title": "As a Department Head, I want to configure webhooks so we can integrate with other systems",
+      "featureArea": "Helpdesk Settings",
+      "acceptanceCriteria": [
+        "Webhooks can be created, edited, and deleted",
+        "Webhook URL and secret key can be configured",
+        "Events to trigger webhooks can be selected",
+        "Custom headers can be added",
+        "Retry policy (max retries, delay) can be set",
+        "Timeout can be configured",
+        "Webhook test button works",
+        "Webhook logs show recent deliveries with status and response"
+      ],
+      "priority": "Medium",
+      "estimatedEffort": "2 days",
+      "dependencies": ["FR-7.5"]
+    },
+    {
+      "id": "US-022",
+      "title": "As a Department Head, I want to configure escalation rules so urgent tickets get proper attention",
+      "featureArea": "Helpdesk Settings",
+      "acceptanceCriteria": [
+        "Escalation rules can be created with name and description",
+        "Trigger types (time-based, priority-based, state-based) can be selected",
+        "Conditions can be defined (priority = urgent AND state = new)",
+        "Actions can be configured (assign to user, escalate to department, notify managers)",
+        "Rule priority/order can be set",
+        "Rules can be enabled/disabled",
+        "Business hours can be defined with timezone and holidays",
+        "SLA can be paused during non-business hours"
+      ],
+      "priority": "Medium",
+      "estimatedEffort": "3 days",
+      "dependencies": ["FR-7.6"]
+    },
+    {
+      "id": "US-023",
+      "title": "As a Department Head, I want to configure documentation settings so my team can share knowledge",
+      "featureArea": "Documentation Settings",
+      "acceptanceCriteria": [
+        "Documentation can be enabled/disabled for the department",
+        "Public access can be configured",
+        "Default visibility can be set",
+        "User-created books can be allowed",
+        "Approval for publishing can be required",
+        "Search indexing can be enabled",
+        "Version history can be enabled with retention policy",
+        "Version comparison can be configured",
+        "Access control permissions can be set"
+      ],
+      "priority": "Medium",
+      "estimatedEffort": "2 days",
+      "dependencies": ["FR-8.1", "FR-8.2", "FR-8.3"]
+    },
+    {
+      "id": "US-024",
+      "title": "As a Report Analyst, I want to configure reports settings so my team can generate insights",
+      "featureArea": "Reports Settings",
+      "acceptanceCriteria": [
+        "Reports can be enabled/disabled for the department",
+        "Custom reports can be allowed",
+        "Scheduled reports can be enabled",
+        "Report export can be configured",
+        "Data sources can be selected",
+        "Row-level security can be set",
+        "PII restrictions can be configured",
+        "Default export format can be set",
+        "PDF page size and branding can be configured",
+        "Saved report retention can be set",
+        "Max scheduled reports per user can be configured",
+        "Scheduling frequencies can be limited",
+        "Query timeout and max rows can be set"
+      ],
+      "priority": "Medium",
+      "estimatedEffort": "2 days",
+      "dependencies": ["FR-9.1", "FR-9.2", "FR-9.3"]
+    },
+    {
+      "id": "US-025",
+      "title": "As a Super Admin, I want to manage external links so users can access important resources",
+      "featureArea": "Integrations",
+      "acceptanceCriteria": [
+        "External links can be added, edited, and deleted",
+        "Link title, URL, description, and icon can be configured",
+        "Categories can be assigned",
+        "Order/sorting can be managed",
+        "Visibility (company-wide or department-specific) can be set",
+        "Custom categories can be created"
+      ],
+      "priority": "Low",
+      "estimatedEffort": "1 day",
+      "dependencies": ["FR-10.1"]
+    },
+    {
+      "id": "US-026",
+      "title": "As a Super Admin, I want to manage announcements so important messages reach users",
+      "featureArea": "Maintenance",
+      "acceptanceCriteria": [
+        "Announcements can be created, edited, and deleted",
+        "Title, message, type, and optional link can be configured",
+        "Active/inactive toggle works",
+        "Department-specific or company-wide targeting is available",
+        "Scheduling with start/end dates works",
+        "Display settings (position, dismissible, auto-dismiss) can be configured",
+        "Show on login page option works"
+      ],
+      "priority": "Medium",
+      "estimatedEffort": "2 days",
+      "dependencies": ["FR-11.1"]
+    },
+    {
+      "id": "US-027",
+      "title": "As a System Manager, I want to monitor infrastructure so I can ensure system reliability",
+      "featureArea": "Maintenance",
+      "acceptanceCriteria": [
+        "Services can be added, edited, and deleted",
+        "Service name, description, endpoint, and type can be configured",
+        "Check interval and expected status code can be set",
+        "Latency threshold and timeout can be configured",
+        "Health checks show last check timestamp, current status, and latency",
+        "Uptime percentage is displayed",
+        "Monitoring can be enabled/disabled"
+      ],
+      "priority": "High",
+      "estimatedEffort": "3 days",
+      "dependencies": ["FR-11.2"]
+    },
+    {
+      "id": "US-028",
+      "title": "As a System Manager, I want to configure service alerts so I'm notified of issues",
+      "featureArea": "Maintenance",
+      "acceptanceCriteria": [
+        "Alerts can be configured for service down and high latency",
+        "Alert recipients (emails, roles) can be specified",
+        "Alert cooldown period can be set",
+        "Alert history shows recent alerts with type, severity, and status",
+        "Acknowledgment status and resolution time are tracked",
+        "Alert notes can be added"
+      ],
+      "priority": "High",
+      "estimatedEffort": "2 days",
+      "dependencies": ["FR-11.3"]
+    },
+    {
+      "id": "US-029",
+      "title": "As a System Manager, I want to perform system maintenance so the platform runs smoothly",
+      "featureArea": "Maintenance",
+      "acceptanceCriteria": [
+        "Maintenance mode can be enabled with message and scheduling",
+        "Admin access during maintenance can be allowed",
+        "Database size can be viewed",
+        "Database vacuum/optimize can be run",
+        "Database backup/import works",
+        "Application logs can be viewed",
+        "Log level and retention can be configured",
+        "Logs can be downloaded"
+      ],
+      "priority": "High",
+      "estimatedEffort": "3 days",
+      "dependencies": ["FR-11.4"]
+    },
+    {
+      "id": "US-030",
+      "title": "As a user, I want the settings page to be accessible so I can use it regardless of ability",
+      "featureArea": "Accessibility",
+      "acceptanceCriteria": [
+        "All interactive elements are focusable via keyboard",
+        "Keyboard shortcuts work for common actions",
+        "Skip navigation link is available",
+        "Focus trapping works in modals",
+        "ARIA labels are present on all form controls",
+        "ARIA live regions show status updates",
+        "Semantic HTML is used",
+        "Alt text is provided for icons",
+        "Minimum contrast ratio 4.5:1 for text",
+        "No information conveyed by color alone",
+        "Text is resizable up to 200%",
+        "Focus indicators are visible on all interactive elements",
+        "Clear labels and error messages are provided for forms",
+        "Required field indicators are visible"
+      ],
+      "priority": "High",
+      "estimatedEffort": "2 days",
+      "dependencies": []
+    },
+    {
+      "id": "US-031",
+      "title": "As a user, I want the settings page to be fast and responsive so I don't waste time waiting",
+      "featureArea": "Performance",
+      "acceptanceCriteria": [
+        "Settings page loads in <500ms",
+        "Settings save in <200ms",
+        "Search results appear in <100ms",
+        "Lazy loading works for sections and department lists",
+        "Optimistic updates provide immediate feedback",
+        "Caching strategy reduces server load",
+        "Mobile responsive design works on all devices"
+      ],
+      "priority": "High",
+      "estimatedEffort": "3 days",
+      "dependencies": []
+    }
+  ],
+  "featureAreas": [
+    {
+      "name": "Navigation & Layout",
+      "description": "Core navigation and layout components for the settings page",
+      "userStories": ["US-001", "US-002", "US-003"],
+      "priority": "High",
+      "estimatedEffort": "7-10 days"
+    },
+    {
+      "name": "Profile Settings",
+      "description": "User-specific profile and preference settings",
+      "userStories": ["US-004"],
+      "priority": "High",
+      "estimatedEffort": "3 days"
+    },
+    {
+      "name": "General Settings",
+      "description": "Global platform configuration and branding",
+      "userStories": ["US-005", "US-006", "US-007"],
+      "priority": "High",
+      "estimatedEffort": "6 days"
+    },
+    {
+      "name": "AI Configuration",
+      "description": "AI model and safety configuration",
+      "userStories": ["US-008", "US-009", "US-010"],
+      "priority": "High",
+      "estimatedEffort": "7 days"
+    },
+    {
+      "name": "User Management",
+      "description": "User directory, invitations, and authentication",
+      "userStories": ["US-011", "US-012", "US-013"],
+      "priority": "High",
+      "estimatedEffort": "10 days"
+    },
+    {
+      "name": "Roles & Permissions",
+      "description": "Role-based access control and security policies",
+      "userStories": ["US-014", "US-015"],
+      "priority": "High",
+      "estimatedEffort": "7 days"
+    },
+    {
+      "name": "Department Management",
+      "description": "Department structure and department-specific settings",
+      "userStories": ["US-016", "US-017"],
+      "priority": "High",
+      "estimatedEffort": "5 days"
+    },
+    {
+      "name": "Helpdesk Settings",
+      "description": "Department-specific helpdesk configuration",
+      "userStories": ["US-018", "US-019", "US-020", "US-021", "US-022"],
+      "priority": "High",
+      "estimatedEffort": "15 days"
+    },
+    {
+      "name": "Documentation Settings",
+      "description": "Department-specific documentation configuration",
+      "userStories": ["US-023"],
+      "priority": "Medium",
+      "estimatedEffort": "2 days"
+    },
+    {
+      "name": "Reports Settings",
+      "description": "Department-specific reporting configuration",
+      "userStories": ["US-024"],
+      "priority": "Medium",
+      "estimatedEffort": "2 days"
+    },
+    {
+      "name": "Integrations",
+      "description": "External links and API integrations",
+      "userStories": ["US-025"],
+      "priority": "Low",
+      "estimatedEffort": "1 day"
+    },
+    {
+      "name": "Maintenance",
+      "description": "System maintenance and monitoring tools",
+      "userStories": ["US-026", "US-027", "US-028", "US-029"],
+      "priority": "High",
+      "estimatedEffort": "10 days"
+    },
+    {
+      "name": "Accessibility",
+      "description": "Accessibility compliance and features",
+      "userStories": ["US-030"],
+      "priority": "High",
+      "estimatedEffort": "2 days"
+    },
+    {
+      "name": "Performance",
+      "description": "Performance optimization and responsiveness",
+      "userStories": ["US-031"],
+      "priority": "High",
+      "estimatedEffort": "3 days"
+    }
+  ],
+  "implementationRoadmap": [
+    {
+      "phase": "Foundation (Weeks 1-2)",
+      "userStories": ["US-001", "US-002", "US-003"],
+      "description": "Build core navigation, layout, and department switching functionality"
+    },
+    {
+      "phase": "Core Global Settings (Weeks 3-4)",
+      "userStories": ["US-004", "US-005", "US-006", "US-007"],
+      "description": "Implement profile, general, branding, and notification settings"
+    },
+    {
+      "phase": "User & Access Management (Weeks 5-6)",
+      "userStories": ["US-011", "US-012", "US-013", "US-014", "US-015"],
+      "description": "Build user directory, invitations, authentication, roles, and permissions"
+    },
+    {
+      "phase": "AI Configuration (Week 7)",
+      "userStories": ["US-008", "US-009", "US-010"],
+      "description": "Implement AI model configuration and safety settings"
+    },
+    {
+      "phase": "Department-Scoped Features (Weeks 8-10)",
+      "userStories": ["US-016", "US-017", "US-018", "US-019", "US-020", "US-021", "US-022", "US-023", "US-024"],
+      "description": "Build department management and department-specific settings"
+    },
+    {
+      "phase": "Infrastructure & Maintenance (Week 11)",
+      "userStories": ["US-026", "US-027", "US-028", "US-029"],
+      "description": "Implement maintenance tools, monitoring, and alerting"
+    },
+    {
+      "phase": "Polish & Optimization (Week 12)",
+      "userStories": ["US-030", "US-031"],
+      "description": "Add accessibility features, performance optimization, and final polish"
+    }
+  ],
+  "metrics": {
+    "successCriteria": [
+      "All features have associated settings",
+      "100% of settings categorized as global or department-specific",
+      "Settings page loads in <500ms",
+      "Users can find any setting in <10 seconds",
+      "Zero permission bypass vulnerabilities",
+      "NPS score for settings experience >40",
+      "Reduction in configuration-related support tickets"
+    ],
+    "performanceTargets": {
+      "pageLoadTime": "<500ms",
+      "saveTime": "<200ms",
+      "searchLatency": "<100ms",
+      "settingDiscoveryTime": "<10 seconds"
+    }
+  }
+}

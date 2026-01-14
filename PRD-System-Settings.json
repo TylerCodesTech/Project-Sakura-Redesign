@@ -1,0 +1,1116 @@
+{
+  "title": "Product Requirements Document: System Settings Page",
+  "version": "1.0",
+  "date": "2026-01-13",
+  "author": "AI Assistant",
+  "executiveSummary": "This PRD outlines the requirements for a comprehensive System Settings page that consolidates all configurable aspects of Project Sakura into a unified, user-friendly interface. The settings system will support both global (company-wide) settings and department-specific settings, with intelligent scoping based on user permissions and organizational context.",
+  "tableOfContents": [
+    "Current State Analysis",
+    "Goals & Objectives",
+    "User Personas",
+    "Feature Requirements",
+    "Settings Taxonomy",
+    "UI/UX Design Specifications",
+    "Technical Architecture",
+    "Success Metrics",
+    "Implementation Phases",
+    "Future Considerations"
+  ],
+  "currentStateAnalysis": {
+    "existingInfrastructure": [
+      "System Settings Table: Key-value store for global settings with 60+ configuration keys",
+      "Navigation Structure: Hierarchical settings navigation with 11 top-level sections",
+      "Partial Implementation: Some settings pages exist (General, AI, Helpdesk, etc.)",
+      "Department Context: Some features support department-scoped configuration"
+    ],
+    "painPoints": [
+      "Incomplete Implementation: Not all navigation items have corresponding settings pages",
+      "Scattered Configuration: Settings are distributed across multiple sections without clear hierarchy",
+      "Mixed Scoping: No clear visual distinction between global vs department-specific settings",
+      "Limited Discoverability: Users may not know what settings are available or where to find them",
+      "Permission Complexity: RBAC system exists but not fully integrated with settings UI"
+    ]
+  },
+  "goalsAndObjectives": {
+    "primaryGoals": [
+      "Unified Experience: Create a single, intuitive settings page that consolidates all configuration",
+      "Smart Scoping: Automatically show relevant settings based on user role and selected department",
+      "Clear Categorization: Organize settings logically with visual hierarchy",
+      "Permission-Aware: Respect RBAC permissions and only show configurable settings",
+      "Department Flexibility: Support both global and department-specific configuration where appropriate"
+    ],
+    "successCriteria": [
+      "All features in the platform have associated settings",
+      "100% of settings are categorized as global or department-specific",
+      "Settings page loads in <500ms",
+      "Users can find any setting in <10 seconds",
+      "Zero permission bypass vulnerabilities"
+    ]
+  },
+  "userPersonas": [
+    {
+      "name": "Super Admin",
+      "needs": "Full control over all system settings, both global and department-specific",
+      "access": "All settings sections, all departments",
+      "goals": "Configure platform-wide defaults, manage security, oversee all departments"
+    },
+    {
+      "name": "Department Head",
+      "needs": "Configure settings specific to their department(s)",
+      "access": "Department-scoped settings for assigned departments",
+      "goals": "Customize helpdesk workflows, SLA policies, documentation access for their team"
+    },
+    {
+      "name": "System Manager",
+      "needs": "Manage technical infrastructure and integrations",
+      "access": "AI configuration, webhooks, monitoring, API settings",
+      "goals": "Ensure system reliability, configure integrations, monitor performance"
+    },
+    {
+      "name": "HR Administrator",
+      "needs": "Manage user accounts, roles, and organizational structure",
+      "access": "User directory, roles, departments, audit logs",
+      "goals": "Onboard users, assign permissions, maintain org structure"
+    },
+    {
+      "name": "Report Analyst",
+      "needs": "Create and schedule reports, manage data access",
+      "access": "Report builder, scheduled reports, data source permissions",
+      "goals": "Generate insights, automate reporting, share data with stakeholders"
+    }
+  ],
+  "featureRequirements": {
+    "FR-1": {
+      "title": "Settings Navigation & Layout",
+      "subFeatures": {
+        "FR-1.1": {
+          "title": "Sidebar Navigation",
+          "requirements": [
+            "Display all 11 main sections with icons and labels",
+            "Support expandable/collapsible child sections",
+            "Show badge indicators",
+            "Highlight active section",
+            "Persist navigation state across sessions",
+            "Responsive design (collapse to hamburger menu on mobile)"
+          ]
+        },
+        "FR-1.2": {
+          "title": "Department Selector",
+          "requirements": [
+            "Dropdown to select department context",
+            "'Global Settings' option for platform-wide configuration",
+            "Show only departments user has permission to manage",
+            "Persist selection across navigation within settings",
+            "Display department color and hierarchy",
+            "Quick switch between departments"
+          ]
+        },
+        "FR-1.3": {
+          "title": "Settings Header",
+          "requirements": [
+            "Display current section and subsection",
+            "Show last saved timestamp",
+            "Quick search for settings",
+            "Help/documentation link for current section",
+            "Reset to defaults button (with confirmation)"
+          ]
+        }
+      }
+    },
+    "FR-2": {
+      "title": "Global Settings",
+      "description": "All global settings affect the entire platform and require appropriate permissions.",
+      "subFeatures": {
+        "FR-2.1": {
+          "title": "Profile Settings",
+          "scope": "User-specific (personal)",
+          "items": [
+            "Username, display name, email",
+            "Avatar upload",
+            "Bio and contact information",
+            "Password change",
+            "Two-factor authentication settings",
+            "Personal notification preferences",
+            "Theme preference (light/dark/auto)",
+            "Timezone, language, date/time format"
+          ]
+        },
+        "FR-2.2": {
+          "title": "General Settings",
+          "scope": "Global (Super Admin only)",
+          "categories": {
+            "Company Information": [
+              "Company name",
+              "Platform name",
+              "Support email address",
+              "Company timezone",
+              "Default language"
+            ],
+            "Date & Time Formats": [
+              "Date format (MDY, DMY, YMD)",
+              "Time format (12h, 24h)",
+              "Week start day"
+            ],
+            "User Defaults": [
+              "Default theme for new users",
+              "Allow user theme overrides",
+              "Default landing page"
+            ]
+          }
+        },
+        "FR-2.3": {
+          "title": "Branding Settings",
+          "scope": "Global (Super Admin only)",
+          "items": [
+            "Logo URL (light mode)",
+            "Logo URL (dark mode)",
+            "Favicon URL",
+            "Primary brand color (with color picker)",
+            "Secondary accent color",
+            "Custom CSS (advanced)",
+            "Login page customization",
+            "Email template branding"
+          ]
+        },
+        "FR-2.4": {
+          "title": "Notification Settings",
+          "scope": "Global defaults + User overrides",
+          "categories": {
+            "Email Notifications": [
+              "New ticket assigned",
+              "Ticket updated",
+              "SLA warning",
+              "Weekly digest",
+              "New document published",
+              "@mentions in posts/comments",
+              "Event reminders"
+            ],
+            "In-App Notifications": [
+              "Desktop notifications (browser)",
+              "Sound alerts",
+              "Notification badge",
+              "Real-time vs batched"
+            ],
+            "Notification Channels": [
+              "Email",
+              "SMS (if configured)",
+              "Slack integration (future)",
+              "Microsoft Teams integration (future)"
+            ]
+          }
+        }
+      }
+    },
+    "FR-3": {
+      "title": "AI Configuration Settings",
+      "scope": "Global (AI settings manager permission required)",
+      "subFeatures": {
+        "FR-3.1": {
+          "title": "Embedding Models",
+          "items": [
+            "Provider Selection: OpenAI, Ollama, Google (future)",
+            "Model Configuration: Model name, dimensions, API key, base URL",
+            "Vectorization Settings: Auto-vectorization, RAG, chunk size, overlap, batch size",
+            "Cost Management: Monthly token budget, alert threshold, usage dashboard"
+          ]
+        },
+        "FR-3.2": {
+          "title": "Chat Models",
+          "items": [
+            "Provider Selection: OpenAI, Ollama, Google (future)",
+            "Model Configuration: Model name, temperature, max tokens, sampling settings",
+            "AI Assistant Settings: Enable in editor, ticket responses, chatbot, system prompt, tone settings"
+          ]
+        },
+        "FR-3.3": {
+          "title": "AI Safety & Compliance",
+          "items": [
+            "Content Filtering: Safety filters, blocked topics, PII detection",
+            "Audit: Log interactions, retention period, export usage reports"
+          ]
+        }
+      }
+    },
+    "FR-4": {
+      "title": "User Management Settings",
+      "scope": "Global (Users permission required)",
+      "subFeatures": {
+        "FR-4.1": {
+          "title": "User Directory",
+          "items": [
+            "User List: Search, filter, bulk actions, status, last login, department",
+            "User Creation: Manual form, bulk import, invitation email, password setup",
+            "User Profile Fields: Custom fields, required/optional, visibility settings"
+          ]
+        },
+        "FR-4.2": {
+          "title": "Invitation Management",
+          "items": [
+            "Invitation Settings: Email template, expiry duration, auto-assign role, email verification",
+            "Invitation List: View pending, resend, revoke, copyable link"
+          ]
+        },
+        "FR-4.3": {
+          "title": "Authentication Settings",
+          "items": [
+            "Login Options: Username/password, email/password, SSO providers, SAML, OAuth",
+            "Security Policies: Password requirements, expiry, session timeout, IP restrictions"
+          ]
+        }
+      }
+    },
+    "FR-5": {
+      "title": "Roles & Permissions Settings",
+      "scope": "Global (Roles permission required)",
+      "subFeatures": {
+        "FR-5.1": {
+          "title": "System Roles",
+          "items": [
+            "Role Management: Create/edit/delete, color, priority, system roles",
+            "Permission Assignment: Visual matrix, grouped by category, presets, templates",
+            "Role Templates: Save, import/export, clone"
+          ]
+        },
+        "FR-5.2": {
+          "title": "Security Policies",
+          "items": [
+            "Access Control: Default role, role requirements, department auto-assignment",
+            "Audit & Compliance: Audit logging, retention period, alerts, login attempt limits"
+          ]
+        }
+      }
+    },
+    "FR-6": {
+      "title": "Department Settings",
+      "scope": "Global + Department-specific",
+      "subFeatures": {
+        "FR-6.1": {
+          "title": "Department Management (Global)",
+          "items": [
+            "Department List: Hierarchical view, drag-and-drop, color coding, member count",
+            "Department Creation: Name, description, parent, head assignment, color, managers",
+            "Department Hierarchy: Types, inheritance settings, cross-department permissions"
+          ]
+        },
+        "FR-6.2": {
+          "title": "Department-Specific Settings",
+          "items": [
+            "Helpdesk configuration",
+            "Documentation access policies",
+            "Report access",
+            "Custom workflows",
+            "Department-specific external links",
+            "Department announcements"
+          ]
+        }
+      }
+    },
+    "FR-7": {
+      "title": "Helpdesk Settings",
+      "scope": "Department-specific (Helpdesk settings permission required)",
+      "subFeatures": {
+        "FR-7.1": {
+          "title": "Helpdesk Overview",
+          "items": [
+            "Enable/Disable: Toggle, name, description, public access",
+            "General Settings: Ticket ID prefix, numbering format, default priority, assignee"
+          ]
+        },
+        "FR-7.2": {
+          "title": "Ticket Settings",
+          "items": [
+            "Ticket Creation Form: Form builder, custom fields, validation, conditional logic",
+            "Ticket Types: Categories, icons, colors, category-specific fields",
+            "Ticket Workflow: Comments, internal notes, attachments, screenshots, editor type"
+          ]
+        },
+        "FR-7.3": {
+          "title": "SLA Policies",
+          "items": [
+            "SLA States: Custom states, colors, order, final states, default state, targets",
+            "SLA Policies: By priority, response/resolution targets, business hours, warnings"
+          ]
+        },
+        "FR-7.4": {
+          "title": "Email Integration",
+          "items": [
+            "Inbound Email: Email address, provider, auto-create tickets, default priority",
+            "Email Templates: Templates for created/updated/resolved, variables, HTML editor"
+          ]
+        },
+        "FR-7.5": {
+          "title": "Webhooks",
+          "items": [
+            "Webhook Management: Create/edit/delete, URL, secret, events, headers, retry policy",
+            "Webhook Logs: Recent deliveries, status, response time, body, retry attempts"
+          ]
+        },
+        "FR-7.6": {
+          "title": "Escalation Rules",
+          "items": [
+            "Rule Creation: Name, description, trigger type, conditions, actions, priority",
+            "Business Hours: Hours, timezone, holidays, SLA pausing"
+          ]
+        }
+      }
+    },
+    "FR-8": {
+      "title": "Documentation Settings",
+      "scope": "Department-specific (Documentation permission required)",
+      "subFeatures": {
+        "FR-8.1": {
+          "title": "Documentation Overview",
+          "items": [
+            "Enable/Disable: Toggle, public access",
+            "General Settings: Default visibility, user-created books, approval, search indexing"
+          ]
+        },
+        "FR-8.2": {
+          "title": "Version History",
+          "items": [
+            "Version Control: Enable, retention policy, count/days limits, archiving",
+            "Version Comparison: Side-by-side, change highlighting, author/timestamp"
+          ]
+        },
+        "FR-8.3": {
+          "title": "Access Control",
+          "items": [
+            "Permissions: View, create, edit, publish by role/department",
+            "Reviewer Assignment: Auto-assign, role requirements, notifications"
+          ]
+        }
+      }
+    },
+    "FR-9": {
+      "title": "Reports Settings",
+      "scope": "Department-specific (Reports settings permission required)",
+      "subFeatures": {
+        "FR-9.1": {
+          "title": "Reports Overview",
+          "items": [
+            "Enable/Disable: Toggle, custom reports, scheduled reports, export",
+            "Data Access: Data sources, row-level security, PII restrictions"
+          ]
+        },
+        "FR-9.2": {
+          "title": "Report Defaults",
+          "items": [
+            "Export Settings: Format, page size, logo, timestamp",
+            "Retention: Saved report retention, auto-delete, max scheduled reports"
+          ]
+        },
+        "FR-9.3": {
+          "title": "Scheduled Reports",
+          "items": [
+            "Scheduling: Max reports, frequencies, days/times, email limits",
+            "Performance: Query timeout, max rows, cache duration"
+          ]
+        }
+      }
+    },
+    "FR-10": {
+      "title": "Integrations & Custom Links",
+      "scope": "Global + Department-specific",
+      "subFeatures": {
+        "FR-10.1": {
+          "title": "External Links",
+          "items": [
+            "Link Management: Add/edit/delete, title, URL, description, icon, category, visibility",
+            "Link Categories: Resources, Tools, Documentation, custom categories"
+          ]
+        },
+        "FR-10.2": {
+          "title": "API Settings (Future)",
+          "items": [
+            "API key management",
+            "Rate limiting",
+            "Webhook endpoints",
+            "OAuth client credentials",
+            "API usage dashboard"
+          ]
+        }
+      }
+    },
+    "FR-11": {
+      "title": "Maintenance & Infrastructure",
+      "scope": "Global (Infrastructure permission required)",
+      "subFeatures": {
+        "FR-11.1": {
+          "title": "Announcements",
+          "items": [
+            "Announcement Management: Create/edit/delete, title, message, type, link, scheduling",
+            "Display Settings: Position, dismissible, auto-dismiss, show on login"
+          ]
+        },
+        "FR-11.2": {
+          "title": "Infrastructure Monitoring",
+          "items": [
+            "Service Monitoring: Add/edit/delete services, endpoint, type, check interval, thresholds",
+            "Health Checks: Status, latency, uptime, failure tracking"
+          ]
+        },
+        "FR-11.3": {
+          "title": "Service Alerts",
+          "items": [
+            "Alert Configuration: Alert types, recipients, cooldown",
+            "Alert History: Recent alerts, severity, acknowledgment, resolution time"
+          ]
+        },
+        "FR-11.4": {
+          "title": "System Maintenance",
+          "items": [
+            "Maintenance Mode: Enable, message, scheduling, admin access",
+            "Database Management: Size, vacuum, backup/import",
+            "Logs & Debugging: View logs, log level, retention, download"
+          ]
+        }
+      }
+    }
+  },
+  "settingsTaxonomy": {
+    "globalSettings": [
+      {
+        "category": "General",
+        "subCategory": "Company Info",
+        "permission": "settings.general.manage",
+        "description": "Company name, support email, timezone"
+      },
+      {
+        "category": "General",
+        "subCategory": "Date/Time Formats",
+        "permission": "settings.general.manage",
+        "description": "Date format, time format, week start"
+      },
+      {
+        "category": "General",
+        "subCategory": "User Defaults",
+        "permission": "settings.general.manage",
+        "description": "Default theme, landing page"
+      },
+      {
+        "category": "Branding",
+        "subCategory": "Logo & Favicon",
+        "permission": "settings.branding.manage",
+        "description": "Logo URLs, favicon"
+      },
+      {
+        "category": "Branding",
+        "subCategory": "Colors",
+        "permission": "settings.branding.manage",
+        "description": "Primary color, accent color"
+      },
+      {
+        "category": "Branding",
+        "subCategory": "Custom CSS",
+        "permission": "settings.branding.manage",
+        "description": "Advanced styling overrides"
+      },
+      {
+        "category": "Notifications",
+        "subCategory": "Email Defaults",
+        "permission": "settings.notifications.manage",
+        "description": "Global email notification defaults"
+      },
+      {
+        "category": "Notifications",
+        "subCategory": "In-App Defaults",
+        "permission": "settings.notifications.manage",
+        "description": "Global in-app notification defaults"
+      },
+      {
+        "category": "AI Configuration",
+        "subCategory": "Embedding Models",
+        "permission": "ai.settings.manage",
+        "description": "Provider, model, dimensions"
+      },
+      {
+        "category": "AI Configuration",
+        "subCategory": "Chat Models",
+        "permission": "ai.settings.manage",
+        "description": "Provider, model, temperature"
+      },
+      {
+        "category": "AI Configuration",
+        "subCategory": "Safety & Compliance",
+        "permission": "ai.settings.manage",
+        "description": "Content filters, PII detection"
+      },
+      {
+        "category": "Users",
+        "subCategory": "User Directory",
+        "permission": "users.view, users.create",
+        "description": "User list, create users"
+      },
+      {
+        "category": "Users",
+        "subCategory": "Invitations",
+        "permission": "users.create",
+        "description": "Invite users, invitation settings"
+      },
+      {
+        "category": "Users",
+        "subCategory": "Authentication",
+        "permission": "settings.security.manage",
+        "description": "Login options, SSO, SAML"
+      },
+      {
+        "category": "Roles",
+        "subCategory": "System Roles",
+        "permission": "N/A (view all roles)",
+        "description": "Create/edit roles"
+      },
+      {
+        "category": "Roles",
+        "subCategory": "Permissions",
+        "permission": "N/A (assign permissions)",
+        "description": "Permission matrix"
+      },
+      {
+        "category": "Roles",
+        "subCategory": "Security Policies",
+        "permission": "settings.security.manage",
+        "description": "Audit logging, password policies"
+      },
+      {
+        "category": "Departments",
+        "subCategory": "Department List",
+        "permission": "departments.view",
+        "description": "View all departments"
+      },
+      {
+        "category": "Departments",
+        "subCategory": "Create/Edit Dept",
+        "permission": "departments.create, departments.edit",
+        "description": "Manage department structure"
+      },
+      {
+        "category": "Integrations",
+        "subCategory": "External Links (Global)",
+        "permission": "settings.general.manage",
+        "description": "Company-wide external links"
+      },
+      {
+        "category": "Integrations",
+        "subCategory": "API Settings",
+        "permission": "settings.general.manage",
+        "description": "API keys, rate limiting"
+      },
+      {
+        "category": "Maintenance",
+        "subCategory": "Announcements",
+        "permission": "settings.general.manage",
+        "description": "Create/manage announcements"
+      },
+      {
+        "category": "Maintenance",
+        "subCategory": "Infrastructure",
+        "permission": "settings.general.manage",
+        "description": "Monitor services, alerts"
+      },
+      {
+        "category": "Maintenance",
+        "subCategory": "System Maintenance",
+        "permission": "settings.general.manage",
+        "description": "Maintenance mode, database"
+      }
+    ],
+    "departmentSpecificSettings": [
+      {
+        "category": "Helpdesk",
+        "subCategory": "Overview",
+        "permission": "helpdesk.settings.manage",
+        "description": "Enable/disable, general config"
+      },
+      {
+        "category": "Helpdesk",
+        "subCategory": "Ticket Settings",
+        "permission": "helpdesk.settings.manage",
+        "description": "Custom fields, ticket types"
+      },
+      {
+        "category": "Helpdesk",
+        "subCategory": "SLA Policies",
+        "permission": "helpdesk.sla.manage",
+        "description": "States, policies, targets"
+      },
+      {
+        "category": "Helpdesk",
+        "subCategory": "Email Templates",
+        "permission": "helpdesk.settings.manage",
+        "description": "Inbound email, templates"
+      },
+      {
+        "category": "Helpdesk",
+        "subCategory": "Webhooks",
+        "permission": "helpdesk.webhooks.manage",
+        "description": "Webhook endpoints, events"
+      },
+      {
+        "category": "Helpdesk",
+        "subCategory": "Escalation Rules",
+        "permission": "helpdesk.settings.manage",
+        "description": "Auto-routing, escalation"
+      },
+      {
+        "category": "Documentation",
+        "subCategory": "Overview",
+        "permission": "docs.settings.manage",
+        "description": "Enable/disable, visibility"
+      },
+      {
+        "category": "Documentation",
+        "subCategory": "Version History",
+        "permission": "docs.settings.manage",
+        "description": "Retention policy, archiving"
+      },
+      {
+        "category": "Documentation",
+        "subCategory": "Access Control",
+        "permission": "docs.settings.manage",
+        "description": "Who can view/edit/publish"
+      },
+      {
+        "category": "Reports",
+        "subCategory": "Overview",
+        "permission": "reports.settings.manage",
+        "description": "Enable/disable, data access"
+      },
+      {
+        "category": "Reports",
+        "subCategory": "Defaults",
+        "permission": "reports.settings.manage",
+        "description": "Export format, retention"
+      },
+      {
+        "category": "Reports",
+        "subCategory": "Scheduled Reports",
+        "permission": "reports.settings.manage",
+        "description": "Max schedules, frequencies"
+      },
+      {
+        "category": "Integrations",
+        "subCategory": "External Links (Dept)",
+        "permission": "departments.edit",
+        "description": "Department-specific links"
+      }
+    ],
+    "personalSettings": [
+      {
+        "category": "Profile",
+        "subCategory": "Basic Info",
+        "permission": "N/A (own profile)",
+        "description": "Username, display name, avatar"
+      },
+      {
+        "category": "Profile",
+        "subCategory": "Security",
+        "permission": "N/A (own profile)",
+        "description": "Password, 2FA"
+      },
+      {
+        "category": "Profile",
+        "subCategory": "Preferences",
+        "permission": "N/A (own profile)",
+        "description": "Theme, timezone, language"
+      },
+      {
+        "category": "Profile",
+        "subCategory": "Notifications",
+        "permission": "N/A (own profile)",
+        "description": "Personal notification overrides"
+      }
+    ]
+  },
+  "uiUxDesignSpecifications": {
+    "layoutStructure": "Visual layout with sidebar navigation, header, and content area",
+    "designSystem": {
+      "colors": {
+        "primaryAction": "Primary brand color (configurable)",
+        "destructiveActions": "Red (#EF4444)",
+        "successStates": "Green (#10B981)",
+        "warningStates": "Amber (#F59E0B)",
+        "infoStates": "Blue (#3B82F6)"
+      },
+      "typography": {
+        "sectionHeaders": "2xl font, bold",
+        "subsectionHeaders": "xl font, semibold",
+        "settingLabels": "sm font, medium",
+        "helpText": "xs font, normal, muted"
+      },
+      "spacing": {
+        "sectionPadding": "6 units (24px)",
+        "cardPadding": "4 units (16px)",
+        "formFieldSpacing": "4 units (16px)",
+        "sidebarWidth": "256px"
+      }
+    },
+    "components": {
+      "settingsCard": "Card container with title, description, icon, and badge",
+      "settingsRow": "Form row with label (30% width), input (70% width), help text, and tooltip",
+      "departmentSelector": "Dropdown with hierarchical department display",
+      "permissionMatrix": "Visual grid for role-based permission assignment"
+    },
+    "visualIndicators": {
+      "scopeBadges": {
+        "global": "Blue badge with globe icon",
+        "department": "Color-coded badge with department color",
+        "personal": "Gray badge with user icon"
+      },
+      "saveStateIndicators": {
+        "unsavedChanges": "Orange dot next to section name",
+        "saving": "Spinner icon",
+        "saved": "Green checkmark (fades after 2s)",
+        "error": "Red X with error message"
+      },
+      "permissionBasedVisibility": {
+        "noPermission": "Section grayed out with lock icon",
+        "readOnly": "Fields disabled with 'View only' badge",
+        "editable": "Normal state"
+      }
+    },
+    "responsiveDesign": {
+      "desktop": "Sidebar always visible, 2-column grid, department selector in header",
+      "tablet": "Collapsible sidebar, single column, department selector in header",
+      "mobile": "Full-width layout, sticky header, bottom sheet for department selection, accordion sections"
+    }
+  },
+  "technicalArchitecture": {
+    "frontend": {
+      "componentStructure": [
+        "SystemSettings/ (main page)",
+        "components/ (SettingsSidebar, SettingsHeader, DepartmentSelector, etc.)",
+        "sections/ (ProfileSettings, GeneralSettings, etc.)",
+        "hooks/ (useSettings, useDepartmentSettings, usePermissions)",
+        "types.ts"
+      ],
+      "stateManagement": {
+        "reactQuery": "Server state management with optimistic updates",
+        "contextAPI": "UI state for department selection and unsaved changes"
+      }
+    },
+    "backend": {
+      "apiEndpoints": {
+        "globalSettings": [
+          "GET /api/settings",
+          "PATCH /api/settings",
+          "GET /api/settings/:key",
+          "PATCH /api/settings/:key",
+          "DELETE /api/settings/:key"
+        ],
+        "departmentSettings": [
+          "GET /api/departments/:id/settings",
+          "PATCH /api/departments/:id/settings"
+        ],
+        "userPreferences": [
+          "GET /api/users/me/preferences",
+          "PATCH /api/users/me/preferences"
+        ]
+      },
+      "validation": "Zod schema validation and permission middleware",
+      "databaseSchema": {
+        "existing": "system_settings table for global settings",
+        "newTables": [
+          "department_settings (department_id, key, value, category, updated_at)",
+          "user_preferences (user_id, key, value, updated_at)",
+          "settings_audit (actor_id, setting_key, old_value, new_value, scope_type, scope_id, created_at)"
+        ]
+      }
+    },
+    "performance": {
+      "cachingStrategy": {
+        "clientSide": "React Query with 5-minute stale time",
+        "serverSide": "Redis cache for frequently accessed settings",
+        "invalidation": "Invalidate cache on settings update"
+      },
+      "lazyLoading": [
+        "Dynamic section component loading",
+        "Lazy load department list",
+        "Paginate user/role/audit lists"
+      ],
+      "optimisticUpdates": [
+        "Immediate UI updates",
+        "Revert on error",
+        "Saving indicators"
+      ]
+    }
+  },
+  "successMetrics": {
+    "quantitative": {
+      "adoptionAndUsage": [
+        "% of admins accessing settings page (target: 80% within first month)",
+        "Average time spent in settings (target: <5 minutes per session)",
+        "Settings updates per week"
+      ],
+      "performance": [
+        "Settings page load time (target: <500ms)",
+        "Settings save time (target: <200ms)",
+        "Search result latency (target: <100ms)"
+      ],
+      "discoverability": [
+        "Time to find a specific setting (target: <10 seconds)",
+        "% of users using search vs navigation",
+        "Support tickets related to settings (target: <5 per month)"
+      ],
+      "errorsAndIssues": [
+        "Permission errors per month (target: <10)",
+        "Failed save attempts (target: <1%)",
+        "Settings conflicts (target: 0)"
+      ]
+    },
+    "qualitative": {
+      "userSatisfaction": [
+        "NPS score for settings experience (target: >40)",
+        "User feedback surveys",
+        "Task completion rate"
+      ],
+      "adminEfficiency": [
+        "Time to onboard new department",
+        "Time to configure helpdesk",
+        "Reduction in configuration questions"
+      ],
+      "systemHealth": [
+        "Reduction in misconfiguration issues",
+        "Increase in proper permission scoping",
+        "Compliance with security policies"
+      ]
+    }
+  },
+  "implementationPhases": [
+    {
+      "phase": 1,
+      "title": "Foundation",
+      "duration": "Weeks 1-2",
+      "tasks": [
+        "Build settings page layout and navigation",
+        "Implement department selector",
+        "Create reusable setting components",
+        "Set up permission checking hooks",
+        "Implement unsaved changes warning"
+      ]
+    },
+    {
+      "phase": 2,
+      "title": "Core Global Settings",
+      "duration": "Weeks 3-4",
+      "tasks": [
+        "Profile Settings",
+        "General Settings",
+        "Branding Settings",
+        "Notification Settings (global defaults)"
+      ]
+    },
+    {
+      "phase": 3,
+      "title": "User & Access Management",
+      "duration": "Weeks 5-6",
+      "tasks": [
+        "User Directory",
+        "Invitation Management",
+        "Roles & Permissions",
+        "Security Policies",
+        "Department Management"
+      ]
+    },
+    {
+      "phase": 4,
+      "title": "AI Configuration",
+      "duration": "Week 7",
+      "tasks": [
+        "Embedding model configuration",
+        "Chat model configuration",
+        "AI safety settings",
+        "Usage dashboard"
+      ]
+    },
+    {
+      "phase": 5,
+      "title": "Department-Scoped Features",
+      "duration": "Weeks 8-10",
+      "tasks": [
+        "Helpdesk settings (all subsections)",
+        "Documentation settings",
+        "Reports settings",
+        "Department-specific external links"
+      ]
+    },
+    {
+      "phase": 6,
+      "title": "Infrastructure & Maintenance",
+      "duration": "Week 11",
+      "tasks": [
+        "Announcements management",
+        "Infrastructure monitoring",
+        "Service alerts",
+        "System maintenance tools"
+      ]
+    },
+    {
+      "phase": 7,
+      "title": "Polish & Optimization",
+      "duration": "Week 12",
+      "tasks": [
+        "Search functionality",
+        "Keyboard shortcuts",
+        "Mobile responsive improvements",
+        "Performance optimization",
+        "Accessibility audit (WCAG 2.1 AA)",
+        "Documentation and help tooltips"
+      ]
+    }
+  ],
+  "futureConsiderations": [
+    "Settings Templates: Save and apply department configurations",
+    "Settings Versioning: Track history and roll back changes",
+    "Bulk Operations: Apply settings to multiple departments",
+    "Advanced Permissions: Delegated administration and approval workflows",
+    "Smart Recommendations: AI-powered configuration suggestions",
+    "Integration Hub: Pre-built integrations with popular tools",
+    "Multi-Tenancy: Support for multiple organizations",
+    "Compliance & Governance: Policy enforcement and automated reporting"
+  ],
+  "appendices": {
+    "settingsReference": {
+      "globalSettings": [
+        {"key": "companyName", "type": "string", "default": "Sakura", "description": "Company name displayed in header"},
+        {"key": "platformName", "type": "string", "default": "Sakura Helpdesk", "description": "Platform/product name"},
+        {"key": "supportEmail", "type": "string", "default": "", "description": "Support contact email"},
+        {"key": "logoUrl", "type": "string", "default": "", "description": "URL to company logo (light mode)"},
+        {"key": "faviconUrl", "type": "string", "default": "", "description": "URL to favicon"},
+        {"key": "primaryColor", "type": "string", "default": "#7c3aed", "description": "Primary brand color (hex)"},
+        {"key": "defaultTheme", "type": "enum", "default": "system", "description": "Default theme (light, dark, system)"},
+        {"key": "allowUserThemeOverride", "type": "boolean", "default": "true", "description": "Allow users to override theme"},
+        {"key": "defaultTimezone", "type": "string", "default": "pst", "description": "Default timezone"},
+        {"key": "defaultLanguage", "type": "string", "default": "en", "description": "Default language"},
+        {"key": "dateFormat", "type": "enum", "default": "mdy", "description": "Date format (mdy, dmy, ymd)"},
+        {"key": "timeFormat", "type": "enum", "default": "12", "description": "Time format (12, 24)"},
+        {"key": "emailNewTicketAssigned", "type": "boolean", "default": "true", "description": "Email on new ticket assigned"},
+        {"key": "emailTicketUpdated", "type": "boolean", "default": "true", "description": "Email on ticket update"},
+        {"key": "emailSLAWarning", "type": "boolean", "default": "true", "description": "Email on SLA warning"},
+        {"key": "emailWeeklyDigest", "type": "boolean", "default": "false", "description": "Weekly digest email"},
+        {"key": "inAppDesktopNotifications", "type": "boolean", "default": "true", "description": "Browser notifications"},
+        {"key": "inAppSoundAlerts", "type": "boolean", "default": "false", "description": "Sound alerts"},
+        {"key": "inAppNotificationBadge", "type": "boolean", "default": "true", "description": "Notification badge"},
+        {"key": "versionHistoryEnabled", "type": "boolean", "default": "true", "description": "Enable version history"},
+        {"key": "versionRetentionPolicy", "type": "enum", "default": "limit_by_count", "description": "Version retention policy"},
+        {"key": "versionRetentionCount", "type": "number", "default": "50", "description": "Max versions to keep"},
+        {"key": "versionRetentionDays", "type": "number", "default": "365", "description": "Days to keep versions"},
+        {"key": "autoArchiveEnabled", "type": "boolean", "default": "true", "description": "Auto-archive old versions"},
+        {"key": "autoArchiveAfterDays", "type": "number", "default": "180", "description": "Days before auto-archive"},
+        {"key": "showLegacyVersionsInSearch", "type": "boolean", "default": "true", "description": "Include archived in search"},
+        {"key": "aiEmbeddingProvider", "type": "enum", "default": "openai", "description": "Embedding provider"},
+        {"key": "aiEmbeddingModel", "type": "string", "default": "text-embedding-3-small", "description": "Embedding model"},
+        {"key": "aiEmbeddingDimensions", "type": "number", "default": "1536", "description": "Embedding dimensions"},
+        {"key": "aiOllamaBaseUrl", "type": "string", "default": "http://localhost:11434", "description": "Ollama base URL"},
+        {"key": "aiAutoVectorization", "type": "boolean", "default": "true", "description": "Auto-vectorize content"},
+        {"key": "aiEnableRag", "type": "boolean", "default": "true", "description": "Enable RAG"},
+        {"key": "aiChunkSize", "type": "number", "default": "1000", "description": "Chunk size for RAG"},
+        {"key": "aiChatProvider", "type": "enum", "default": "openai", "description": "Chat provider"},
+        {"key": "aiChatModel", "type": "string", "default": "gpt-4", "description": "Chat model"},
+        {"key": "aiChatTemperature", "type": "number", "default": "0.7", "description": "Chat temperature"}
+      ],
+      "departmentSettings": [
+        {"key": "helpdeskEnabled", "type": "boolean", "scope": "Department", "description": "Enable helpdesk"},
+        {"key": "helpdeskPublicAccess", "type": "boolean", "scope": "Department", "description": "Allow external submissions"},
+        {"key": "docsEnabled", "type": "boolean", "scope": "Department", "description": "Enable documentation"},
+        {"key": "docsPublicAccess", "type": "boolean", "scope": "Department", "description": "Public documentation access"},
+        {"key": "reportsEnabled", "type": "boolean", "scope": "Department", "description": "Enable reports"},
+        {"key": "customLinksEnabled", "type": "boolean", "scope": "Department", "description": "Allow custom links"}
+      ],
+      "userPreferences": [
+        {"key": "theme", "type": "enum", "description": "User theme preference"},
+        {"key": "timezone", "type": "string", "description": "User timezone"},
+        {"key": "language", "type": "string", "description": "User language"},
+        {"key": "notificationEmail", "type": "boolean", "description": "Email notifications"},
+        {"key": "notificationDesktop", "type": "boolean", "description": "Desktop notifications"},
+        {"key": "notificationSound", "type": "boolean", "description": "Sound alerts"}
+      ]
+    },
+    "permissionMatrix": [
+      {"permission": "settings.general.manage", "access": "General, Company Info, Date/Time"},
+      {"permission": "settings.branding.manage", "access": "Branding, Logo, Colors"},
+      {"permission": "settings.notifications.manage", "access": "Notification defaults"},
+      {"permission": "settings.security.manage", "access": "Authentication, Security Policies"},
+      {"permission": "ai.settings.manage", "access": "AI Configuration (all)"},
+      {"permission": "users.view", "access": "View user directory"},
+      {"permission": "users.create", "access": "Create users, send invitations"},
+      {"permission": "users.edit", "access": "Edit user profiles"},
+      {"permission": "users.delete", "access": "Delete/suspend users"},
+      {"permission": "users.roles.assign", "access": "Assign roles to users"},
+      {"permission": "departments.view", "access": "View department list"},
+      {"permission": "departments.create", "access": "Create departments"},
+      {"permission": "departments.edit", "access": "Edit department info, settings"},
+      {"permission": "departments.delete", "access": "Delete departments"},
+      {"permission": "helpdesk.settings.manage", "access": "Helpdesk settings for department"},
+      {"permission": "helpdesk.sla.manage", "access": "SLA states and policies"},
+      {"permission": "helpdesk.webhooks.manage", "access": "Webhook configuration"},
+      {"permission": "docs.settings.manage", "access": "Documentation settings"},
+      {"permission": "reports.settings.manage", "access": "Report settings"}
+    ],
+    "securityConsiderations": {
+      "permissionEnforcement": [
+        "Frontend: Hide UI elements user cannot access",
+        "Backend: Validate permissions on API routes",
+        "Audit: Log all permission changes and sensitive operations"
+      ],
+      "dataProtection": [
+        "Encrypt API keys and secrets at rest",
+        "Use HTTPS for all communications",
+        "Mask sensitive fields in UI",
+        "Scope queries to user's accessible departments",
+        "Prevent horizontal privilege escalation",
+        "Require re-authentication for sensitive changes"
+      ],
+      "auditTrail": [
+        "Log all settings changes to settings_audit table",
+        "Include actor, timestamp, before/after values",
+        "Retain audit logs for compliance (1+ year)"
+      ],
+      "rateLimiting": {
+        "settingsUpdates": "60 requests per minute per user",
+        "search": "120 requests per minute per user",
+        "bulkOperations": "10 requests per minute per user"
+      },
+      "inputValidation": [
+        "Sanitize all user inputs",
+        "Validate against Zod schemas",
+        "Check max length constraints",
+        "Reject malicious patterns (XSS, SQL injection)"
+      ]
+    },
+    "accessibilityRequirements": {
+      "wcagCompliance": "WCAG 2.1 AA",
+      "keyboardNavigation": [
+        "All interactive elements focusable via Tab",
+        "Keyboard shortcuts for common actions",
+        "Skip navigation link",
+        "Focus trapping in modals"
+      ],
+      "screenReaderSupport": [
+        "ARIA labels on all form controls",
+        "ARIA live regions for status updates",
+        "Semantic HTML",
+        "Alt text for icons"
+      ],
+      "visual": [
+        "Minimum contrast ratio 4.5:1 for text",
+        "No information conveyed by color alone",
+        "Resizable text up to 200%",
+        "Focus indicators on all interactive elements"
+      ],
+      "forms": [
+        "Clear labels for all inputs",
+        "Error messages associated with fields",
+        "Required field indicators",
+        "Helpful placeholder text"
+      ]
+    }
+  },
+  "changelog": [
+    {
+      "version": "1.0",
+      "date": "2026-01-13",
+      "author": "AI Assistant",
+      "changes": "Initial PRD creation"
+    }
+  ]
+}

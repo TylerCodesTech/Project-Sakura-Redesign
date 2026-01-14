@@ -9,6 +9,9 @@ import {
   type News, type InsertNews,
   type Stat, type InsertStat,
   type SystemSetting,
+  type DepartmentSetting, type InsertDepartmentSetting,
+  type UserPreference, type InsertUserPreference,
+  type SettingsAudit, type InsertSettingsAudit,
   type Helpdesk, type InsertHelpdesk,
   type SlaState, type InsertSlaState,
   type SlaPolicy, type InsertSlaPolicy,
@@ -103,6 +106,28 @@ export interface IStorage {
   getSystemSetting(key: string): Promise<string | undefined>;
   setSystemSetting(key: string, value: string, category?: string): Promise<SystemSetting>;
   setSystemSettings(settings: Record<string, string>): Promise<void>;
+
+  // Department Settings
+  getDepartmentSettings(departmentId: string): Promise<Record<string, string>>;
+  getDepartmentSetting(departmentId: string, key: string): Promise<string | undefined>;
+  setDepartmentSetting(departmentId: string, key: string, value: string, category?: string): Promise<DepartmentSetting>;
+  setDepartmentSettings(departmentId: string, settings: Record<string, string>): Promise<void>;
+
+  // User Preferences
+  getUserPreferences(userId: string): Promise<Record<string, string>>;
+  getUserPreference(userId: string, key: string): Promise<string | undefined>;
+  setUserPreference(userId: string, key: string, value: string): Promise<UserPreference>;
+  setUserPreferences(userId: string, preferences: Record<string, string>): Promise<void>;
+
+  // Settings Audit
+  logSettingChange(actorId: string | null, settingKey: string, oldValue: string | null, newValue: string, scopeType: 'global' | 'department' | 'user', scopeId?: string): Promise<SettingsAudit>;
+  getSettingsAuditLog(filters?: {
+    actorId?: string;
+    scopeType?: 'global' | 'department' | 'user';
+    scopeId?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<SettingsAudit[]>;
 
   // Helpdesk
   getHelpdesks(): Promise<Helpdesk[]>;

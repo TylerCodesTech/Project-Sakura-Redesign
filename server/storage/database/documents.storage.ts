@@ -1,4 +1,4 @@
-import { eq, and, desc, asc, sql, or, ilike } from "drizzle-orm";
+import { eq, and, desc, asc, sql, or } from "drizzle-orm";
 import {
   books, pages, comments, externalLinks, departments, news, stats,
   announcements, posts, postLikes, postComments,
@@ -60,12 +60,26 @@ export class DatabaseDocumentsStorage {
 
   async createPage(insertPage: InsertPage): Promise<Page> {
     const [page] = await this.db.insert(pages).values(insertPage).returning();
+
+    // Automatically generate embedding in the background using queue
+    if (page.type === 'page') {
+      const { embeddingQueue } = await import("../../embedding-queue");
+      embeddingQueue.enqueue('page', page.id);
+    }
+
     return page;
   }
 
   async updatePage(id: string, update: Partial<InsertPage>): Promise<Page> {
     const [page] = await this.db.update(pages).set(update).where(eq(pages.id, id)).returning();
     if (!page) throw new Error("Page not found");
+
+    // Regenerate embedding if content changed using queue
+    if ((update.title !== undefined || update.content !== undefined) && page.type === 'page') {
+      const { embeddingQueue } = await import("../../embedding-queue");
+      embeddingQueue.enqueue('page', page.id);
+    }
+
     return page;
   }
 

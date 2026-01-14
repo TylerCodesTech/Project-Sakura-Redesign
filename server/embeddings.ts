@@ -85,9 +85,12 @@ async function generateGoogleEmbedding(text: string, model: string): Promise<num
   return data.embedding.values;
 }
 
-export async function generateEmbedding(text: string): Promise<number[]> {
+/**
+ * Generate embedding with automatic retry logic
+ */
+export async function generateEmbedding(text: string, retries: number = 3): Promise<number[]> {
   const config = await getAIConfig();
-  
+
   const cleanText = text.replace(/<[^>]*>/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
@@ -97,61 +100,115 @@ export async function generateEmbedding(text: string): Promise<number[]> {
     throw new Error("No text content to embed");
   }
 
-  switch (config.embeddingProvider) {
-    case "openai":
-      return generateOpenAIEmbedding(cleanText, config.embeddingModel);
-    case "ollama":
-      return generateOllamaEmbedding(cleanText, config.embeddingModel, config.ollamaBaseUrl);
-    case "google":
-      return generateGoogleEmbedding(cleanText, config.embeddingModel);
-    default:
-      throw new Error(`Unknown embedding provider: ${config.embeddingProvider}`);
+  let lastError: Error | undefined;
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      switch (config.embeddingProvider) {
+        case "openai":
+          return await generateOpenAIEmbedding(cleanText, config.embeddingModel);
+        case "ollama":
+          return await generateOllamaEmbedding(cleanText, config.embeddingModel, config.ollamaBaseUrl);
+        case "google":
+          return await generateGoogleEmbedding(cleanText, config.embeddingModel);
+        default:
+          throw new Error(`Unknown embedding provider: ${config.embeddingProvider}`);
+      }
+    } catch (error) {
+      lastError = error as Error;
+      console.error(`Embedding generation attempt ${attempt + 1}/${retries} failed:`, error);
+
+      // Don't retry on configuration errors
+      if (error instanceof Error && (
+        error.message.includes("not configured") ||
+        error.message.includes("API_KEY") ||
+        error.message.includes("Unknown")
+      )) {
+        throw error;
+      }
+
+      // Wait before retrying (exponential backoff)
+      if (attempt < retries - 1) {
+        await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+      }
+    }
   }
+
+  throw lastError || new Error("Embedding generation failed after retries");
 }
 
 export async function updatePageEmbedding(pageId: string): Promise<void> {
-  const [page] = await db.select().from(pages).where(eq(pages.id, pageId));
-  if (!page) return;
+  try {
+    const [page] = await db.select().from(pages).where(eq(pages.id, pageId));
+    if (!page) {
+      console.warn(`Page ${pageId} not found for embedding update`);
+      return;
+    }
 
-  const textToEmbed = `${page.title}\n\n${page.content}`;
-  const embedding = await generateEmbedding(textToEmbed);
+    const textToEmbed = `${page.title}\n\n${page.content}`;
+    const embedding = await generateEmbedding(textToEmbed);
 
-  await db.update(pages)
-    .set({ 
-      embedding: embedding,
-      embeddingUpdatedAt: new Date().toISOString()
-    })
-    .where(eq(pages.id, pageId));
+    await db.update(pages)
+      .set({
+        embedding: embedding,
+        embeddingUpdatedAt: new Date().toISOString()
+      })
+      .where(eq(pages.id, pageId));
+
+    console.log(`Successfully generated embedding for page ${pageId}`);
+  } catch (error) {
+    console.error(`Failed to update embedding for page ${pageId}:`, error);
+    throw error;
+  }
 }
 
 export async function updatePageVersionEmbedding(versionId: string): Promise<void> {
-  const [version] = await db.select().from(pageVersions).where(eq(pageVersions.id, versionId));
-  if (!version) return;
+  try {
+    const [version] = await db.select().from(pageVersions).where(eq(pageVersions.id, versionId));
+    if (!version) {
+      console.warn(`Page version ${versionId} not found for embedding update`);
+      return;
+    }
 
-  const textToEmbed = `${version.title}\n\n${version.content}`;
-  const embedding = await generateEmbedding(textToEmbed);
+    const textToEmbed = `${version.title}\n\n${version.content}`;
+    const embedding = await generateEmbedding(textToEmbed);
 
-  await db.update(pageVersions)
-    .set({ 
-      embedding: embedding,
-      embeddingUpdatedAt: new Date().toISOString()
-    })
-    .where(eq(pageVersions.id, versionId));
+    await db.update(pageVersions)
+      .set({
+        embedding: embedding,
+        embeddingUpdatedAt: new Date().toISOString()
+      })
+      .where(eq(pageVersions.id, versionId));
+
+    console.log(`Successfully generated embedding for page version ${versionId}`);
+  } catch (error) {
+    console.error(`Failed to update embedding for page version ${versionId}:`, error);
+    throw error;
+  }
 }
 
 export async function updateTicketEmbedding(ticketId: string): Promise<void> {
-  const [ticket] = await db.select().from(tickets).where(eq(tickets.id, ticketId));
-  if (!ticket) return;
+  try {
+    const [ticket] = await db.select().from(tickets).where(eq(tickets.id, ticketId));
+    if (!ticket) {
+      console.warn(`Ticket ${ticketId} not found for embedding update`);
+      return;
+    }
 
-  const textToEmbed = `${ticket.title}\n\n${ticket.description || ''}`;
-  const embedding = await generateEmbedding(textToEmbed);
+    const textToEmbed = `${ticket.title}\n\n${ticket.description || ''}`;
+    const embedding = await generateEmbedding(textToEmbed);
 
-  await db.update(tickets)
-    .set({ 
-      embedding: embedding,
-      embeddingUpdatedAt: new Date().toISOString()
-    })
-    .where(eq(tickets.id, ticketId));
+    await db.update(tickets)
+      .set({
+        embedding: embedding,
+        embeddingUpdatedAt: new Date().toISOString()
+      })
+      .where(eq(tickets.id, ticketId));
+
+    console.log(`Successfully generated embedding for ticket ${ticketId}`);
+  } catch (error) {
+    console.error(`Failed to update embedding for ticket ${ticketId}:`, error);
+    throw error;
+  }
 }
 
 export interface SimilarDocument {

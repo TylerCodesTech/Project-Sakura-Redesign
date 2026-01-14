@@ -1,809 +1,960 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { motion, AnimatePresence } from "framer-motion";
-import { useSettings } from "../context/SettingsContext";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { 
+  BarChart3, Plus, Edit, Trash2, Download, Share2, Calendar, 
+  Clock, TrendingUp, Users, FileText, Filter, Play, Pause,
+  Mail, Bell, Eye, EyeOff, Settings, Copy, RefreshCw,
+  Database, PieChart, LineChart, Activity, Target, AlertCircle
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { toast } from "sonner";
-import { ReportBuilder } from "@/features/reports/ReportBuilder";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Slider } from "@/components/ui/slider";
 import {
-  BarChart3,
-  FileText,
-  Calendar,
-  Share2,
-  Plus,
-  Settings,
-  Clock,
-  Download,
-  Trash2,
-  Edit2,
-  Play,
-  Eye,
-  Lock,
-  Users,
-  Building2,
-  Filter,
-  SlidersHorizontal,
-  History,
-  ArrowRight
-} from "lucide-react";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { Progress } from "@/components/ui/progress";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { SettingsCard, SettingsRow } from "../components";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { type User, type Department } from "@shared/schema";
 
-interface ReportBuilderEmbedProps {
+interface ReportsSettingsProps {
   departmentId?: string;
-  onSave: (config: any) => void;
+  subsection?: string;
 }
 
-function ReportBuilderEmbed({ departmentId, onSave }: ReportBuilderEmbedProps) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <SlidersHorizontal className="h-5 w-5" />
-          Report Builder
-        </CardTitle>
-        <CardDescription>
-          Create custom reports with drag-and-drop field selection, filtering, and visualization options
-          {departmentId && " for this department"}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="p-0">
-        <div className="min-h-[600px]">
-          <ReportBuilder onSave={onSave} />
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-interface ReportDefinition {
+interface Report {
   id: string;
   name: string;
-  description: string | null;
-  type: string;
-  departmentId: string | null;
-  createdBy: string;
-  isTemplate: string;
-  isPublic: string;
-  isActive?: boolean;
-  isSystem?: boolean;
-  dataSource?: string;
-  configuration: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-
-interface DepartmentReportSettings {
-  id?: string;
-  departmentId: string;
-  enabled: string;
-  allowCustomReports: string;
-  allowScheduledReports: string;
-  allowExport: string;
-  defaultExportFormat: string;
-  retentionDays: number;
-  maxScheduledReports: number;
-}
-
-interface ReportSchedule {
-  id: string;
-  definitionId: string;
-  frequency: string;
-  nextRun: string | null;
-  lastRun: string | null;
+  description: string;
+  type: "dashboard" | "scheduled" | "custom";
+  category: string;
+  visibility: "public" | "department" | "private";
+  schedule?: {
+    frequency: "daily" | "weekly" | "monthly";
+    time: string;
+    recipients: string[];
+  };
+  createdBy: User;
+  lastRun?: string;
+  nextRun?: string;
   isActive: boolean;
-  recipients: string | null;
+  chartType: "bar" | "line" | "pie" | "table";
+  dataSource: string;
 }
 
-interface ReportAuditLog {
-  id: string;
-  userId: string;
-  userName: string | null;
-  actionType: string;
-  targetType: string;
-  targetId: string;
-  targetName: string | null;
-  departmentId: string | null;
-  details: string | null;
-  createdAt: string;
+interface ReportStats {
+  totalReports: number;
+  scheduledReports: number;
+  recentRuns: number;
+  averageRunTime: number;
 }
 
-const reportTypes = [
-  { value: "audit", label: "Audit Report", icon: History, description: "Track user actions and system changes" },
-  { value: "user_access", label: "User Access Report", icon: Users, description: "View user permissions and role assignments" },
-  { value: "ticket_sla", label: "Ticket SLA Report", icon: Clock, description: "Monitor SLA compliance and response times" },
-  { value: "monthly_closures", label: "Monthly Closures", icon: Calendar, description: "Review ticket resolution metrics by month" },
-  { value: "custom", label: "Custom Report", icon: SlidersHorizontal, description: "Build a custom report from scratch" },
+const REPORT_TYPES = [
+  { value: "dashboard", label: "Dashboard", icon: Activity, description: "Real-time metrics display" },
+  { value: "scheduled", label: "Scheduled", icon: Calendar, description: "Automated recurring reports" },
+  { value: "custom", label: "Custom", icon: Settings, description: "User-defined reports" },
 ];
 
-const dataSources = [
-  { value: "tickets", label: "Tickets" },
-  { value: "users", label: "Users" },
-  { value: "audit_logs", label: "Audit Logs" },
-  { value: "sla_states", label: "SLA States" },
-  { value: "sla_policies", label: "SLA Policies" },
-  { value: "departments", label: "Departments" },
-  { value: "roles", label: "Roles" },
-  { value: "pages", label: "Documentation Pages" },
-  { value: "books", label: "Documentation Books" },
+const CHART_TYPES = [
+  { value: "bar", label: "Bar Chart", icon: BarChart3 },
+  { value: "line", label: "Line Chart", icon: LineChart },
+  { value: "pie", label: "Pie Chart", icon: PieChart },
+  { value: "table", label: "Data Table", icon: FileText },
 ];
 
-export function ReportsSettings() {
-  const { selectedDepartment } = useSettings();
-  const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState("overview");
-  const [showNewReportDialog, setShowNewReportDialog] = useState(false);
-  const [newReportName, setNewReportName] = useState("");
-  const [newReportType, setNewReportType] = useState("custom");
-  const [newReportDataSource, setNewReportDataSource] = useState("tickets");
+const DATA_SOURCES = [
+  { value: "tickets", label: "Helpdesk Tickets", description: "Support ticket metrics" },
+  { value: "users", label: "User Activity", description: "User engagement data" },
+  { value: "documentation", label: "Documentation", description: "Content usage metrics" },
+  { value: "system", label: "System Performance", description: "Infrastructure metrics" },
+  { value: "custom", label: "Custom Query", description: "Custom database queries" },
+];
 
-  const { data: reportDefinitions = [] } = useQuery<ReportDefinition[]>({
-    queryKey: ["/api/reports/definitions", selectedDepartment?.id],
-    queryFn: async () => {
-      const url = selectedDepartment?.id
-        ? `/api/reports/definitions?departmentId=${selectedDepartment.id}`
-        : "/api/reports/definitions";
-      const res = await fetch(url);
-      return res.json();
-    },
+export function ReportsSettings({ departmentId, subsection }: ReportsSettingsProps) {
+  const { toast } = useToast();
+  const [selectedReport, setSelectedReport] = useState<Report | null>(null);
+  const [showCreateReport, setShowCreateReport] = useState(false);
+  const [showScheduleDialog, setShowScheduleDialog] = useState(false);
+  const [filterType, setFilterType] = useState("all");
+  const [filterCategory, setFilterCategory] = useState("all");
+  
+  const [newReport, setNewReport] = useState({
+    name: "",
+    description: "",
+    type: "dashboard" as const,
+    category: "operations",
+    visibility: "department" as const,
+    chartType: "bar" as const,
+    dataSource: "tickets",
+    autoRefresh: true,
+    refreshInterval: 15,
   });
 
-  const { data: schedules = [] } = useQuery<ReportSchedule[]>({
-    queryKey: ["/api/reports/schedules"],
+  const { data: reports = [], isLoading } = useQuery<Report[]>({
+    queryKey: ["/api/reports", departmentId, filterType, filterCategory],
   });
 
-  const { data: auditLogs = [] } = useQuery<ReportAuditLog[]>({
-    queryKey: ["/api/reports/audit-logs", selectedDepartment?.id],
-    queryFn: async () => {
-      const url = selectedDepartment?.id
-        ? `/api/reports/audit-logs?departmentId=${selectedDepartment.id}`
-        : "/api/reports/audit-logs";
-      const res = await fetch(url);
-      return res.json();
-    },
+  const { data: stats } = useQuery<ReportStats>({
+    queryKey: ["/api/reports/stats", departmentId],
   });
 
-  const { data: settings } = useQuery<DepartmentReportSettings>({
-    queryKey: ["/api/departments", selectedDepartment?.id, "report-settings"],
-    queryFn: async () => {
-      if (!selectedDepartment?.id) {
-        return {
-          departmentId: "",
-          enabled: "true",
-          allowCustomReports: "true",
-          allowScheduledReports: "true",
-          allowExport: "true",
-          defaultExportFormat: "pdf",
-          retentionDays: 90,
-          maxScheduledReports: 10,
-        };
-      }
-      const res = await fetch(`/api/departments/${selectedDepartment.id}/report-settings`);
-      return res.json();
-    },
-    enabled: true,
+  const { data: users = [] } = useQuery<User[]>({
+    queryKey: ["/api/users"],
+  });
+
+  const { data: departments = [] } = useQuery<Department[]>({
+    queryKey: ["/api/departments"],
   });
 
   const createReportMutation = useMutation({
-    mutationFn: async (data: Partial<ReportDefinition>) => {
-      const res = await fetch("/api/reports/definitions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+    mutationFn: async (data: typeof newReport) => {
+      return apiRequest("POST", "/api/reports", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/reports"] });
+      setShowCreateReport(false);
+      setNewReport({
+        name: "",
+        description: "",
+        type: "dashboard",
+        category: "operations",
+        visibility: "department",
+        chartType: "bar",
+        dataSource: "tickets",
+        autoRefresh: true,
+        refreshInterval: 15,
       });
-      if (!res.ok) throw new Error("Failed to create report");
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/reports/definitions"] });
-      toast.success("Report created successfully");
-      setShowNewReportDialog(false);
-      setNewReportName("");
-    },
-    onError: () => {
-      toast.error("Failed to create report");
-    },
-  });
-
-  const deleteReportMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const res = await fetch(`/api/reports/definitions/${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Failed to delete report");
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/reports/definitions"] });
-      toast.success("Report deleted");
-    },
-  });
-
-  const updateSettingsMutation = useMutation({
-    mutationFn: async (data: Partial<DepartmentReportSettings>) => {
-      if (!selectedDepartment?.id) return;
-      const res = await fetch(`/api/departments/${selectedDepartment.id}/report-settings`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+      toast({
+        title: "Report created",
+        description: "The new report has been created successfully.",
       });
-      if (!res.ok) throw new Error("Failed to update settings");
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/departments", selectedDepartment?.id, "report-settings"] });
-      toast.success("Settings saved");
     },
   });
 
-  const handleCreateReport = () => {
-    if (!newReportName.trim()) {
-      toast.error("Please enter a report name");
-      return;
-    }
-    createReportMutation.mutate({
-      name: newReportName,
-      type: newReportType,
-      dataSource: newReportDataSource,
-      departmentId: selectedDepartment?.id || null,
-      isSystem: false,
-      isActive: true,
-      createdBy: "current-user-id",
-    });
-  };
+  const runReportMutation = useMutation({
+    mutationFn: async (reportId: string) => {
+      return apiRequest("POST", `/api/reports/${reportId}/run`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/reports"] });
+      toast({
+        title: "Report executed",
+        description: "The report has been run successfully.",
+      });
+    },
+  });
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
+  const filteredReports = reports.filter(report => {
+    const matchesType = filterType === "all" || report.type === filterType;
+    const matchesCategory = filterCategory === "all" || report.category === filterCategory;
+    return matchesType && matchesCategory;
+  });
+
+  const reportCategories = [...new Set(reports.map(r => r.category))];
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-semibold tracking-tight">Reports</h2>
-          <p className="text-muted-foreground">
-            Create, schedule, and share reports for your organization
-            {selectedDepartment && ` - ${selectedDepartment.name}`}
-          </p>
-        </div>
-        <Button onClick={() => setShowNewReportDialog(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          New Report
-        </Button>
-      </div>
+      {stats && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Reports</CardTitle>
+              <BarChart3 className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.totalReports}</div>
+              <p className="text-xs text-muted-foreground">All reports</p>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Scheduled</CardTitle>
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.scheduledReports}</div>
+              <p className="text-xs text-muted-foreground">Auto-generated</p>
+            </CardContent>
+          </Card>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="overview" className="flex items-center gap-2">
-            <BarChart3 className="h-4 w-4" />
-            Overview
-          </TabsTrigger>
-          <TabsTrigger value="builder" className="flex items-center gap-2">
-            <SlidersHorizontal className="h-4 w-4" />
-            Report Builder
-          </TabsTrigger>
-          <TabsTrigger value="scheduled" className="flex items-center gap-2">
-            <Calendar className="h-4 w-4" />
-            Scheduled
-          </TabsTrigger>
-          <TabsTrigger value="sharing" className="flex items-center gap-2">
-            <Share2 className="h-4 w-4" />
-            Sharing & Access
-          </TabsTrigger>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Recent Runs</CardTitle>
+              <Activity className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.recentRuns}</div>
+              <p className="text-xs text-muted-foreground">Last 24h</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Avg Runtime</CardTitle>
+              <Clock className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.averageRunTime}s</div>
+              <p className="text-xs text-muted-foreground">Generation time</p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      <Tabs defaultValue="reports" className="w-full">
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="reports">Reports</TabsTrigger>
+          <TabsTrigger value="dashboards">Dashboards</TabsTrigger>
+          <TabsTrigger value="scheduled">Scheduled</TabsTrigger>
+          <TabsTrigger value="data-sources">Data Sources</TabsTrigger>
+          <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
 
-        <AnimatePresence mode="wait">
-          <TabsContent value="overview" className="mt-6">
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="space-y-6"
-            >
-              <div className="grid gap-4 md:grid-cols-3">
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Total Reports</CardTitle>
-                    <FileText className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{reportDefinitions.length}</div>
-                    <p className="text-xs text-muted-foreground">
-                      {reportDefinitions.filter(r => r.isActive).length} active
-                    </p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Scheduled Reports</CardTitle>
-                    <Calendar className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{schedules.filter(s => s.isActive).length}</div>
-                    <p className="text-xs text-muted-foreground">Running automatically</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Recent Activity</CardTitle>
-                    <History className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{auditLogs.length}</div>
-                    <p className="text-xs text-muted-foreground">Actions logged</p>
-                  </CardContent>
-                </Card>
+        <TabsContent value="reports" className="space-y-6">
+          <SettingsCard
+            title="Report Management"
+            description="Create, manage, and organize your business reports"
+            icon={BarChart3}
+            scope={departmentId ? "department" : "global"}
+            helpText="Reports help analyze performance, track KPIs, and make data-driven decisions"
+            actions={
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm">
+                  <Download className="w-4 h-4 mr-2" />
+                  Export All
+                </Button>
+                <Button onClick={() => setShowCreateReport(true)} size="sm">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create Report
+                </Button>
+              </div>
+            }
+          >
+            <div className="space-y-4">
+              {/* Filter Bar */}
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex gap-2">
+                  <Select value={filterType} onValueChange={setFilterType}>
+                    <SelectTrigger className="w-40">
+                      <Filter className="w-4 h-4 mr-2" />
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Types</SelectItem>
+                      {REPORT_TYPES.map((type) => (
+                        <SelectItem key={type.value} value={type.value}>
+                          <div className="flex items-center gap-2">
+                            <type.icon className="w-4 h-4" />
+                            {type.label}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={filterCategory} onValueChange={setFilterCategory}>
+                    <SelectTrigger className="w-40">
+                      <SelectValue placeholder="All Categories" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Categories</SelectItem>
+                      {reportCategories.map((category) => (
+                        <SelectItem key={category} value={category}>
+                          {category.charAt(0).toUpperCase() + category.slice(1)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>Report Templates</CardTitle>
-                  <CardDescription>
-                    Quick-start with pre-built report templates
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {reportTypes.slice(0, -1).map((type) => (
-                      <motion.div
-                        key={type.value}
-                        whileHover={{ scale: 1.02 }}
-                        className="relative group cursor-pointer"
-                      >
-                        <Card className="h-full transition-colors hover:bg-muted/50">
-                          <CardHeader className="pb-2">
-                            <div className="flex items-center gap-3">
-                              <div className="p-2 rounded-lg bg-primary/10">
-                                <type.icon className="h-5 w-5 text-primary" />
-                              </div>
-                              <CardTitle className="text-base">{type.label}</CardTitle>
-                            </div>
-                          </CardHeader>
-                          <CardContent>
-                            <p className="text-sm text-muted-foreground">{type.description}</p>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="mt-4 opacity-0 group-hover:opacity-100 transition-opacity"
-                              onClick={() => {
-                                setNewReportType(type.value);
-                                setShowNewReportDialog(true);
-                              }}
-                            >
-                              Create Report <ArrowRight className="h-4 w-4 ml-2" />
-                            </Button>
-                          </CardContent>
-                        </Card>
-                      </motion.div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Your Reports</CardTitle>
-                  <CardDescription>
-                    Manage your saved report definitions
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {reportDefinitions.length === 0 ? (
+              {/* Reports Grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2 space-y-3">
+                  {isLoading ? (
                     <div className="text-center py-8 text-muted-foreground">
-                      <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                      <p>No reports created yet</p>
-                      <p className="text-sm">Create your first report to get started</p>
+                      Loading reports...
+                    </div>
+                  ) : filteredReports.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <BarChart3 className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                      <p>No reports found</p>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="mt-3"
+                        onClick={() => setShowCreateReport(true)}
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Create First Report
+                      </Button>
                     </div>
                   ) : (
-                    <ScrollArea className="h-[300px]">
-                      <div className="space-y-4">
-                        {reportDefinitions.map((report) => {
-                          const config = report.configuration ? JSON.parse(report.configuration) : {};
-                          const isSystemTemplate = report.isTemplate === "true";
-                          return (
-                            <div
-                              key={report.id}
-                              className="flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
-                            >
-                              <div className="flex items-center gap-4">
-                                <div className="p-2 rounded-lg bg-primary/10">
-                                  <FileText className="h-5 w-5 text-primary" />
-                                </div>
-                                <div>
-                                  <div className="flex items-center gap-2">
-                                    <h4 className="font-medium">{report.name}</h4>
-                                    {isSystemTemplate && (
-                                      <Badge variant="secondary" className="text-xs">Template</Badge>
-                                    )}
-                                    {report.isPublic === "true" && (
-                                      <Badge variant="outline" className="text-xs">Shared</Badge>
-                                    )}
-                                  </div>
-                                  <p className="text-sm text-muted-foreground">
-                                    {report.type} • {config.dataSource || "N/A"} • Updated {formatDate(report.updatedAt)}
-                                  </p>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Button variant="ghost" size="icon">
-                                  <Play className="h-4 w-4" />
-                                </Button>
-                                <Button variant="ghost" size="icon">
-                                  <Edit2 className="h-4 w-4" />
-                                </Button>
-                                {!isSystemTemplate && (
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => deleteReportMutation.mutate(report.id)}
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
+                    filteredReports.map((report) => {
+                      const ReportTypeIcon = REPORT_TYPES.find(t => t.value === report.type)?.icon || BarChart3;
+                      const ChartIcon = CHART_TYPES.find(c => c.value === report.chartType)?.icon || BarChart3;
+                      
+                      return (
+                        <div 
+                          key={report.id}
+                          className={`p-4 border rounded-lg transition-all duration-200 cursor-pointer ${
+                            selectedReport?.id === report.id 
+                              ? "bg-primary/5 border-primary/30" 
+                              : "hover:bg-muted/50 hover:border-border/60"
+                          }`}
+                          onClick={() => setSelectedReport(report)}
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-2">
+                                <ReportTypeIcon className="w-4 h-4 text-muted-foreground" />
+                                <h3 className="font-semibold truncate">{report.name}</h3>
+                                <Badge variant="outline">
+                                  <ChartIcon className="w-3 h-3 mr-1" />
+                                  {report.chartType}
+                                </Badge>
+                                {!report.isActive && (
+                                  <Badge variant="secondary">Paused</Badge>
+                                )}
+                                {report.schedule && (
+                                  <Badge variant="outline">
+                                    <Clock className="w-3 h-3 mr-1" />
+                                    {report.schedule.frequency}
+                                  </Badge>
                                 )}
                               </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </ScrollArea>
-                  )}
-                </CardContent>
-              </Card>
-            </motion.div>
-          </TabsContent>
+                              
+                              {report.description && (
+                                <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
+                                  {report.description}
+                                </p>
+                              )}
 
-          <TabsContent value="builder" className="mt-6">
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="space-y-6"
-            >
-              <ReportBuilderEmbed
-                departmentId={selectedDepartment?.id}
-                onSave={(config) => {
-                  createReportMutation.mutate({
-                    name: config.name,
-                    description: config.description || "",
-                    type: config.type || "custom",
-                    departmentId: selectedDepartment?.id || null,
-                    createdBy: "current-user-id",
-                    isTemplate: "false",
-                    isPublic: "false",
-                    configuration: JSON.stringify({
-                      dataSource: config.dataSource,
-                      fields: config.fields,
-                      filters: config.filters,
-                      groupBy: config.groupBy,
-                      visualization: config.visualization,
-                    }),
-                  });
-                }}
-              />
-            </motion.div>
-          </TabsContent>
+                              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                                <div className="flex items-center gap-1">
+                                  <Database className="w-3 h-3" />
+                                  {DATA_SOURCES.find(ds => ds.value === report.dataSource)?.label}
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <Users className="w-3 h-3" />
+                                  {report.visibility}
+                                </div>
+                                {report.lastRun && (
+                                  <div className="flex items-center gap-1">
+                                    <Activity className="w-3 h-3" />
+                                    {new Date(report.lastRun).toLocaleDateString()}
+                                  </div>
+                                )}
+                              </div>
 
-          <TabsContent value="scheduled" className="mt-6">
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="space-y-6"
-            >
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Calendar className="h-5 w-5" />
-                    Scheduled Reports
-                  </CardTitle>
-                  <CardDescription>
-                    Automate report generation and delivery
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {schedules.length === 0 ? (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                      <p>No scheduled reports</p>
-                      <p className="text-sm">Schedule a report to run automatically</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {schedules.map((schedule) => (
-                        <div
-                          key={schedule.id}
-                          className="flex items-center justify-between p-4 rounded-lg border"
-                        >
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <h4 className="font-medium">Report Schedule</h4>
-                              <Badge variant={schedule.isActive ? "default" : "secondary"}>
-                                {schedule.isActive ? "Active" : "Paused"}
-                              </Badge>
+                              <div className="flex items-center gap-2 mt-3">
+                                <Avatar className="w-5 h-5">
+                                  <AvatarImage src={report.createdBy.avatar} />
+                                  <AvatarFallback className="text-xs">
+                                    {report.createdBy.username.substring(0, 2).toUpperCase()}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <span className="text-xs text-muted-foreground">
+                                  by {report.createdBy.username}
+                                </span>
+                              </div>
                             </div>
-                            <p className="text-sm text-muted-foreground">
-                              Runs {schedule.frequency}
-                              {schedule.nextRun && ` • Next run: ${formatDate(schedule.nextRun)}`}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Switch checked={schedule.isActive} />
-                            <Button variant="ghost" size="icon">
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                                <Button variant="ghost" size="sm">
+                                  <Settings className="w-4 h-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => runReportMutation.mutate(report.id)}>
+                                  <Play className="w-4 h-4 mr-2" />
+                                  Run Now
+                                </DropdownMenuItem>
+                                <DropdownMenuItem>
+                                  <Eye className="w-4 h-4 mr-2" />
+                                  View Report
+                                </DropdownMenuItem>
+                                <DropdownMenuItem>
+                                  <Edit className="w-4 h-4 mr-2" />
+                                  Edit Report
+                                </DropdownMenuItem>
+                                <DropdownMenuItem>
+                                  <Copy className="w-4 h-4 mr-2" />
+                                  Duplicate
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem>
+                                  <Download className="w-4 h-4 mr-2" />
+                                  Export
+                                </DropdownMenuItem>
+                                <DropdownMenuItem>
+                                  <Share2 className="w-4 h-4 mr-2" />
+                                  Share
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem>
+                                  {report.isActive ? (
+                                    <>
+                                      <Pause className="w-4 h-4 mr-2" />
+                                      Pause
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Play className="w-4 h-4 mr-2" />
+                                      Resume
+                                    </>
+                                  )}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem className="text-red-600">
+                                  <Trash2 className="w-4 h-4 mr-2" />
+                                  Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </div>
                         </div>
-                      ))}
-                    </div>
+                      );
+                    })
                   )}
-                </CardContent>
-              </Card>
+                </div>
 
-              {selectedDepartment && settings && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Settings className="h-5 w-5" />
-                      Schedule Settings
-                    </CardTitle>
-                    <CardDescription>
-                      Configure scheduling options for {selectedDepartment.name}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <Label>Allow Scheduled Reports</Label>
-                        <p className="text-sm text-muted-foreground">
-                          Enable users to schedule automated reports
-                        </p>
-                      </div>
-                      <Switch
-                        checked={settings.allowScheduledReports === "true"}
-                        onCheckedChange={(checked) =>
-                          updateSettingsMutation.mutate({ allowScheduledReports: checked ? "true" : "false" })
-                        }
-                      />
-                    </div>
-                    <Separator />
-                    <div className="space-y-2">
-                      <Label>Maximum Scheduled Reports Per User</Label>
-                      <Input
-                        type="number"
-                        value={settings.maxScheduledReports}
-                        onChange={(e) =>
-                          updateSettingsMutation.mutate({ maxScheduledReports: parseInt(e.target.value) || 10 })
-                        }
-                        className="w-32"
-                      />
-                      <p className="text-sm text-muted-foreground">
-                        Limit the number of active schedules per user
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-            </motion.div>
-          </TabsContent>
+                {/* Report Details Panel */}
+                <div className="space-y-4">
+                  {selectedReport ? (
+                    <>
+                      <div className="p-4 border rounded-lg">
+                        <div className="flex items-center gap-2 mb-3">
+                          {(() => {
+                            const reportType = REPORT_TYPES.find(t => t.value === selectedReport.type);
+                            const ReportIcon = reportType?.icon;
+                            return ReportIcon ? <ReportIcon className="w-4 h-4" /> : null;
+                          })()}
+                          <h3 className="font-semibold">{selectedReport.name}</h3>
+                        </div>
+                        
+                        {selectedReport.description && (
+                          <p className="text-sm text-muted-foreground mb-4">
+                            {selectedReport.description}
+                          </p>
+                        )}
 
-          <TabsContent value="sharing" className="mt-6">
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="space-y-6"
-            >
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Lock className="h-5 w-5" />
-                    Access Control
-                  </CardTitle>
-                  <CardDescription>
-                    Configure who can view, create, and share reports
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label>Reports Enabled</Label>
-                      <p className="text-sm text-muted-foreground">
-                        Allow report creation and viewing in this department
-                      </p>
-                    </div>
-                    <Switch
-                      checked={settings?.enabled === "true"}
-                      onCheckedChange={(checked) =>
-                        updateSettingsMutation.mutate({ enabled: checked ? "true" : "false" })
-                      }
-                    />
-                  </div>
-                  <Separator />
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label>Allow Custom Reports</Label>
-                      <p className="text-sm text-muted-foreground">
-                        Users can create custom report definitions
-                      </p>
-                    </div>
-                    <Switch
-                      checked={settings?.allowCustomReports === "true"}
-                      onCheckedChange={(checked) =>
-                        updateSettingsMutation.mutate({ allowCustomReports: checked ? "true" : "false" })
-                      }
-                    />
-                  </div>
-                  <Separator />
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label>Allow Export</Label>
-                      <p className="text-sm text-muted-foreground">
-                        Users can export reports to PDF, CSV, or Excel
-                      </p>
-                    </div>
-                    <Switch
-                      checked={settings?.allowExport === "true"}
-                      onCheckedChange={(checked) =>
-                        updateSettingsMutation.mutate({ allowExport: checked ? "true" : "false" })
-                      }
-                    />
-                  </div>
-                  <Separator />
-                  <div className="space-y-2">
-                    <Label>Default Export Format</Label>
-                    <Select
-                      value={settings?.defaultExportFormat || "pdf"}
-                      onValueChange={(value) =>
-                        updateSettingsMutation.mutate({ defaultExportFormat: value })
-                      }
-                    >
-                      <SelectTrigger className="w-48">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="pdf">PDF</SelectItem>
-                        <SelectItem value="csv">CSV</SelectItem>
-                        <SelectItem value="xlsx">Excel (XLSX)</SelectItem>
-                        <SelectItem value="json">JSON</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <Separator />
-                  <div className="space-y-2">
-                    <Label>Report Retention (Days)</Label>
-                    <Input
-                      type="number"
-                      value={settings?.retentionDays || 90}
-                      onChange={(e) =>
-                        updateSettingsMutation.mutate({ retentionDays: parseInt(e.target.value) || 90 })
-                      }
-                      className="w-32"
-                    />
-                    <p className="text-sm text-muted-foreground">
-                      Saved reports older than this will be automatically deleted
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">Type</span>
+                            <Badge variant="outline">
+                              {REPORT_TYPES.find(t => t.value === selectedReport.type)?.label}
+                            </Badge>
+                          </div>
+                          
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">Chart Type</span>
+                            <Badge variant="outline">
+                              {(() => {
+                                const chartType = CHART_TYPES.find(c => c.value === selectedReport.chartType);
+                                const ChartIcon = chartType?.icon;
+                                return ChartIcon ? <ChartIcon className="w-3 h-3 mr-1" /> : null;
+                              })()}
+                              {CHART_TYPES.find(c => c.value === selectedReport.chartType)?.label}
+                            </Badge>
+                          </div>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <History className="h-5 w-5" />
-                    Recent Report Activity
-                  </CardTitle>
-                  <CardDescription>
-                    Audit log of report-related actions
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {auditLogs.length === 0 ? (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <History className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                      <p>No activity yet</p>
-                    </div>
-                  ) : (
-                    <ScrollArea className="h-[300px]">
-                      <div className="space-y-3">
-                        {auditLogs.slice(0, 20).map((log) => (
-                          <div
-                            key={log.id}
-                            className="flex items-start gap-3 p-3 rounded-lg bg-muted/50"
-                          >
-                            <div className="p-1.5 rounded bg-primary/10">
-                              <History className="h-4 w-4 text-primary" />
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">Data Source</span>
+                            <span className="font-medium">
+                              {DATA_SOURCES.find(ds => ds.value === selectedReport.dataSource)?.label}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">Visibility</span>
+                            <Badge variant="secondary">{selectedReport.visibility}</Badge>
+                          </div>
+
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">Status</span>
+                            <Badge variant={selectedReport.isActive ? "secondary" : "outline"}>
+                              {selectedReport.isActive ? "Active" : "Paused"}
+                            </Badge>
+                          </div>
+
+                          {selectedReport.lastRun && (
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-muted-foreground">Last Run</span>
+                              <span>{new Date(selectedReport.lastRun).toLocaleString()}</span>
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm">
-                                <span className="font-medium">{log.userName || "Unknown"}</span>{" "}
-                                {log.actionType} {log.targetType}{" "}
-                                <span className="font-medium">{log.targetName || log.targetId}</span>
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {formatDate(log.createdAt)}
-                              </p>
+                          )}
+
+                          {selectedReport.schedule && (
+                            <>
+                              <div className="flex items-center justify-between text-sm">
+                                <span className="text-muted-foreground">Schedule</span>
+                                <span className="font-medium">{selectedReport.schedule.frequency}</span>
+                              </div>
+                              {selectedReport.nextRun && (
+                                <div className="flex items-center justify-between text-sm">
+                                  <span className="text-muted-foreground">Next Run</span>
+                                  <span>{new Date(selectedReport.nextRun).toLocaleString()}</span>
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </div>
+
+                        <div className="flex gap-2 mt-4">
+                          <Button variant="outline" size="sm" onClick={() => runReportMutation.mutate(selectedReport.id)}>
+                            <Play className="w-4 h-4 mr-2" />
+                            Run Now
+                          </Button>
+                          <Button variant="outline" size="sm">
+                            <Eye className="w-4 h-4 mr-2" />
+                            View
+                          </Button>
+                        </div>
+                      </div>
+
+                      {selectedReport.schedule && (
+                        <div className="p-4 border rounded-lg">
+                          <h4 className="font-medium mb-3">Schedule Details</h4>
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Frequency</span>
+                              <span className="font-medium">{selectedReport.schedule.frequency}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Time</span>
+                              <span className="font-medium">{selectedReport.schedule.time}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Recipients</span>
+                              <span className="font-medium">{selectedReport.schedule.recipients.length}</span>
                             </div>
                           </div>
-                        ))}
-                      </div>
-                    </ScrollArea>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="p-8 text-center text-muted-foreground border rounded-lg">
+                      <BarChart3 className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                      <p>Select a report to view details</p>
+                    </div>
                   )}
-                </CardContent>
-              </Card>
-            </motion.div>
-          </TabsContent>
-        </AnimatePresence>
+                </div>
+              </div>
+            </div>
+          </SettingsCard>
+        </TabsContent>
+
+        <TabsContent value="dashboards" className="space-y-6">
+          <SettingsCard
+            title="Dashboard Configuration"
+            description="Configure real-time dashboards and KPI displays"
+            icon={Activity}
+            scope={departmentId ? "department" : "global"}
+          >
+            <div className="space-y-4">
+              <SettingsRow 
+                label="Auto-refresh Interval" 
+                description="How often dashboards refresh their data"
+              >
+                <div className="flex items-center gap-2">
+                  <Select defaultValue="15">
+                    <SelectTrigger className="w-32">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="5">5 minutes</SelectItem>
+                      <SelectItem value="15">15 minutes</SelectItem>
+                      <SelectItem value="30">30 minutes</SelectItem>
+                      <SelectItem value="60">1 hour</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </SettingsRow>
+
+              <SettingsRow 
+                label="Real-time Updates" 
+                description="Enable live data streaming for supported widgets"
+              >
+                <Switch defaultChecked />
+              </SettingsRow>
+
+              <SettingsRow 
+                label="Performance Mode" 
+                description="Optimize dashboard loading for better performance"
+              >
+                <Switch />
+              </SettingsRow>
+
+              <SettingsRow 
+                label="Export Dashboards" 
+                description="Allow users to export dashboard data"
+              >
+                <Switch defaultChecked />
+              </SettingsRow>
+            </div>
+          </SettingsCard>
+        </TabsContent>
+
+        <TabsContent value="scheduled" className="space-y-6">
+          <SettingsCard
+            title="Scheduled Reports"
+            description="Configure automatic report generation and delivery"
+            icon={Calendar}
+            scope={departmentId ? "department" : "global"}
+            actions={
+              <Button size="sm" onClick={() => setShowScheduleDialog(true)}>
+                <Calendar className="w-4 h-4 mr-2" />
+                Schedule Report
+              </Button>
+            }
+          >
+            <div className="space-y-4">
+              <SettingsRow 
+                label="Email Delivery" 
+                description="Send scheduled reports via email"
+              >
+                <Switch defaultChecked />
+              </SettingsRow>
+
+              <SettingsRow 
+                label="Maximum Recipients" 
+                description="Maximum number of email recipients per report"
+              >
+                <div className="flex items-center gap-2">
+                  <Input type="number" defaultValue="50" className="w-20" />
+                  <span className="text-sm text-muted-foreground">recipients</span>
+                </div>
+              </SettingsRow>
+
+              <SettingsRow 
+                label="Report Retention" 
+                description="How long to keep generated report files"
+              >
+                <Select defaultValue="30">
+                  <SelectTrigger className="w-40">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="7">7 days</SelectItem>
+                    <SelectItem value="30">30 days</SelectItem>
+                    <SelectItem value="90">90 days</SelectItem>
+                    <SelectItem value="365">1 year</SelectItem>
+                  </SelectContent>
+                </Select>
+              </SettingsRow>
+
+              <SettingsRow 
+                label="Failure Notifications" 
+                description="Notify administrators when scheduled reports fail"
+              >
+                <Switch defaultChecked />
+              </SettingsRow>
+            </div>
+          </SettingsCard>
+        </TabsContent>
+
+        <TabsContent value="data-sources" className="space-y-6">
+          <SettingsCard
+            title="Data Source Configuration"
+            description="Configure available data sources for reports"
+            icon={Database}
+            scope={departmentId ? "department" : "global"}
+          >
+            <div className="space-y-4">
+              {DATA_SOURCES.map((source) => (
+                <SettingsRow 
+                  key={source.value}
+                  label={source.label}
+                  description={source.description}
+                >
+                  <Switch defaultChecked={source.value !== "custom"} />
+                </SettingsRow>
+              ))}
+
+              <div className="pt-4 border-t">
+                <SettingsRow 
+                  label="Custom Query Timeout" 
+                  description="Maximum execution time for custom database queries"
+                >
+                  <div className="flex items-center gap-2">
+                    <Input type="number" defaultValue="30" className="w-20" />
+                    <span className="text-sm text-muted-foreground">seconds</span>
+                  </div>
+                </SettingsRow>
+
+                <SettingsRow 
+                  label="Query Result Limit" 
+                  description="Maximum number of rows returned by queries"
+                >
+                  <div className="flex items-center gap-2">
+                    <Input type="number" defaultValue="10000" className="w-24" />
+                    <span className="text-sm text-muted-foreground">rows</span>
+                  </div>
+                </SettingsRow>
+              </div>
+            </div>
+          </SettingsCard>
+        </TabsContent>
+
+        <TabsContent value="settings" className="space-y-6">
+          <SettingsCard
+            title="Report System Settings"
+            description="Global configuration for the reporting system"
+            icon={Settings}
+            scope={departmentId ? "department" : "global"}
+          >
+            <div className="space-y-4">
+              <SettingsRow 
+                label="Report Generation Limit" 
+                description="Maximum number of reports that can run simultaneously"
+              >
+                <div className="flex items-center gap-2">
+                  <Input type="number" defaultValue="5" className="w-20" />
+                  <span className="text-sm text-muted-foreground">concurrent reports</span>
+                </div>
+              </SettingsRow>
+
+              <SettingsRow 
+                label="Cache Duration" 
+                description="How long to cache report results"
+              >
+                <Select defaultValue="15">
+                  <SelectTrigger className="w-40">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="5">5 minutes</SelectItem>
+                    <SelectItem value="15">15 minutes</SelectItem>
+                    <SelectItem value="60">1 hour</SelectItem>
+                    <SelectItem value="240">4 hours</SelectItem>
+                  </SelectContent>
+                </Select>
+              </SettingsRow>
+
+              <SettingsRow 
+                label="Anonymous Usage" 
+                description="Allow viewing reports without authentication (public reports only)"
+              >
+                <Switch />
+              </SettingsRow>
+
+              <SettingsRow 
+                label="Export Formats" 
+                description="Available export formats for reports"
+              >
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Switch defaultChecked />
+                    <span className="text-sm">PDF</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Switch defaultChecked />
+                    <span className="text-sm">Excel (XLSX)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Switch defaultChecked />
+                    <span className="text-sm">CSV</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Switch />
+                    <span className="text-sm">JSON</span>
+                  </div>
+                </div>
+              </SettingsRow>
+            </div>
+          </SettingsCard>
+        </TabsContent>
       </Tabs>
 
-      <Dialog open={showNewReportDialog} onOpenChange={setShowNewReportDialog}>
-        <DialogContent className="sm:max-w-[425px]">
+      {/* Create Report Dialog */}
+      <Dialog open={showCreateReport} onOpenChange={setShowCreateReport}>
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Create New Report</DialogTitle>
             <DialogDescription>
-              Configure your report definition. You can customize the fields and filters later.
+              Create a custom report to analyze your business data.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
+          <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Report Name</Label>
+              <Label>Report Name *</Label>
               <Input
-                id="name"
-                value={newReportName}
-                onChange={(e) => setNewReportName(e.target.value)}
-                placeholder="Monthly SLA Summary"
+                placeholder="e.g., Monthly Support Metrics"
+                value={newReport.name}
+                onChange={(e) => setNewReport(prev => ({ ...prev, name: e.target.value }))}
               />
             </div>
+
             <div className="space-y-2">
-              <Label>Report Type</Label>
-              <Select value={newReportType} onValueChange={setNewReportType}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {reportTypes.map((type) => (
-                    <SelectItem key={type.value} value={type.value}>
-                      <div className="flex items-center gap-2">
-                        <type.icon className="h-4 w-4" />
-                        {type.label}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>Description</Label>
+              <Textarea
+                placeholder="Brief description of this report..."
+                value={newReport.description}
+                onChange={(e) => setNewReport(prev => ({ ...prev, description: e.target.value }))}
+                rows={2}
+              />
             </div>
-            <div className="space-y-2">
-              <Label>Data Source</Label>
-              <Select value={newReportDataSource} onValueChange={setNewReportDataSource}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {dataSources.map((source) => (
-                    <SelectItem key={source.value} value={source.value}>
-                      {source.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Report Type</Label>
+                <Select 
+                  value={newReport.type} 
+                  onValueChange={(value: any) => setNewReport(prev => ({ ...prev, type: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {REPORT_TYPES.map((type) => (
+                      <SelectItem key={type.value} value={type.value}>
+                        <div className="flex items-center gap-2">
+                          <type.icon className="w-4 h-4" />
+                          <div>
+                            <div>{type.label}</div>
+                            <div className="text-xs text-muted-foreground">{type.description}</div>
+                          </div>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Chart Type</Label>
+                <Select 
+                  value={newReport.chartType} 
+                  onValueChange={(value: any) => setNewReport(prev => ({ ...prev, chartType: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CHART_TYPES.map((chart) => (
+                      <SelectItem key={chart.value} value={chart.value}>
+                        <div className="flex items-center gap-2">
+                          <chart.icon className="w-4 h-4" />
+                          {chart.label}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Data Source</Label>
+                <Select 
+                  value={newReport.dataSource} 
+                  onValueChange={(value) => setNewReport(prev => ({ ...prev, dataSource: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DATA_SOURCES.map((source) => (
+                      <SelectItem key={source.value} value={source.value}>
+                        <div>
+                          <div>{source.label}</div>
+                          <div className="text-xs text-muted-foreground">{source.description}</div>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Visibility</Label>
+                <Select 
+                  value={newReport.visibility} 
+                  onValueChange={(value: any) => setNewReport(prev => ({ ...prev, visibility: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="public">Public</SelectItem>
+                    <SelectItem value="department">Department</SelectItem>
+                    <SelectItem value="private">Private</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {newReport.type === "dashboard" && (
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <Label>Auto-refresh</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Automatically update data every {newReport.refreshInterval} minutes
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={newReport.autoRefresh}
+                    onCheckedChange={(checked) => setNewReport(prev => ({ ...prev, autoRefresh: checked }))}
+                  />
+                  {newReport.autoRefresh && (
+                    <Select 
+                      value={newReport.refreshInterval.toString()} 
+                      onValueChange={(value) => setNewReport(prev => ({ ...prev, refreshInterval: parseInt(value) }))}
+                    >
+                      <SelectTrigger className="w-24">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="5">5m</SelectItem>
+                        <SelectItem value="15">15m</SelectItem>
+                        <SelectItem value="30">30m</SelectItem>
+                        <SelectItem value="60">1h</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowNewReportDialog(false)}>
+            <Button variant="outline" onClick={() => setShowCreateReport(false)}>
               Cancel
             </Button>
-            <Button onClick={handleCreateReport} disabled={createReportMutation.isPending}>
+            <Button 
+              onClick={() => createReportMutation.mutate(newReport)}
+              disabled={createReportMutation.isPending || !newReport.name}
+            >
               {createReportMutation.isPending ? "Creating..." : "Create Report"}
             </Button>
           </DialogFooter>
